@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 
-const DEFAULT_SIGNAL_URL = "ws://localhost:3001"
+const DEFAULT_SIGNAL_URL = "ws://localhost:3002"
 const REACTIONS = ["👍", "❤️", "😂", "🙏", "😮"]
 
 function safeParse(raw) {
@@ -103,15 +103,19 @@ async function getOrCreateChatKeyPair(roomId) {
   if (existing) {
     const parsed = safeParse(existing)
     if (parsed?.privateKeyPkcs8B64 && parsed?.publicKeySpkiB64) {
-      const privateKey = await crypto.subtle.importKey("pkcs8", base64ToArrayBuffer(parsed.privateKeyPkcs8B64), { name: "ECDH", namedCurve: "P-256" }, true, [
-        "deriveKey",
-      ])
+      const privateKey = await crypto.subtle.importKey(
+        "pkcs8",
+        base64ToArrayBuffer(parsed.privateKeyPkcs8B64),
+        { name: "ECDH", namedCurve: "P-256" },
+        true,
+        ["deriveBits", "deriveKey"],
+      )
       const publicKey = await crypto.subtle.importKey("spki", base64ToArrayBuffer(parsed.publicKeySpkiB64), { name: "ECDH", namedCurve: "P-256" }, true, [])
       return { privateKey, publicKey }
     }
   }
 
-  const keyPair = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey"])
+  const keyPair = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits", "deriveKey"])
   const privateKeyPkcs8 = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey)
   const publicKeySpki = await crypto.subtle.exportKey("spki", keyPair.publicKey)
 
@@ -122,13 +126,14 @@ async function getOrCreateChatKeyPair(roomId) {
 async function deriveAesKey({ roomId, privateKey, remotePublicKey }) {
   const salt = await sha256Bytes(roomId)
   const info = new TextEncoder().encode("chat-e2ee-v1")
+  const sharedSecret = await crypto.subtle.deriveBits({ name: "ECDH", public: remotePublicKey }, privateKey, 256)
+  const hkdfBaseKey = await crypto.subtle.importKey("raw", sharedSecret, "HKDF", false, ["deriveKey"])
 
   return await crypto.subtle.deriveKey(
-    { name: "ECDH", public: remotePublicKey },
-    privateKey,
     { name: "HKDF", hash: "SHA-256", salt, info },
+    hkdfBaseKey,
     { name: "AES-GCM", length: 256 },
-    true,
+    false,
     ["encrypt", "decrypt"],
   )
 }
@@ -157,7 +162,7 @@ function receiptLabel(status) {
 export default function ChatPage() {
   const searchParams = useSearchParams()
 
-  const signalUrl = process.env.NEXT_PUBLIC_SIGNAL_URL || DEFAULT_SIGNAL_URL
+  const signalUrl = globalThis.process?.env?.NEXT_PUBLIC_SIGNAL_URL || DEFAULT_SIGNAL_URL
   const contactName = searchParams.get("name") || "GCTU"
   const roomId = searchParams.get("roomId") || "demo-room"
 
@@ -168,6 +173,7 @@ export default function ChatPage() {
   const [draft, setDraft] = useState("")
   const [aesReady, setAesReady] = useState(false)
   const [typingPeer, setTypingPeer] = useState(false)
+  const [openReactionDropdown, setOpenReactionDropdown] = useState(null) // messageId or null
 
   const [myPeerId, setMyPeerId] = useState("")
   const [remotePeerId, setRemotePeerId] = useState("")
@@ -198,13 +204,13 @@ export default function ChatPage() {
     ws.send(JSON.stringify(payload))
   }
 
-  async function initCryptoAndKeys() {
+  const initCryptoAndKeys = useCallback(async () => {
     const keyPair = await getOrCreateChatKeyPair(roomId)
     chatKeyPairRef.current = keyPair
     return keyPair
-  }
+  }, [roomId])
 
-  async function attemptDeriveAesKey() {
+  const attemptDeriveAesKey = useCallback(async () => {
     const keyPair = chatKeyPairRef.current
     if (!keyPair || !remotePubKeyRef.current || aesKeyRef.current) return
 
@@ -225,7 +231,7 @@ export default function ChatPage() {
         }
       }
     }
-  }
+  }, [roomId])
 
   function scrollToBottom() {
     const el = listRef.current
@@ -443,7 +449,7 @@ export default function ChatPage() {
       typingTimerRef.current = null
       isTypingRef.current = false
     }
-  }, [roomId, signalUrl])
+  }, [roomId, signalUrl, initCryptoAndKeys, attemptDeriveAesKey])
 
   function goToCall(mode) {
     window.location.href = `/secure/call?roomId=${encodeURIComponent(roomId)}&mode=${encodeURIComponent(mode)}`
@@ -612,34 +618,78 @@ export default function ChatPage() {
           const text = m.text
           const reactions = m.reactions || {}
           const hasReactions = Object.keys(reactions).length > 0
+          const isDropdownOpen = openReactionDropdown === m.id
 
           return (
             <div key={m.id} className={`secureChatRow ${mine ? "secureChatRow--mine" : "secureChatRow--theirs"}`}>
               <div className={`secureChatBubble ${mine ? "secureChatBubble--mine" : "secureChatBubble--theirs"}`}>
                 <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>{text === undefined ? "Decrypting..." : text}</div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                    {REACTIONS.map((e) => (
-                      <button
-                        key={e}
-                        type="button"
-                        onClick={() => sendReaction(m.id, e)}
-                        title="React"
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {text === undefined ? "Decrypting..." : text}
+                    
+                  </div>
+                  <div style={{ position: "relative" }}>
+                    <button
+                      type="button"
+                      onClick={() => setOpenReactionDropdown(isDropdownOpen ? null : m.id)}
+                      title="Add reaction"
+                      style={{
+                        border: "1px solid rgba(255,255,255,0.14)",
+                        background: "rgba(0,0,0,0.14)",
+                        color: "inherit",
+                        borderRadius: 999,
+                        padding: "2px 7px",
+                        cursor: remotePeerId ? "pointer" : "not-allowed",
+                        fontSize: 14,
+                        opacity: remotePeerId ? 1 : 0.5,
+                      }}
+                      disabled={!remotePeerId}
+                    >
+                      +
+                    </button>
+                    {isDropdownOpen ? (
+                      <div
                         style={{
+                          position: "absolute",
+                          bottom: "100%",
+                          right: 0,
+                          marginBottom: 4,
+                          background: "rgba(0,0,0,0.8)",
                           border: "1px solid rgba(255,255,255,0.14)",
-                          background: "rgba(0,0,0,0.14)",
-                          color: "inherit",
-                          borderRadius: 999,
-                          padding: "2px 7px",
-                          cursor: remotePeerId ? "pointer" : "not-allowed",
-                          fontSize: 12,
-                          opacity: remotePeerId ? 1 : 0.5,
+                          borderRadius: 8,
+                          padding: "4px",
+                          display: "flex",
+                          gap: 4,
+                          zIndex: 1000,
                         }}
-                        disabled={!remotePeerId}
                       >
-                        {e}
-                      </button>
-                    ))}
+                        {REACTIONS.map((e) => (
+                          <button
+                            key={e}
+                            type="button"
+                            onClick={() => {
+                              sendReaction(m.id, e)
+                              setOpenReactionDropdown(null)
+                            }}
+                            title={`React with ${e}`}
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              color: "inherit",
+                              cursor: "pointer",
+                              fontSize: 18,
+                              padding: "2px 4px",
+                              opacity: 0.8,
+                              transition: "opacity 0.2s",
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                            onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.8")}
+                          >
+                            {e}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 
@@ -702,4 +752,5 @@ export default function ChatPage() {
     </div>
   )
 }
+
 

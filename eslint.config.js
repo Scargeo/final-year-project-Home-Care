@@ -26,4 +26,20 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    // Server files run in Node/CommonJS, so they need Node globals and source type.
+    files: ['server/**/*.js'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: globals.node,
+    },
+  },
+  {
+    // Root signaling server uses ESM imports and runs under the project-level module type.
+    files: ['index.js'],
+    languageOptions: {
+      sourceType: 'module',
+      globals: globals.node,
+    },
+  },
 ])

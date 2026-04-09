@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 
-const DEFAULT_SIGNAL_URL = "ws://localhost:3001"
+const DEFAULT_SIGNAL_URL = "ws://localhost:3002"
 const DEFAULT_ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }]
 
 function safeParse(raw) {
@@ -34,7 +34,7 @@ export default function CallPage() {
   const wsRef = useRef(null)
   const pcRef = useRef(null)
   const localStreamRef = useRef(null)
-  const remoteStreamRef = useRef(new MediaStream())
+  const remoteStreamRef = useRef(null)
 
   const localVideoRef = useRef(null)
   const remoteVideoRef = useRef(null)
@@ -49,7 +49,13 @@ export default function CallPage() {
   }, [roomId])
 
   useEffect(() => {
-    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStreamRef.current
+    // MediaStream exists only in the browser runtime.
+    if (!remoteStreamRef.current && typeof window !== "undefined" && typeof window.MediaStream !== "undefined") {
+      remoteStreamRef.current = new window.MediaStream()
+    }
+    if (remoteVideoRef.current && remoteStreamRef.current) {
+      remoteVideoRef.current.srcObject = remoteStreamRef.current
+    }
   }, [])
 
   async function cleanup() {
@@ -107,6 +113,10 @@ export default function CallPage() {
         remoteStreamRef.current = stream
         if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStreamRef.current
       } else {
+        if (!remoteStreamRef.current && typeof window !== "undefined" && typeof window.MediaStream !== "undefined") {
+          remoteStreamRef.current = new window.MediaStream()
+        }
+        if (!remoteStreamRef.current) return
         remoteStreamRef.current.addTrack(event.track)
         if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStreamRef.current
       }

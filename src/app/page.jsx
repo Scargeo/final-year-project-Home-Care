@@ -1,88 +1,94 @@
 "use client"
 
+import Link from "next/link"
+import { useState } from "react"
 import "../App.css"
 
-const BRAND = {
-  name: "HomeCare Hospital",
-  tagline: "Compassionate care, advanced medicine.",
-  phone: "(+233) 123456789",
-  address: "Accra-Ghana",
-}
-
-const SERVICES = [
+const FEATURES = [
   {
-    title: "Emergency Care",
-    desc: "24/7 rapid response with experienced ER clinicians.",
-    icon: "pulse",
-  },
-  {
-    title: "Primary Care",
-    desc: "Preventive checkups, screenings, and chronic care plans.",
+    title: "Doctor Consultations",
+    description: "Connect with qualified doctors for virtual consultations from home.",
     icon: "stethoscope",
   },
   {
-    title: "Cardiology",
-    desc: "Advanced imaging, stress testing, and heart health programs.",
+    title: "Home Care",
+    description: "Request qualified nurses to provide care in the comfort of your home.",
+    icon: "shield",
+  },
+  {
+    title: "Medication Ordering",
+    description: "Order prescriptions online and get doorstep delivery.",
     icon: "heart",
   },
   {
-    title: "Pediatrics",
-    desc: "Family-friendly care from newborn visits to teen wellness.",
-    icon: "spark",
+    title: "Pharmacy Finder",
+    description: "Find the nearest pharmacy with your medication in stock.",
+    icon: "map",
   },
   {
-    title: "Diagnostics",
-    desc: "Lab + imaging with fast, clear results and follow-ups.",
-    icon: "scan",
+    title: "Online Assistant",
+    description: "Get help for common health questions in real-time.",
+    icon: "chat",
   },
   {
-    title: "Surgery",
-    desc: "Modern ORs and minimally invasive options where possible.",
-    icon: "shield",
+    title: "Appointment Scheduling",
+    description: "Book consultations quickly with doctors and nurses.",
+    icon: "calendar",
   },
-]
-
-const DOCTORS = [
-  { name: "Dr. Maya Chen", role: "Cardiology", focus: "Preventive cardiology" },
-  { name: "Dr. Amir Patel", role: "Emergency Medicine", focus: "Trauma care" },
-  { name: "Dr. Elena García", role: "Pediatrics", focus: "Developmental health" },
-  { name: "Dr. Jonah Kim", role: "Internal Medicine", focus: "Diabetes management" },
+  {
+    title: "Health Records",
+    description: "Access and manage your health records securely in one place.",
+    icon: "records",
+  },
+  {
+    title: "Fast Delivery",
+    description: "Get medications delivered quickly by dedicated riders.",
+    icon: "truck",
+  },
 ]
 
 const TESTIMONIALS = [
   {
-    quote: "The staff explained everything clearly and treated my family with real kindness.",
-    name: "Amina R.",
-    meta: "Outpatient care",
+    name: "Benjamin Amankwaah",
+    role: "Patient",
+    text: "The home care service is exceptional. I requested a nurse with a few clicks and they arrived promptly.",
   },
   {
-    quote: "Fast ER check-in, thorough tests, and a plan that made me feel confident going home.",
-    name: "Marcus T.",
-    meta: "Emergency visit",
+    name: "Mr Quansah",
+    role: "Patient",
+    text: "Finding medications has never been easier. The pharmacy locator helped me get my prescription quickly.",
   },
   {
-    quote: "Great pediatric team—my daughter actually looks forward to her wellness visits now.",
-    name: "Sofia L.",
-    meta: "Pediatrics",
+    name: "Robert Johnson",
+    role: "Patient",
+    text: "The online assistant answered my questions and made ordering medications straightforward.",
   },
 ]
 
-function Icon({ name }) {
+const SOCIAL_LINKS = [
+  { name: "Facebook", href: "#", icon: "facebook" },
+  { name: "Twitter", href: "#", icon: "twitter" },
+  { name: "Instagram", href: "#", icon: "instagram" },
+  { name: "LinkedIn", href: "#", icon: "linkedin" },
+]
+
+function Icon({ type }) {
   const common = { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none" }
 
-  switch (name) {
-    case "pulse":
-      return (
-        <svg {...common} aria-hidden="true">
-          <path d="M3 12h4l2-6 4 14 2-8h4" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-        </svg>
-      )
+  switch (type) {
     case "stethoscope":
       return (
         <svg {...common} aria-hidden="true">
           <path d="M6 3v4a4 4 0 0 0 8 0V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           <path d="M10 11v3a5 5 0 0 0 10 0v-1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           <circle cx="20" cy="12" r="2" stroke="currentColor" strokeWidth="2" />
+        </svg>
+      )
+    case "shield":
+      return (
+        <svg {...common} aria-hidden="true">
+          <path d="M12 2l8 4v6c0 5-3.4 9.6-8 10-4.6-.4-8-5-8-10V6l8-4Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+          <path d="M9.5 12l1.8 1.8L15.5 9.6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
       )
     case "heart":
@@ -96,31 +102,63 @@ function Icon({ name }) {
           />
         </svg>
       )
-    case "spark":
+    case "map":
       return (
         <svg {...common} aria-hidden="true">
-          <path d="M12 2l1.5 6.5L20 10l-6.5 1.5L12 18l-1.5-6.5L4 10l6.5-1.5L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-          <path d="M5 19l.7 3L9 22l-3-1.3L5 19Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+          <path d="M12 21s-6-5.6-6-10a6 6 0 1 1 12 0c0 4.4-6 10-6 10Z" stroke="currentColor" strokeWidth="2" />
+          <circle cx="12" cy="11" r="2" stroke="currentColor" strokeWidth="2" />
         </svg>
       )
-    case "scan":
+    case "chat":
       return (
         <svg {...common} aria-hidden="true">
-          <path
-            d="M7 3H5a2 2 0 0 0-2 2v2M17 3h2a2 2 0 0 1 2 2v2M7 21H5a2 2 0 0 1-2-2v-2M17 21h2a2 2 0 0 0 2-2v-2"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-          <path d="M8 12h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          <path d="M12 8v8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          <path d="M4 5h16v10H8l-4 4V5Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
         </svg>
       )
-    case "shield":
+    case "calendar":
       return (
         <svg {...common} aria-hidden="true">
-          <path d="M12 2l8 4v6c0 5-3.4 9.6-8 10-4.6-.4-8-5-8-10V6l8-4Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-          <path d="M9.5 12l1.8 1.8L15.5 9.6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          <path d="M4 7h16v13H4V7Z" stroke="currentColor" strokeWidth="2" />
+          <path d="M8 3v4M16 3v4M4 11h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      )
+    case "records":
+      return (
+        <svg {...common} aria-hidden="true">
+          <path d="M7 3h8l4 4v14H7V3Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+          <path d="M15 3v4h4M10 12h6M10 16h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      )
+    case "truck":
+      return (
+        <svg {...common} aria-hidden="true">
+          <path d="M3 6h11v9H3V6Zm11 3h4l3 3v3h-7V9Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+          <circle cx="7" cy="17" r="2" stroke="currentColor" strokeWidth="2" />
+          <circle cx="17" cy="17" r="2" stroke="currentColor" strokeWidth="2" />
+        </svg>
+      )
+    case "facebook":
+      return (
+        <svg {...common} aria-hidden="true">
+          <path d="M14 4h3V1h-3c-3.3 0-6 2.7-6 6v3H5v4h3v9h4v-9h3.2l.8-4H12V7c0-1.1.9-2 2-2Z" fill="currentColor" />
+        </svg>
+      )
+    case "twitter":
+      return (
+        <svg {...common} aria-hidden="true">
+          <path d="M20 7.2c-.6.3-1.2.5-1.9.6.7-.4 1.2-1 1.5-1.7-.7.4-1.4.7-2.2.9A3.4 3.4 0 0 0 11.7 10c0 .3 0 .6.1.9-2.8-.1-5.3-1.5-7-3.6-.3.5-.5 1.1-.5 1.8 0 1.2.6 2.3 1.5 2.9-.5 0-1-.2-1.5-.4 0 1.7 1.2 3.2 2.8 3.5-.3.1-.7.1-1.1.1-.3 0-.6 0-.9-.1.6 1.5 2 2.5 3.7 2.5A6.9 6.9 0 0 1 4 18.2 9.6 9.6 0 0 0 9.2 20c6.2 0 9.7-5.1 9.7-9.6v-.4c.7-.5 1.2-1 1.7-1.6-.7.3-1.4.4-2.1.5.8-.5 1.3-1 1.5-1.7Z" fill="currentColor" />
+        </svg>
+      )
+    case "instagram":
+      return (
+        <svg {...common} aria-hidden="true">
+          <path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5Zm0 2a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7Zm5 3.4A4.6 4.6 0 1 1 7.4 12 4.6 4.6 0 0 1 12 7.4Zm0 2a2.6 2.6 0 1 0 0 5.2 2.6 2.6 0 0 0 0-5.2Zm5.2-.9a1.1 1.1 0 1 1-1.1 1.1 1.1 1.1 0 0 1 1.1-1.1Z" fill="currentColor" />
+        </svg>
+      )
+    case "linkedin":
+      return (
+        <svg {...common} aria-hidden="true">
+          <path d="M6.5 8.5H3V21h3.5V8.5ZM4.7 3A2.1 2.1 0 1 0 4.7 7.2 2.1 2.1 0 0 0 4.7 3ZM21 13.2V21h-3.5v-7.1c0-1.7-.1-3.8-2.4-3.8s-2.7 1.8-2.7 3.7V21H9V8.5h3.4v1.7h.1c.5-1 1.9-2.1 3.9-2.1 4.2 0 4.6 2.8 4.6 5.1Z" fill="currentColor" />
         </svg>
       )
     default:
@@ -128,356 +166,221 @@ function Icon({ name }) {
   }
 }
 
-function SectionHeading({ eyebrow, title, desc, align = "left" }) {
-  return (
-    <div className={`sectionHeading sectionHeading--${align}`}>
-      <p className="eyebrow">{eyebrow}</p>
-      <h2 className="h2">{title}</h2>
-      {desc ? <p className="muted">{desc}</p> : null}
-    </div>
-  )
-}
-
-function AppointmentForm() {
-  function handleSubmit(e) {
-    e.preventDefault()
-    const fd = new FormData(e.currentTarget)
-    const name = String(fd.get("name") || "").trim()
-    const phone = String(fd.get("phone") || "").trim()
-    const reason = String(fd.get("reason") || "").trim()
-    if (!name || !phone || !reason) return
-
-    alert(`Thanks, ${name}! We’ll text/call ${phone} to confirm your visit.`)
-    e.currentTarget.reset()
-  }
-
-  return (
-    <form className="form" onSubmit={handleSubmit} aria-label="Appointment form">
-      <div className="form__row">
-        <label className="field">
-          <span className="field__label">Full name</span>
-          <input name="name" type="text" autoComplete="name" placeholder="Aaron Yeboah" required />
-        </label>
-        <label className="field">
-          <span className="field__label">Phone</span>
-          <input name="phone" type="tel" autoComplete="tel" placeholder="(+233) 123-456789" required />
-        </label>
-      </div>
-
-      <label className="field">
-        <span className="field__label">Reason for visit</span>
-        <input name="reason" type="text" placeholder="Checkup, symptoms, lab work…" required />
-      </label>
-
-      <div className="form__row">
-        <label className="field">
-          <span className="field__label">Preferred day</span>
-          <select name="day" defaultValue="Today">
-            <option>Today</option>
-            <option>Tomorrow</option>
-            <option>This week</option>
-            <option>Next week</option>
-          </select>
-        </label>
-        <label className="field">
-          <span className="field__label">Time</span>
-          <select name="time" defaultValue="Morning">
-            <option>Morning</option>
-            <option>Afternoon</option>
-            <option>Evening</option>
-          </select>
-        </label>
-      </div>
-
-      <button className="btn btn--primary btn--full" type="submit">
-        Submit request
-      </button>
-
-      <p className="form__fineprint">By submitting, you agree to be contacted for scheduling. This is a demo form—no data is stored.</p>
-    </form>
-  )
-}
-
 export default function HomePage() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+
   return (
-    <div className="page">
-      <a className="skipLink" href="#main">
-        Skip to content
-      </a>
-
-      <header className="header">
-        <div className="container header__inner">
-          <a className="brand" href="#top" aria-label={`${BRAND.name} home`}>
-            <span className="brand__mark" aria-hidden="true">
-              <span className="brand__plus" />
+    <div className="hc-page">
+      <header className="hc-header">
+        <div className="hc-container hc-header__inner">
+          <Link href="/" className="hc-logo">
+            <span className="hc-logo__mark" aria-hidden="true">
+              <Icon type="shield" />
             </span>
-            <span className="brand__text">
-              <span className="brand__name">{BRAND.name}</span>
-              <span className="brand__tag">{BRAND.tagline}</span>
+            <span className="hc-logo__text">
+              Home Care<span className="hc-logo__plus">+</span>
             </span>
-          </a>
+          </Link>
 
-          <nav className="nav" aria-label="Primary">
-            <a className="nav__link" href="#services">
-              Services
-            </a>
-            <a className="nav__link" href="#doctors">
-              Doctors
-            </a>
-            <a className="nav__link" href="#reviews">
-              Reviews
-            </a>
-            <a className="nav__link" href="#contact">
-              Contact
-            </a>
+          <nav className="hc-nav" aria-label="Primary">
+            <a href="#hero">Home</a>
+            <a href="#features">Features</a>
+            <a href="#testimonials">Testimonials</a>
+            <Link href="/login">Log in</Link>
+            <Link href="/signup" className="hc-btn hc-btn--primary hc-btn--sm">
+              Sign up
+            </Link>
           </nav>
 
-          <div className="header__cta">
-            <a className="pill" href={`tel:${BRAND.phone.replace(/\D/g, "")}`}>
-              <span className="pill__dot" aria-hidden="true" />
-              {BRAND.phone}
-            </a>
-            <a className="btn btn--sm btn--ghost" href="/secure/chat">
-              Secure chat
-            </a>
-            <a className="btn btn--sm btn--primary" href="/secure/call">
-              Secure call
-            </a>
-            <a className="btn btn--primary" href="#appointment">
-              Book appointment
-            </a>
-          </div>
+          <button
+            className="hc-menu-btn"
+            type="button"
+            onClick={() => setIsMenuOpen((prev) => !prev)}
+            aria-label="Toggle menu"
+          >
+            {isMenuOpen ? "Close" : "Menu"}
+          </button>
         </div>
+
+        {isMenuOpen ? (
+          <div className="hc-mobile-menu">
+            <div className="hc-container hc-mobile-menu__links">
+              <a href="#features">Features</a>
+              <a href="#testimonials">Testimonials</a>
+              <Link href="/login">Log in</Link>
+              <Link href="/signup" className="hc-btn hc-btn--primary hc-btn--sm">
+                Sign up
+              </Link>
+            </div>
+          </div>
+        ) : null}
       </header>
 
-      <main id="main">
-        <section className="hero" id="top">
-          <div className="container hero__grid">
-            <div className="hero__copy">
-              <p className="badge">
-                <span className="badge__icon" aria-hidden="true">
-                  <Icon name="shield" />
-                </span>
-                Trusted care • Modern facilities • 24/7 support
+      <Link href="/secure/emergency" className="hc-sos-fab" aria-label="SOS emergency call">
+        <span className="hc-sos-fab__pulse" aria-hidden="true" />
+        <span className="hc-sos-fab__label">SOS</span>
+        <span className="hc-sos-fab__sub">Call now</span>
+      </Link>
+
+      <main>
+        <section className="hc-hero" id="hero">
+          <div className="hc-hero__bg" aria-hidden="true">
+            <span className="hc-blob hc-blob--a" />
+            <span className="hc-blob hc-blob--b" />
+          </div>
+
+          <div className="hc-container hc-hero__grid">
+            <div className="hc-hero__copy">
+              <p className="hc-pill">Your Health, Our Priority</p>
+              <h1>Healthcare at Your Fingertips</h1>
+              <p>
+                Home Care+ connects you with qualified healthcare professionals, delivers medications to your doorstep,
+                and provides personalized care in the comfort of your home.
               </p>
-              <h1 className="h1">
-                Your health, handled with <span className="accent">care</span>.
-              </h1>
-              <p className="lead">
-                From preventive checkups to urgent care, {BRAND.name} brings board-certified clinicians and clear next steps—so you always know what’s
-                happening and why.
-              </p>
-              <div className="hero__actions">
-                <a className="btn btn--primary" href="#appointment">
-                  Request a visit
-                </a>
-                <a className="btn btn--ghost" href="#services">
-                  Explore services
-                </a>
+              <div className="hc-hero__actions">
+                <Link href="/signup" className="hc-btn hc-btn--primary">
+                    Get Started <span aria-hidden="true">→</span>
+                </Link>
+                <Link href="/login" className="hc-btn hc-btn--outline">
+                  Sign In
+                </Link>
               </div>
 
-              <div className="trust">
-                <div className="trust__item">
-                  <p className="trust__value">15+</p>
-                  <p className="trust__label">Specialties</p>
+              <div className="hc-hero__badges" aria-hidden="true">
+                <div>
+                  <Icon type="shield" />
+                  <span>Safe and Secure</span>
                 </div>
-                <div className="trust__item">
-                  <p className="trust__value">24/7</p>
-                  <p className="trust__label">Emergency</p>
+                <div>
+                  <Icon type="calendar" />
+                  <span>24/7 Support</span>
                 </div>
-                <div className="trust__item">
-                  <p className="trust__value">98%</p>
-                  <p className="trust__label">Patient satisfaction</p>
+                <div>
+                  <Icon type="heart" />
+                  <span>Quality Care</span>
                 </div>
+              </div>
+
+              <div className="hc-hero__stats">
+                <article>
+                  <strong>24/7</strong>
+                  <span>Support</span>
+                </article>
+                <article>
+                  <strong>97%</strong>
+                  <span>Patient Satisfaction</span>
+                </article>
+                <article>
+                  <strong>10k+</strong>
+                  <span>Reviews</span>
+                </article>
               </div>
             </div>
 
-            <div className="hero__visual" aria-hidden="true">
-              <div className="visualCard">
-                <div className="visualCard__top">
-                  <div className="visualCard__chip" />
-                  <div className="visualCard__dots">
-                    <span />
-                    <span />
-                    <span />
+            <div className="hc-hero__media">
+              <img src="/images/homecare-nurse-optimized.jpg" alt="Home Care healthcare professional" loading="eager" fetchPriority="high" />
+              <aside className="hc-float-card">
+                <p>Professional Care</p>
+                <span>Certified professionals for quality service</span>
+              </aside>
+              <aside className="hc-float-card hc-float-card--left">
+                <p>97% Satisfaction</p>
+                <span>Based on 10,000+ user reviews</span>
+              </aside>
+            </div>
+          </div>
+        </section>
+
+        <section className="hc-section hc-section--features" id="features">
+          <div className="hc-container">
+            <p className="hc-section__eyebrow">Features</p>
+            <h2>Everything You Need for Your Healthcare</h2>
+            <p className="hc-section__lead">
+              Our platform provides comprehensive healthcare solutions to meet all your needs.
+            </p>
+
+            <div className="hc-feature-grid">
+              {FEATURES.map((feature) => (
+                <article key={feature.title} className="hc-feature-card">
+                  <div className="hc-feature-card__icon">
+                    <Icon type={feature.icon} />
                   </div>
-                </div>
-                <div className="visualCard__body">
-                  <div className="miniGrid">
-                    <div className="miniStat">
-                      <p className="miniStat__k">Avg. wait</p>
-                      <p className="miniStat__v">12 min</p>
+                  <h3>{feature.title}</h3>
+                  <p>{feature.description}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="hc-section hc-section--testimonials" id="testimonials">
+          <div className="hc-container">
+            <p className="hc-section__eyebrow">Testimonials</p>
+            <h2>What Our Users Say</h2>
+            <p className="hc-section__lead">Hear from people who transformed their healthcare experience with Home Care+.</p>
+
+            <div className="hc-testimonial-grid">
+              {TESTIMONIALS.map((item) => (
+                <article key={item.name} className="hc-testimonial-card">
+                  <div className="hc-testimonial-card__meta">
+                    <div className="hc-avatar" aria-hidden="true">
+                      {item.name
+                        .split(" ")
+                        .map((word) => word[0])
+                        .join("")
+                        .slice(0, 2)}
                     </div>
-                    <div className="miniStat">
-                      <p className="miniStat__k">Lab results</p>
-                      <p className="miniStat__v">Same-day</p>
-                    </div>
-                    <div className="miniStat miniStat--wide">
-                      <p className="miniStat__k">Today</p>
-                      <div className="sparkline" />
-                    </div>
-                  </div>
-                  <div className="visualCard__callout">
-                    <span className="ring" />
                     <div>
-                      <p className="visualCard__calloutTitle">Clear care plans</p>
-                      <p className="visualCard__calloutDesc">Notes, meds, and follow-ups—all in one place.</p>
+                      <h3>{item.name}</h3>
+                      <p>{item.role}</p>
                     </div>
                   </div>
-                </div>
-              </div>
-
-              <div className="floating floating--a" />
-              <div className="floating floating--b" />
-              <div className="floating floating--c" />
-            </div>
-          </div>
-        </section>
-
-        <section className="section" id="services">
-          <div className="container">
-            <SectionHeading
-              eyebrow="Services"
-              title="Everything you need, under one roof"
-              desc="Care teams coordinate across departments so you spend less time repeating your story—and more time getting better."
-            />
-
-            <div className="cards">
-              {SERVICES.map((s) => (
-                <article className="card" key={s.title}>
-                  <div className="card__icon" aria-hidden="true">
-                    <Icon name={s.icon} />
-                  </div>
-                  <h3 className="h3">{s.title}</h3>
-                  <p className="muted">{s.desc}</p>
-                  <a className="card__link" href="#appointment">
-                    Check availability <span aria-hidden="true">→</span>
-                  </a>
+                  <blockquote>{item.text}</blockquote>
                 </article>
               ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="section section--alt" id="doctors">
-          <div className="container">
-            <SectionHeading eyebrow="Doctors" title="Expert clinicians, human approach" desc="Meet a few of the teams patients mention most often." />
-
-            <div className="people">
-              {DOCTORS.map((d) => (
-                <article className="person" key={d.name}>
-                  <div className="avatar" aria-hidden="true">
-                    <span className="avatar__shine" />
-                  </div>
-                  <div className="person__body">
-                    <h3 className="h3">{d.name}</h3>
-                    <p className="person__meta">
-                      {d.role} • <span className="muted">{d.focus}</span>
-                    </p>
-                    <div className="person__actions">
-                      <a className="btn btn--sm btn--ghost" href="#appointment">
-                        Book with {d.name.split(" ")[1]}
-                      </a>
-                      <a className="btn btn--sm btn--link" href="#services">
-                        View specialty
-                      </a>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="section" id="reviews">
-          <div className="container">
-            <SectionHeading eyebrow="Reviews" title="Patients notice the difference" desc="We measure what matters: clarity, comfort, and outcomes." align="center" />
-
-            <div className="quotes">
-              {TESTIMONIALS.map((t) => (
-                <figure className="quote" key={t.name}>
-                  <blockquote className="quote__text">“{t.quote}”</blockquote>
-                  <figcaption className="quote__cap">
-                    <span className="quote__name">{t.name}</span>
-                    <span className="quote__meta">{t.meta}</span>
-                  </figcaption>
-                </figure>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="section section--cta" id="appointment">
-          <div className="container">
-            <div className="cta">
-              <div className="cta__copy">
-                <SectionHeading
-                  eyebrow="Appointments"
-                  title="Request an appointment in minutes"
-                  desc="Tell us what you need—our scheduling team will confirm the best time."
-                />
-                <div className="cta__notes">
-                  <p className="note">
-                    <span className="note__icon" aria-hidden="true">
-                      <Icon name="pulse" />
-                    </span>
-                    Same-day options for urgent concerns
-                  </p>
-                  <p className="note">
-                    <span className="note__icon" aria-hidden="true">
-                      <Icon name="scan" />
-                    </span>
-                    Lab + imaging coordination available
-                  </p>
-                </div>
-              </div>
-
-              <AppointmentForm />
-            </div>
-          </div>
-        </section>
-
-        <section className="section section--alt" id="contact">
-          <div className="container contact">
-            <div>
-              <SectionHeading
-                eyebrow="Contact"
-                title="We’re here—day or night"
-                desc="Call, visit, or message us. For emergencies, dial your local emergency number."
-              />
-              <div className="contact__grid">
-                <div className="contactCard">
-                  <p className="contactCard__k">Phone</p>
-                  <p className="contactCard__v">{BRAND.phone}</p>
-                  <p className="muted">Mon–Fri 6am–10pm, weekends 9am–5pm</p>
-                </div>
-                <div className="contactCard">
-                  <p className="contactCard__k">Address</p>
-                  <p className="contactCard__v">{BRAND.address}</p>
-                  <p className="muted">Free parking • Accessible entrances</p>
-                </div>
-              </div>
-            </div>
-            <div className="map" aria-hidden="true">
-              <div className="map__pin" />
-              <div className="map__grid" />
             </div>
           </div>
         </section>
       </main>
 
-      <footer className="footer">
-        <div className="container footer__inner">
-          <p className="footer__brand">{BRAND.name}</p>
-          <p className="footer__meta">© {new Date().getFullYear()} • Built with Next.js + React + CSS</p>
-          <div className="footer__links" aria-label="Footer links">
-            <a href="#services">Services</a>
-            <a href="#appointment">Appointments</a>
-            <a href="#contact">Contact</a>
+      <footer className="hc-footer">
+        <div className="hc-container hc-footer__inner">
+          <div className="hc-footer__brand">
+            <h3>Home Care+</h3>
+            <p>Transforming healthcare delivery through innovation and compassion.</p>
+            <div className="hc-footer__social" aria-label="Social links">
+              {SOCIAL_LINKS.map((social) => (
+                <a key={social.name} href={social.href} aria-label={social.name}>
+                  <Icon type={social.icon} />
+                </a>
+              ))}
+            </div>
           </div>
+
+          <div className="hc-footer__links">
+            <div>
+              <h4>Product</h4>
+              <a href="#features">Features</a>
+              <a href="#hero">Security</a>
+              <a href="#hero">Status</a>
+            </div>
+            <div>
+              <h4>Company</h4>
+              <a href="#hero">About</a>
+              <a href="#testimonials">Stories</a>
+              <a href="#hero">Contact</a>
+            </div>
+            <div>
+              <h4>Legal</h4>
+              <a href="#hero">Privacy</a>
+              <a href="#hero">Terms</a>
+              <a href="#hero">Compliance</a>
+            </div>
+          </div>
+
+          <p className="hc-footer__copy">© 2026 Home Care+. All rights reserved.</p>
         </div>
       </footer>
     </div>
   )
 }
-
