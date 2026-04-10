@@ -1,6 +1,1 @@
-{
-  "/api/emergency/route": "app/api/emergency/route.js",
-  "/secure/emergency/page": "app/secure/emergency/page.js",
-  "/page": "app/page.js",
-  "/secure/chat/page": "app/secure/chat/page.js"
-}
+{}
