@@ -352,14 +352,6 @@ export default function EmergencyDashboardPage() {
         </div>
       </header>
 
-      {!isProvider ? (
-        <Link href="/secure/emergency" className="hc-sos-fab" aria-label="Emergency help dashboard">
-          <span className="hc-sos-fab__pulse" aria-hidden="true" />
-          <span className="hc-sos-fab__label">SOS</span>
-          <span className="hc-sos-fab__sub">Emergency Help</span>
-        </Link>
-      ) : null}
-
       {isProvider && providerPopup ? (
         <div className="provider-sos-popup" role="status" aria-live="polite">
           <div className="provider-sos-popup__card">
@@ -472,7 +464,7 @@ export default function EmergencyDashboardPage() {
                   </div>
                   <div>
                     <p className="label">Chat room</p>
-                    <strong>{activeRequest?.chatRoomId || "Not assigned"}</strong>
+                    <strong className="emergency-chat-room-id">{activeRequest?.chatRoomId || "Not assigned"}</strong>
                   </div>
                 </div>
 

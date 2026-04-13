@@ -6,6 +6,16 @@ import { useSearchParams } from "next/navigation"
 const DEFAULT_SIGNAL_URL = "ws://localhost:3002"
 const REACTIONS = ["👍", "❤️", "😂", "🙏", "😮"]
 
+function resolveSignalUrl() {
+  const envUrl = globalThis?.process?.env?.NEXT_PUBLIC_SIGNAL_URL
+  if (envUrl) return envUrl
+
+  if (typeof window === "undefined") return DEFAULT_SIGNAL_URL
+
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
+  return `${protocol}//${window.location.hostname}:3002`
+}
+
 function safeParse(raw) {
   try {
     return JSON.parse(raw)
@@ -162,7 +172,7 @@ function receiptLabel(status) {
 export default function ChatPage() {
   const searchParams = useSearchParams()
 
-  const signalUrl = globalThis.process?.env?.NEXT_PUBLIC_SIGNAL_URL || DEFAULT_SIGNAL_URL
+  const signalUrl = resolveSignalUrl()
   const contactName = searchParams.get("name") || "GCTU"
   const roomId = searchParams.get("roomId") || "demo-room"
 

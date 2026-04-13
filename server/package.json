@@ -11,6 +11,7 @@
     "start": "nodemon server.js"
   },
   "dependencies": {
+    "@pinecone-database/pinecone": "^7.1.0",
     "axios": "^1.13.6",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
@@ -24,6 +25,8 @@
     "nanoid": "^5.1.7",
     "nodemon": "^3.1.14",
     "npm": "^11.12.0",
+    "openai": "^4.24.0",
+    "pdf-parse": "^2.4.5",
     "socket.io": "^4.8.3"
   }
 }

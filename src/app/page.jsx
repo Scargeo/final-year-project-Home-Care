@@ -2,6 +2,8 @@
 
 import Link from "next/link"
 import { useState } from "react"
+import ChatBot from "../ChatBot"
+import homecareAiAssistantLogo from "../assets/homecare_ai_assistant_logo.png"
 import "../App.css"
 
 const FEATURES = [
@@ -49,17 +51,17 @@ const FEATURES = [
 
 const TESTIMONIALS = [
   {
-    name: "Benjamin Amankwaah",
+    name: "Mr Benjamin Amankwaah",
     role: "Patient",
     text: "The home care service is exceptional. I requested a nurse with a few clicks and they arrived promptly.",
   },
   {
-    name: "Mr Quansah",
+    name: "Mr Daniel Akyerefi",
     role: "Patient",
     text: "Finding medications has never been easier. The pharmacy locator helped me get my prescription quickly.",
   },
   {
-    name: "Robert Johnson",
+    name: "Mr Kennedy Gyima",
     role: "Patient",
     text: "The online assistant answered my questions and made ordering medications straightforward.",
   },
@@ -168,6 +170,7 @@ function Icon({ type }) {
 
 export default function HomePage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isChatOpen, setIsChatOpen] = useState(false)
 
   return (
     <div className="hc-page">
@@ -190,16 +193,24 @@ export default function HomePage() {
             <Link href="/signup" className="hc-btn hc-btn--primary hc-btn--sm">
               Sign up
             </Link>
+            <Link href="/secure/emergency" className="hc-btn hc-btn--sos hc-btn--sm">
+              SOS
+            </Link>
           </nav>
 
-          <button
-            className="hc-menu-btn"
-            type="button"
-            onClick={() => setIsMenuOpen((prev) => !prev)}
-            aria-label="Toggle menu"
-          >
-            {isMenuOpen ? "Close" : "Menu"}
-          </button>
+          <div className="hc-header__actions">
+            <Link href="/secure/emergency" className="hc-btn hc-btn--sos hc-btn--sm hc-sos-header">
+              SOS
+            </Link>
+            <button
+              className="hc-menu-btn"
+              type="button"
+              onClick={() => setIsMenuOpen((prev) => !prev)}
+              aria-label="Toggle menu"
+            >
+              {isMenuOpen ? "Close" : "Menu"}
+            </button>
+          </div>
         </div>
 
         {isMenuOpen ? (
@@ -216,11 +227,24 @@ export default function HomePage() {
         ) : null}
       </header>
 
-      <Link href="/secure/emergency" className="hc-sos-fab" aria-label="SOS emergency call">
-        <span className="hc-sos-fab__pulse" aria-hidden="true" />
-        <span className="hc-sos-fab__label">SOS</span>
-        <span className="hc-sos-fab__sub">Call now</span>
-      </Link>
+      <button
+        type="button"
+        className="hc-ai-fab"
+        onClick={() => setIsChatOpen((prev) => !prev)}
+        aria-label={isChatOpen ? "Close AI Assistant chat" : "Open AI Assistant chat"}
+        data-tooltip="Hey, 👋"
+      >
+        <img
+          src={homecareAiAssistantLogo.src}
+          alt="HomeCare AI Assistant"
+          className="hc-ai-fab__logo"
+          onError={(e) => {
+            e.currentTarget.src = "/favicon.svg"
+          }}
+        />
+      </button>
+
+      {isChatOpen ? <ChatBot onClose={() => setIsChatOpen(false)} /> : null}
 
       <main>
         <section className="hc-hero" id="hero">

@@ -30,6 +30,16 @@ function sendJson(ws, payload) {
 const wss = new WebSocketServer({ port: PORT })
 console.log(`[signaling] listening on ws://localhost:${PORT}`)
 
+wss.on('error', (error) => {
+  if (error?.code === 'EADDRINUSE') {
+    console.log(`[signaling] port ${PORT} is already in use. An existing signaling server may already be running.`)
+    process.exit(0)
+  }
+
+  console.error('[signaling] failed to start:', error)
+  process.exit(1)
+})
+
 wss.on('connection', (ws) => {
   ws._roomId = null
   ws._peerId = null

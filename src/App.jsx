@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import './App.css'
+import ChatBot from './ChatBot'
 
 const BRAND = {
   name: 'HomeCare Hospital',
@@ -192,6 +194,8 @@ function SectionHeading({ eyebrow, title, desc, align = 'left' }) {
 }
 
 function App() {
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false)
+
   return (
     <div className="page">
       <a className="skipLink" href="#main">
@@ -230,6 +234,13 @@ function App() {
               <span className="pill__dot" aria-hidden="true" />
               {BRAND.phone}
             </a>
+            <button
+              className="btn btn--sm btn--ghost"
+              onClick={() => setIsChatbotOpen(true)}
+              title="Open AI Assistant"
+            >
+              AI Assistant
+            </button>
             <a className="btn btn--sm btn--ghost" href="/secure/chat">
               Secure chat
             </a>
@@ -486,6 +497,10 @@ function App() {
           </div>
         </div>
       </footer>
+
+      {isChatbotOpen && (
+        <ChatBot onClose={() => setIsChatbotOpen(false)} />
+      )}
     </div>
   )
 }

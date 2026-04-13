@@ -42,6 +42,8 @@ app.use('/api/patients', require('./routes/patients/patientRoute'));
 app.use('/api/nurses', require('./routes/privateHealthworker/privateNurse/nurseRoute'));
 // SOS routes persist alerts in MongoDB for live provider and patient tracking.
 app.use('/api/sos', require('./routes/sos/sosRoute'));
+// AI Chat routes for RAG chatbot
+app.use('/api/ai', require('./routes/ai/chatRoute'));
 
 
 
@@ -52,6 +54,17 @@ app.use('/external-api', createProxyMiddleware({
 }));
 
 const PORT = process.env.BACKENDSERVER_PORT || 3003;
+
+server.on('error', (error) => {
+  if (error?.code === 'EADDRINUSE') {
+    console.log(`Server port ${PORT} is already in use. An existing backend server may already be running.`);
+    process.exit(0);
+  }
+
+  console.error('Failed to start backend server:', error);
+  process.exit(1);
+});
+
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });

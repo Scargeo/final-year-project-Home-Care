@@ -27,6 +27,16 @@
   gap: 1rem;
 }
 
+.hc-header__actions {
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hc-header__actions .hc-sos-header {
+  display: none;
+}
+
 .hc-logo {
   text-decoration: none;
   display: inline-flex;
@@ -187,6 +197,86 @@
   font-weight: 800;
   letter-spacing: 0.04em;
   opacity: 0.94;
+}
+
+.hc-ai-fab {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 41;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 6.25rem;
+  height: 6.25rem;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.hc-ai-fab::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  transform: scale(0.9);
+  white-space: nowrap;
+  background: transparent;
+  color: #06b6d4;
+  padding: 0.25rem;
+  border-radius: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.015em;
+  line-height: 1.2;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85), 0 3px 8px rgba(8, 145, 178, 0.22);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.hc-ai-fab:hover {
+  transform: translateY(-2px) scale(1.05);
+}
+
+.hc-ai-fab:hover::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.hc-ai-fab:hover .hc-ai-fab__logo {
+  animation-play-state: paused;
+  opacity: 0;
+}
+
+.hc-ai-fab__logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: none;
+  box-shadow: none;
+  opacity: 1;
+  animation: hc-ai-bubble 2.8s ease-in-out infinite;
+  transition: opacity 0.2s ease;
+  transform-origin: center;
+}
+
+@keyframes hc-ai-bubble {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-6px) scale(1.03);
+  }
 }
 
 @keyframes sos-pulse {
@@ -540,6 +630,13 @@
   text-transform: uppercase;
 }
 
+.emergency-chat-room-id {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .emergency-actions {
   display: flex;
   flex-wrap: wrap;
@@ -696,6 +793,13 @@
 }
 
 @media (max-width: 760px) {
+  .hc-ai-fab {
+    right: 0.75rem;
+    bottom: 0.75rem;
+    min-height: 3.5rem;
+    padding: 0.68rem 0.9rem;
+  }
+
   .emergency-form {
     grid-template-columns: 1fr;
   }
@@ -1150,6 +1254,15 @@
 @media (max-width: 760px) {
   .hc-nav {
     display: none;
+  }
+
+  .hc-header__actions {
+    display: flex;
+    align-items: center;
+  }
+
+  .hc-header__actions .hc-sos-header {
+    display: inline-flex;
   }
 
   .hc-menu-btn {
