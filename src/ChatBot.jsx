@@ -1,5 +1,96 @@
 import { useEffect, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import './ChatBot.css'
+
+function normalizeMarkdown(text) {
+  return String(text || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/^\s*#{1,6}\s+/gm, '')
+    .replace(/\s+(#{1,6}\s+)/g, '\n\n$1')
+    .replace(/\s+(\d+\.\s+)/g, '\n$1')
+    .replace(/\s+([*-]\s+)(?=[^*])/g, '\n$1')
+    .replace(/\s+(•\s+)/g, '\n$1')
+    .replace(/\s+(>\s+)/g, '\n$1')
+    .replace(/\s+(```)/g, '\n$1')
+    .replace(/\*\s*\n/g, '\n* ')
+    .replace(/\n\s+\*/g, '\n*')
+    .trim()
+}
+
+const markdownComponents = {
+  h1: ({ children, ...props }) => (
+    <h1 className="message__heading message__heading--xl" {...props}>
+      {children}
+    </h1>
+  ),
+  h2: ({ children, ...props }) => (
+    <h2 className="message__heading message__heading--lg" {...props}>
+      {children}
+    </h2>
+  ),
+  h3: ({ children, ...props }) => (
+    <h3 className="message__heading message__heading--md" {...props}>
+      {children}
+    </h3>
+  ),
+  h4: ({ children, ...props }) => (
+    <h4 className="message__heading message__heading--sm" {...props}>
+      {children}
+    </h4>
+  ),
+  p: ({ children, ...props }) => (
+    <p className="message__paragraph" {...props}>
+      {children}
+    </p>
+  ),
+  ul: ({ children, ...props }) => (
+    <ul className="message__list message__list--bullet" {...props}>
+      {children}
+    </ul>
+  ),
+  ol: ({ children, ...props }) => (
+    <ol className="message__list message__list--numbered" {...props}>
+      {children}
+    </ol>
+  ),
+  li: ({ children, ...props }) => (
+    <li className="message__list-item" {...props}>
+      {children}
+    </li>
+  ),
+  strong: ({ children, ...props }) => (
+    <strong className="message__strong" {...props}>
+      {children}
+    </strong>
+  ),
+  em: ({ children, ...props }) => (
+    <em className="message__em" {...props}>
+      {children}
+    </em>
+  ),
+  a: ({ children, ...props }) => (
+    <a className="message__link" target="_blank" rel="noreferrer" {...props}>
+      {children}
+    </a>
+  ),
+  blockquote: ({ children, ...props }) => (
+    <blockquote className="message__blockquote" {...props}>
+      {children}
+    </blockquote>
+  ),
+  code: ({ inline, children, ...props }) =>
+    inline ? (
+      <code className="message__code" {...props}>
+        {children}
+      </code>
+    ) : (
+      <pre className="message__pre">
+        <code {...props}>{children}</code>
+      </pre>
+    ),
+}
 
 function ChatBot({ onClose, apiBaseUrl = '' }) {
   const [messages, setMessages] = useState([
@@ -100,7 +191,15 @@ function ChatBot({ onClose, apiBaseUrl = '' }) {
         {messages.map((message) => (
           <div key={message.id} className={`message message--${message.sender}`}>
             <div className="message__content">
-              <p className="message__text">{message.text}</p>
+              {message.sender === 'bot' ? (
+                <div className="message__text message__text--bot-rich">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                    {normalizeMarkdown(message.text)}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                <p className="message__text">{message.text}</p>
+              )}
               {message.context && message.context.length > 0 && (
                 <details className="message__sources">
                   <summary>View sources ({message.context.length})</summary>

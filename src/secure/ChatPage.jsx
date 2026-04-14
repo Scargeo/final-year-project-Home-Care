@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './ChatPage.css'
 
 const DEFAULT_SIGNAL_URL = 'ws://localhost:3001'
@@ -208,7 +208,7 @@ export default function ChatPage() {
     ws.send(JSON.stringify(payload))
   }
 
-  async function initCryptoAndKeys() {
+  const initCryptoAndKeys = useCallback(async () => {
     try {
       const keyPair = await getOrCreateChatKeyPair(roomId)
       chatKeyPairRef.current = keyPair
@@ -217,9 +217,9 @@ export default function ChatPage() {
       setError('Encryption key init failed in this browser.')
       throw e
     }
-  }
+  }, [roomId, setError])
 
-  async function attemptDeriveAesKey() {
+  const attemptDeriveAesKey = useCallback(async () => {
     const keyPair = chatKeyPairRef.current
     if (!keyPair) return
     if (!remotePubKeyRef.current) return
@@ -251,7 +251,7 @@ export default function ChatPage() {
     } catch {
       setError('Could not derive shared encryption key.')
     }
-  }
+  }, [roomId, setError])
 
   useEffect(() => {
     let cancelled = false
@@ -426,7 +426,7 @@ export default function ChatPage() {
       }
       wsRef.current = null
     }
-  }, [roomId, signalUrl])
+  }, [attemptDeriveAesKey, initCryptoAndKeys, roomId, signalUrl])
 
   async function sendMessage() {
     setError('')

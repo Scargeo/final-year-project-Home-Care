@@ -8,11 +8,12 @@ function normalizeBaseUrl(value) {
 }
 
 function getCandidateBaseUrls() {
-  const port = process.env.BACKENDSERVER_PORT || 8000
+  const env = globalThis?.process?.env || {}
+  const port = env.BACKENDSERVER_PORT || 8000
   const candidates = [
-    process.env.SOS_SERVER_URL,
-    process.env.NEXT_PUBLIC_API_BASE_URL,
-    process.env.BACKENDSERVER,
+    env.SOS_SERVER_URL,
+    env.NEXT_PUBLIC_API_BASE_URL,
+    env.BACKENDSERVER,
     `http://localhost:${port}`,
     `http://127.0.0.1:${port}`,
   ]

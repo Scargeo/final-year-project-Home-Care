@@ -7,11 +7,12 @@ function normalizeBaseUrl(value) {
 }
 
 function getCandidateBaseUrls() {
-  const port = process.env.BACKENDSERVER_PORT || 8000
+  const env = globalThis?.process?.env || {}
+  const port = env.BACKENDSERVER_PORT || 8000
   const candidates = [
-    process.env.SOS_SERVER_URL,
-    process.env.NEXT_PUBLIC_API_BASE_URL,
-    process.env.BACKENDSERVER,
+    env.SOS_SERVER_URL,
+    env.NEXT_PUBLIC_API_BASE_URL,
+    env.BACKENDSERVER,
     `http://localhost:${port}`,
     `http://127.0.0.1:${port}`,
   ]
@@ -54,7 +55,8 @@ async function fetchFromSOSBackend(path, init = {}) {
 
 export async function GET(_request, { params }) {
   try {
-    const response = await fetchFromSOSBackend(`/api/sos/${params.id}`)
+    const { id } = await params
+    const response = await fetchFromSOSBackend(`/api/sos/${id}`)
     const data = await response.json()
     return NextResponse.json(data, { status: response.status })
   } catch {
@@ -64,8 +66,9 @@ export async function GET(_request, { params }) {
 
 export async function PATCH(request, { params }) {
   try {
+    const { id } = await params
     const body = await request.json().catch(() => ({}))
-    const response = await fetchFromSOSBackend(`/api/sos/${params.id}`, {
+    const response = await fetchFromSOSBackend(`/api/sos/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

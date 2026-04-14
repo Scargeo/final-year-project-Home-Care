@@ -21,7 +21,7 @@ function createWebSocket(url) {
 export default function CallPage() {
   const searchParams = useSearchParams()
 
-  const signalUrl = useMemo(() => process.env.NEXT_PUBLIC_SIGNAL_URL || DEFAULT_SIGNAL_URL, [])
+  const signalUrl = useMemo(() => globalThis?.process?.env?.NEXT_PUBLIC_SIGNAL_URL || DEFAULT_SIGNAL_URL, [])
 
   const [roomId, setRoomId] = useState(searchParams.get("roomId") || "demo-room")
   const [role, setRole] = useState(searchParams.get("role") || "doctor")

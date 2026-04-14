@@ -87,6 +87,7 @@ async function run() {
           id: `chunk-${i + offset}`,
           values,
           metadata: {
+            chunk_text: chunk,
             text: chunk,
             source: "first-aid-reference-guide.pdf",
             chunk_index: i + offset,

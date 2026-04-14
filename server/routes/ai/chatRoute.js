@@ -4,6 +4,9 @@ const { Pinecone } = require('@pinecone-database/pinecone')
 const OpenAI = require('openai')
 const dotenv = require('dotenv')
 const path = require('path')
+const mongoose = require('mongoose')
+const AIConversation = require('../../models/ai/aiConversation')
+const AIMessage = require('../../models/ai/aiMessage')
 
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '../../.env') })
@@ -16,6 +19,44 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
 const openRouterLLMModel = process.env.OPENROUTER_LLM_MODEL || 'openrouter/auto'
 const openRouterFallbackLLMModel = process.env.OPENROUTER_FALLBACK_LLM_MODEL || 'openai/gpt-3.5-turbo'
 const openRouterEmbedModel = process.env.OPENROUTER_EMBED_MODEL || 'text-embedding-3-small'
+
+const shouldUseStructuredFormatting = (queryText) => {
+  const text = String(queryText || '').toLowerCase().trim()
+  if (!text) return false
+
+  const smallTalkPattern = /^(hi|hello|hey|good\s*morning|good\s*afternoon|good\s*evening|how are you|thanks|thank you)\b/
+  if (smallTalkPattern.test(text)) {
+    return false
+  }
+
+  const instructionalPattern = /\b(how|steps?|procedure|guide|perform|what should i do|how do i|treat|first aid|cpr|instructions?)\b/
+  return instructionalPattern.test(text)
+}
+
+const buildConversationTitle = (text) => {
+  if (!text) {
+    return 'New conversation'
+  }
+
+  const clean = String(text).replace(/\s+/g, ' ').trim()
+  return clean.slice(0, 80)
+}
+
+const resolveConversation = async ({ conversationId, userId, firstPrompt }) => {
+  if (conversationId && mongoose.Types.ObjectId.isValid(conversationId)) {
+    const existing = await AIConversation.findOne({ _id: conversationId, userId })
+    if (existing) {
+      return existing
+    }
+  }
+
+  return AIConversation.create({
+    userId,
+    title: buildConversationTitle(firstPrompt),
+    status: 'active',
+    lastMessageAt: new Date(),
+  })
+}
 
 // Validate required environment variables
 if (!PINECONE_API_KEY || !OPENROUTER_API_KEY) {
@@ -42,7 +83,7 @@ const openai = new OpenAI({
  */
 router.post('/chat', async (req, res) => {
   try {
-    const { query } = req.body
+    const { query, conversationId, userId } = req.body
 
     if (!query || typeof query !== 'string') {
       return res.status(400).json({
@@ -55,6 +96,9 @@ router.post('/chat', async (req, res) => {
     if (sanitizedQuery.length === 0) {
       return res.status(400).json({ error: 'Query cannot be empty' })
     }
+
+    const normalizedUserId =
+      typeof userId === 'string' && userId.trim().length > 0 ? userId.trim() : 'anonymous'
 
     // Step 1: Generate embedding for query using OpenRouter
     console.log(`[AI Chat] Processing query: "${sanitizedQuery}"`)
@@ -97,11 +141,12 @@ router.post('/chat', async (req, res) => {
     }
 
     // Step 3: Extract context from query results
-    const contextChunks = queryResults.matches
-      .filter((match) => match.score > 0.5) // Only use relevant matches
+    const relevantMatches = queryResults.matches.filter((match) => match.score > 0.5)
+
+    const contextChunks = relevantMatches
       .map((match) => {
         const metadata = match.metadata || {}
-        return metadata.chunk_text || ''
+        return metadata.chunk_text || metadata.text || ''
       })
       .filter(Boolean)
 
@@ -116,15 +161,30 @@ router.post('/chat', async (req, res) => {
     // Step 4: Generate response using LLM with context
     let llmResponse
     try {
-      const systemPrompt = `You are a helpful medical information assistant for HomeCare Hospital. 
-You have access to medical knowledge and information about first aid, healthcare procedures, and general medical information.
-Provide accurate, helpful, and compassionate responses to user queries.
-If you don't know something or if the information is not in your knowledge base, be honest about it and suggest consulting a healthcare professional.
-Keep responses concise and understandable for a general audience.`
+      const systemPrompt = `You are a medical information assistant for HomeCare Hospital.
+    Answer in plain language.
+    Be short, direct, and unambiguous.
+    Start with the answer, not with filler.
+    Use only the information that is relevant to the user's question.
+    If the information is missing or uncertain, say so clearly and recommend a healthcare professional.`
 
-      const userPrompt = context
+      const formattingPrompt = `Format the answer in GitHub-flavored Markdown.
+    Use short sentences.
+    Use numbered steps only when giving instructions.
+    Use bullets only for short lists.
+    Do not use markdown headings (#, ##, ###).
+    Do not add an introduction like "Based on the medical information provided".
+    Do not repeat the question.
+    Do not use tables.
+    Keep the answer brief and easy to follow.`
+
+      const baseUserPrompt = context
         ? `Based on the following medical information:\n\n${context}\n\nPlease answer this question: ${sanitizedQuery}`
         : `Please answer this medical question: ${sanitizedQuery}`
+
+      const userPrompt = shouldUseStructuredFormatting(sanitizedQuery)
+        ? `${formattingPrompt}\n\n${baseUserPrompt}`
+        : baseUserPrompt
 
       const modelsToTry = Array.from(new Set([openRouterLLMModel, openRouterFallbackLLMModel].filter(Boolean)))
       let lastError
@@ -137,8 +197,8 @@ Keep responses concise and understandable for a general audience.`
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userPrompt },
             ],
-            temperature: 0.7,
-            max_tokens: 500,
+            temperature: 0.3,
+            max_tokens: 350,
           })
 
           llmResponse = completion.choices[0]?.message?.content
@@ -169,10 +229,55 @@ Keep responses concise and understandable for a general audience.`
     }
 
     // Step 5: Return response and context sources
+    let persistedConversationId = null
+
+    try {
+      const conversation = await resolveConversation({
+        conversationId,
+        userId: normalizedUserId,
+        firstPrompt: sanitizedQuery,
+      })
+
+      persistedConversationId = String(conversation._id)
+
+      await AIMessage.insertMany([
+        {
+          conversationId: conversation._id,
+          role: 'user',
+          content: sanitizedQuery,
+          model: '',
+          sources: [],
+        },
+        {
+          conversationId: conversation._id,
+          role: 'assistant',
+          content: llmResponse,
+          model: openRouterLLMModel,
+          sources: relevantMatches
+            .map((match) => ({
+              text: String(match?.metadata?.chunk_text || match?.metadata?.text || ''),
+              score: Number.isFinite(match?.score) ? match.score : null,
+            }))
+            .filter((source) => source.text.length > 0),
+        },
+      ])
+
+      await AIConversation.updateOne(
+        { _id: conversation._id },
+        {
+          $set: { lastMessageAt: new Date() },
+          $inc: { messageCount: 2 },
+        },
+      )
+    } catch (persistError) {
+      console.error('[AI Chat] Failed to persist chat messages:', persistError)
+    }
+
     return res.status(200).json({
       response: llmResponse,
       context: contextChunks,
       sourceCount: contextChunks.length,
+      conversationId: persistedConversationId,
     })
   } catch (error) {
     console.error('Unexpected error in /api/ai/chat:', error)
