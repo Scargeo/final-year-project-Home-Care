@@ -1,4 +1,5 @@
 import js from '@eslint/js'
+import nextVitals from 'eslint-config-next/core-web-vitals'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
@@ -10,6 +11,7 @@ export default defineConfig([
     files: ['**/*.{js,jsx}'],
     extends: [
       js.configs.recommended,
+      ...nextVitals,
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
@@ -24,6 +26,7 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      "@next/next/no-img-element": "off",
     },
   },
   {

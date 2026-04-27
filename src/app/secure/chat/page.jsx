@@ -1,7 +1,8 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useSearchParams } from "next/navigation"
+
+export const dynamic = "force-dynamic"
 
 const DEFAULT_SIGNAL_URL = "ws://localhost:3002"
 const REACTIONS = ["👍", "❤️", "😂", "🙏", "😮"]
@@ -170,11 +171,17 @@ function receiptLabel(status) {
 }
 
 export default function ChatPage() {
-  const searchParams = useSearchParams()
-
   const signalUrl = resolveSignalUrl()
-  const contactName = searchParams.get("name") || "GCTU"
-  const roomId = searchParams.get("roomId") || "demo-room"
+  const [contactName] = useState(() => {
+    if (typeof window === "undefined") return "GCTU"
+    const searchParams = new URLSearchParams(window.location.search)
+    return searchParams.get("name") || "GCTU"
+  })
+  const [roomId] = useState(() => {
+    if (typeof window === "undefined") return "demo-room"
+    const searchParams = new URLSearchParams(window.location.search)
+    return searchParams.get("roomId") || "demo-room"
+  })
 
   const [menuOpen, setMenuOpen] = useState(false)
   const [status, setStatus] = useState("idle")

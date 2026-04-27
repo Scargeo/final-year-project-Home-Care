@@ -1,0 +1,401 @@
+.rp-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.rp-app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: var(--rp-sidebar-width, 240px) minmax(0, 1fr);
+  background: #eef2f1;
+}
+
+.rp-app-shell-collapsed {
+  grid-template-columns: 74px 1fr;
+}
+
+.rp-sidebar {
+  border-right: 1px solid #dde4e2;
+  background: #f8fbfa;
+  padding: 12px 10px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: auto;
+  min-width: 0;
+}
+
+.rp-sidebar-collapsed {
+  padding: 12px 8px;
+}
+
+.rp-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 16px;
+}
+
+.rp-brand-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #0d9488, #0ea5e9);
+}
+
+.rp-menu {
+  display: grid;
+  gap: 8px;
+}
+
+.rp-sidebar-toggle {
+  margin-left: auto;
+  border: 1px solid #d5dde8;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+}
+
+.rp-menu-item {
+  border: 1px solid #dde4e2;
+  border-radius: 12px;
+  background: #fff;
+  color: #334155;
+  text-align: left;
+  padding: 10px 12px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.rp-menu-item-active {
+  background: #e7f7f4;
+  border-color: #86d2c6;
+  color: #0b3b35;
+  font-weight: 600;
+}
+
+.rp-main {
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.rp-main-top {
+  background: #fff;
+  border: 1px solid #dde4e2;
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rp-main-top-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rp-main-top h1 {
+  margin: 0;
+  font-size: 21px;
+}
+
+.rp-mobile-menu-btn {
+  display: none;
+  border: 1px solid #d5dde8;
+  border-radius: 8px;
+  background: #fff;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.rp-auth-card {
+  width: min(680px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+
+.rp-auth-card-wide {
+  width: min(980px, 100%);
+}
+
+.rp-auth-card h1 {
+  margin: 0;
+}
+
+.rp-auth-card p {
+  margin: 8px 0 16px;
+  color: var(--muted);
+}
+
+.rp-form {
+  display: grid;
+  gap: 12px;
+}
+
+.rp-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rp-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.rp-form input,
+.rp-form select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--bg);
+  color: inherit;
+}
+
+.rp-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: inherit;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rp-btn-primary {
+  background: linear-gradient(90deg, #0ea5e9, #06b6d4);
+  color: #fff;
+  border-color: transparent;
+}
+
+.rp-btn-danger {
+  background: #dc2626;
+  color: #fff;
+  border-color: transparent;
+}
+
+.rp-auth-links {
+  margin-top: 12px;
+  display: flex;
+  gap: 12px;
+}
+
+.rp-error {
+  color: #dc2626;
+}
+
+.rp-span-2 {
+  grid-column: span 2;
+}
+
+.rp-dashboard-shell {
+  display: block;
+  place-items: unset;
+}
+
+.rp-dashboard {
+  width: min(1200px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
+}
+
+.rp-topbar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rp-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.rp-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.rp-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.rp-stat-card {
+  background: #fff;
+  border: 1px solid #dde4e2;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.rp-stat-card p {
+  margin: 0;
+  color: #475569;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.rp-stat-card h2 {
+  margin: 8px 0 0;
+  font-size: 28px;
+}
+
+.rp-stat-card small {
+  color: #64748b;
+}
+
+.rp-two-col {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.rp-placeholder {
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 36px 12px;
+  text-align: center;
+  color: #64748b;
+}
+
+.rp-bullets {
+  margin: 0;
+  padding-left: 18px;
+  color: #334155;
+}
+
+.rp-chip-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rp-chip {
+  border: 1px solid #d5dde8;
+  background: #fff;
+  border-radius: 999px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.rp-chip-soft {
+  cursor: default;
+  opacity: 0.95;
+}
+
+.rp-inline-meta {
+  color: #334155;
+  font-weight: 600;
+}
+
+.rp-card,
+.rp-panel {
+  background: #fff;
+  border: 1px solid #dde4e2;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.rp-card h3 {
+  margin: 0 0 8px;
+}
+
+.rp-table-wrap {
+  width: 100%;
+  overflow: auto;
+}
+
+.rp-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+}
+
+.rp-table th,
+.rp-table td {
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  padding: 10px;
+  vertical-align: top;
+}
+
+.rp-sidebar-width-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid #d9e2e0;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 12px;
+}
+
+.rp-sidebar-width-control input {
+  width: 90px;
+}
+
+@media (max-width: 1024px) {
+  .rp-sidebar-width-control {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .rp-app-shell {
+    grid-template-columns: 1fr;
+    position: relative;
+  }
+  .rp-sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    width: min(280px, 80vw);
+    z-index: 20;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+  }
+  .rp-sidebar-collapsed {
+    transform: translateX(-110%);
+  }
+  .rp-mobile-menu-btn {
+    display: inline-flex;
+  }
+  .rp-main-top {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .rp-table {
+    min-width: 520px;
+  }
+  .rp-stat-grid,
+  .rp-two-col,
+  .rp-grid {
+    grid-template-columns: 1fr;
+  }
+  .rp-span-2 {
+    grid-column: span 1;
+  }
+}

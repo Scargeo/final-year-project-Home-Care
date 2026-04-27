@@ -362,7 +362,7 @@
 
 .emergency-hero__inner {
   display: flex;
-  align-items: end;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 1rem;
 }
@@ -432,7 +432,7 @@
 
 .emergency-card__header {
   display: flex;
-  align-items: start;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.8rem;
   margin-bottom: 1rem;
@@ -748,7 +748,7 @@
 
 .queue-item__head {
   display: flex;
-  align-items: start;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 0.65rem;
