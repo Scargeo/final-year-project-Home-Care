@@ -2,10 +2,9 @@
 
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { io } from "socket.io-client"
 import "../../../App.css"
-
-export const dynamic = "force-dynamic"
 
 function formatTime(value) {
   try {
@@ -35,7 +34,8 @@ function statusCopy(request) {
 }
 
 export default function EmergencyDashboardPage() {
-  const [role, setRole] = useState("patient")
+  const searchParams = useSearchParams()
+  const role = (searchParams.get("role") || "patient").toLowerCase()
 
   const isProvider = role === "provider"
   const [providers, setProviders] = useState([])
@@ -61,12 +61,6 @@ export default function EmergencyDashboardPage() {
     : "Send an immediate alert to available doctors and nurses and track the response live."
 
   const quickNote = useMemo(() => statusCopy(activeRequest), [activeRequest])
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    const searchParams = new URLSearchParams(window.location.search)
-    setRole((searchParams.get("role") || "patient").toLowerCase())
-  }, [])
-
 
   const publicEnv = globalThis.process?.env || {}
 

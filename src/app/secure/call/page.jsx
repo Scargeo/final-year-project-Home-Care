@@ -1,8 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-
-export const dynamic = "force-dynamic"
+import { useSearchParams } from "next/navigation"
 
 const DEFAULT_SIGNAL_URL = "ws://localhost:3002"
 const DEFAULT_ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }]
@@ -20,23 +19,13 @@ function createWebSocket(url) {
 }
 
 export default function CallPage() {
+  const searchParams = useSearchParams()
+
   const signalUrl = useMemo(() => globalThis?.process?.env?.NEXT_PUBLIC_SIGNAL_URL || DEFAULT_SIGNAL_URL, [])
 
-  const [roomId, setRoomId] = useState(() => {
-    if (typeof window === "undefined") return "demo-room"
-    const searchParams = new URLSearchParams(window.location.search)
-    return searchParams.get("roomId") || "demo-room"
-  })
-  const [role, setRole] = useState(() => {
-    if (typeof window === "undefined") return "doctor"
-    const searchParams = new URLSearchParams(window.location.search)
-    return searchParams.get("role") || "doctor"
-  })
-  const [mode, setMode] = useState(() => {
-    if (typeof window === "undefined") return "video"
-    const searchParams = new URLSearchParams(window.location.search)
-    return searchParams.get("mode") || "video"
-  }) // 'audio' | 'video'
+  const [roomId, setRoomId] = useState(searchParams.get("roomId") || "demo-room")
+  const [role, setRole] = useState(searchParams.get("role") || "doctor")
+  const [mode, setMode] = useState(searchParams.get("mode") || "video") // 'audio' | 'video'
   const [myPeerId, setMyPeerId] = useState("")
   const [remotePeerId, setRemotePeerId] = useState("")
   const [status, setStatus] = useState("idle") // idle | waiting | connecting | in_call | ended | error
