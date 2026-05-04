@@ -1,16 +1,72 @@
-# React + Vite
+# HomeCare Hospital - Healthcare Platform
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A comprehensive healthcare management system built with **Next.js**, **React**, **Node.js**, and **MongoDB**.
 
-Currently, two official plugins are available:
+## Project Structure
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Frontend**: Next.js with React components
+- **Backend**: Express.js server with MongoDB
+- **Database**: MongoDB Atlas for data persistence
+- **Real-time**: Socket.io for live SOS alerts and emergency response
 
-## React Compiler
+## Getting Started
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Prerequisites
+- Node.js 18+
+- MongoDB Atlas connection string
+- npm or yarn
 
-## Expanding the ESLint configuration
+### Installation
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+1. **Install dependencies**:
+   ```bash
+   npm install
+   npm --prefix ./server install
+   ```
+
+2. **Configure environment variables**:
+   - Create `.env.local` in root for frontend
+   - Create `server/.env` for backend
+   - Update database credentials
+
+3. **Start development servers**:
+   ```bash
+   npm run dev        # Starts frontend (Next.js) + signaling
+   npm run dev:frontend  # Frontend only
+   npm run dev:signaling  # Signaling / API server only
+   ```
+
+4. **Build for production**:
+   ```bash
+   npm run build
+   npm start
+   ```
+
+## Features
+
+- Emergency SOS system with real-time notifications
+- Doctor and nurse appointment booking
+- Pharmacy locator and medication ordering
+- RAG-based AI chatbot for health assistance
+- Secure video/audio calls
+- Patient health records management
+
+## Environment Variables
+
+**Frontend (.env.local)**:
+```
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+NEXT_PUBLIC_SOS_SOCKET_URL=http://localhost:8000
+```
+
+**Backend (server/.env)**:
+```
+BACKENDSERVER=http://localhost
+BACKENDSERVER_PORT=8000
+MONGO_STRING=mongodb+srv://...
+```
+
+## Troubleshooting
+
+See [QUICKSTART.md](QUICKSTART.md) and [VERIFICATION_CHECKLIST.md](VERIFICATION_CHECKLIST.md) for detailed setup guides and debugging steps.
+

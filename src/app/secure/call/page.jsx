@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
+import { Suspense } from "react"
 
-const DEFAULT_SIGNAL_URL = "ws://localhost:3002"
+const DEFAULT_SIGNAL_URL = "ws://localhost:3001"
 const DEFAULT_ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }]
 
 function safeParse(raw) {
@@ -18,7 +19,7 @@ function createWebSocket(url) {
   return new WebSocket(url)
 }
 
-export default function CallPage() {
+function CallPageContent() {
   const searchParams = useSearchParams()
 
   const signalUrl = useMemo(() => globalThis?.process?.env?.NEXT_PUBLIC_SIGNAL_URL || DEFAULT_SIGNAL_URL, [])
@@ -353,6 +354,14 @@ export default function CallPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function CallPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center" }}>Loading call interface...</div>}>
+      <CallPageContent />
+    </Suspense>
   )
 }
 

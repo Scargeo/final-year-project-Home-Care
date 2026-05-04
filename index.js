@@ -1,6 +1,6 @@
 import { WebSocketServer } from 'ws'
 
-const PORT = Number(process.env.PORT || 3002)
+const PORT = Number(process.env.PORT || 3001)
 
 // roomId -> { peers: Map(peerId -> ws), messages: Array<EncryptedMessage> }
 const rooms = new Map()
@@ -29,16 +29,6 @@ function sendJson(ws, payload) {
 
 const wss = new WebSocketServer({ port: PORT })
 console.log(`[signaling] listening on ws://localhost:${PORT}`)
-
-wss.on('error', (error) => {
-  if (error?.code === 'EADDRINUSE') {
-    console.log(`[signaling] port ${PORT} is already in use. An existing signaling server may already be running.`)
-    process.exit(0)
-  }
-
-  console.error('[signaling] failed to start:', error)
-  process.exit(1)
-})
 
 wss.on('connection', (ws) => {
   ws._roomId = null
@@ -124,4 +114,3 @@ wss.on('connection', (ws) => {
     if (room.peers.size === 0) rooms.delete(roomId)
   })
 })
-

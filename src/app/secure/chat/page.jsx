@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
+import { Suspense } from "react"
 
-const DEFAULT_SIGNAL_URL = "ws://localhost:3002"
+const DEFAULT_SIGNAL_URL = "ws://localhost:3001"
 const REACTIONS = ["👍", "❤️", "😂", "🙏", "😮"]
 
 function resolveSignalUrl() {
@@ -13,7 +14,7 @@ function resolveSignalUrl() {
   if (typeof window === "undefined") return DEFAULT_SIGNAL_URL
 
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
-  return `${protocol}//${window.location.hostname}:3002`
+  return `${protocol}//${window.location.hostname}:3001`
 }
 
 function safeParse(raw) {
@@ -169,7 +170,7 @@ function receiptLabel(status) {
   return ""
 }
 
-export default function ChatPage() {
+function ChatPageContent() {
   const searchParams = useSearchParams()
 
   const signalUrl = resolveSignalUrl()
@@ -760,6 +761,14 @@ export default function ChatPage() {
         {error ? <div style={{ marginTop: 8, color: "#f87171", fontSize: 12 }}>{error}</div> : null}
       </div>
     </div>
+  )
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center" }}>Loading chat...</div>}>
+      <ChatPageContent />
+    </Suspense>
   )
 }
 

@@ -11,35 +11,42 @@ const patientRegistrationSchema = new mongoose.Schema({
     patientFirstName: {
         type: String,
         required: true,
-        minlenght: [2, "First name"],
-        maxlenght: 20,
+        trim: true,
+        minlength: [2, "First name must be at least 2 characters long."],
+        maxlength: [20, "First name must be 20 characters or fewer."],
     },
     patientLastName: {
         type: String,
         required: true,
-        minlenght: [2, "Last name"],
-        maxlenght: 20,
+        trim: true,
+        minlength: [2, "Last name must be at least 2 characters long."],
+        maxlength: [20, "Last name must be 20 characters or fewer."],
     },
     patientEmail: {
         type: String,
         required: true,
         unique: true,
+        lowercase: true,
+        trim: true,
         match: [/\S+@\S+\.\S+/, 'Please use a valid email address.'],
     },
     patientPhone: {
         type: String,
         required: true,
         unique: true,
+        trim: true,
         match: [/^\d{10}$/, 'Please use a valid 10-digit phone number.'],
     },
     patientPassword: {
         type: String,
         required: true,
+        minlength: [8, 'Password must be at least 8 characters long.'],
         match: [/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}/, 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.'],
     },
     patientAddress: {
         type: String,
         required: true,
+        trim: true,
     },
 
 }, { timestamps: true });

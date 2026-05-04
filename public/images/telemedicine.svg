@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-labelledby="title desc">
+  <title id="title">Telemedicine illustration</title>
+  <desc id="desc">A remote medical consultation shown on a video screen.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ecfccb"/>
+      <stop offset="100%" stop-color="#dbeafe"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" rx="36" fill="url(#bg)"/>
+  <circle cx="640" cy="118" r="66" fill="#fff7c7" opacity="0.9"/>
+  <rect x="150" y="184" width="340" height="248" rx="28" fill="#0f172a" opacity="0.9"/>
+  <rect x="178" y="212" width="284" height="192" rx="18" fill="#e2e8f0"/>
+  <rect x="356" y="444" width="76" height="26" rx="12" fill="#0f172a" opacity="0.9"/>
+  <rect x="204" y="226" width="116" height="134" rx="18" fill="#bfdbfe"/>
+  <circle cx="262" cy="274" r="32" fill="#fff"/>
+  <path d="M232 350c12-26 30-40 56-40s44 14 56 40" fill="#fff"/>
+  <rect x="348" y="226" width="86" height="134" rx="18" fill="#d1fae5"/>
+  <circle cx="391" cy="274" r="30" fill="#ffffff"/>
+  <path d="M364 350c10-24 26-36 42-36s32 12 42 36" fill="#ffffff"/>
+  <path d="M560 242h112v112H560z" fill="#ffffff" stroke="#14b8a6" stroke-width="10"/>
+  <path d="M584 298h64M616 266v64" stroke="#14b8a6" stroke-width="12" stroke-linecap="round"/>
+  <path d="M548 424c0-52 42-94 94-94s94 42 94 94" fill="#ffffff" opacity="0.8"/>
+  <circle cx="642" cy="424" r="58" fill="#ffffff" stroke="#2563eb" stroke-width="10"/>
+  <path d="M642 390c16 0 28 12 28 28s-12 28-28 28-28-12-28-28 12-28 28-28z" fill="#bfdbfe"/>
+  <path d="M622 448c8-18 20-26 36-26s28 8 36 26" fill="#bfdbfe"/>
+  <path d="M114 512h572" stroke="#2563eb" stroke-width="18" stroke-linecap="round" opacity="0.45"/>
+</svg>

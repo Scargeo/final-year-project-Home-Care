@@ -1,11 +1,8 @@
 "use client"
 
+
 import Link from "next/link"
 import { useState } from "react"
-import ChatBot from "../ChatBot"
-import homecareAiAssistantLogo from "../assets/homecare_ai_assistant_logo.png"
-import "../App.css"
-
 const FEATURES = [
   {
     title: "Doctor Consultations",
@@ -169,9 +166,8 @@ function Icon({ type }) {
 }
 
 export default function HomePage() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isChatOpen, setIsChatOpen] = useState(false)
 
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
   return (
     <div className="hc-page">
       <header className="hc-header">
@@ -227,24 +223,6 @@ export default function HomePage() {
         ) : null}
       </header>
 
-      <button
-        type="button"
-        className="hc-ai-fab"
-        onClick={() => setIsChatOpen((prev) => !prev)}
-        aria-label={isChatOpen ? "Close AI Assistant chat" : "Open AI Assistant chat"}
-        data-tooltip="Hey, 👋"
-      >
-        <img
-          src={homecareAiAssistantLogo.src}
-          alt="HomeCare AI Assistant"
-          className="hc-ai-fab__logo"
-          onError={(e) => {
-            e.currentTarget.src = "/favicon.svg"
-          }}
-        />
-      </button>
-
-      {isChatOpen ? <ChatBot onClose={() => setIsChatOpen(false)} /> : null}
 
       <main>
         <section className="hc-hero" id="hero">

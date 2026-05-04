@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-labelledby="title desc">
+  <title id="title">Pharmacy illustration</title>
+  <desc id="desc">A pharmacy storefront with medicine symbols and prescription details.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fff4d6"/>
+      <stop offset="100%" stop-color="#ffe7f1"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" rx="36" fill="url(#bg)"/>
+  <circle cx="628" cy="126" r="70" fill="#fff1b8" opacity="0.9"/>
+  <path d="M180 222h440l-32 76H212z" fill="#c2410c" opacity="0.9"/>
+  <path d="M212 298h376v206H212z" fill="#fffdfa" stroke="#d97706" stroke-width="10"/>
+  <rect x="250" y="330" width="300" height="48" rx="16" fill="#fef3c7"/>
+  <text x="400" y="364" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#b45309">PHARMACY</text>
+  <rect x="260" y="410" width="110" height="70" rx="18" fill="#fda4af"/>
+  <rect x="388" y="410" width="110" height="70" rx="18" fill="#93c5fd"/>
+  <rect x="516" y="410" width="52" height="70" rx="18" fill="#86efac"/>
+  <path d="M315 425v40M295 445h40" stroke="#ffffff" stroke-width="10" stroke-linecap="round"/>
+  <path d="M442 425v40M422 445h40" stroke="#ffffff" stroke-width="10" stroke-linecap="round"/>
+  <path d="M542 422h-12v18h-18v12h18v18h12v-18h18v-12h-18z" fill="#ffffff"/>
+  <rect x="112" y="344" width="92" height="152" rx="18" fill="#f8fafc" stroke="#c2410c" stroke-width="8"/>
+  <rect x="132" y="376" width="52" height="54" rx="14" fill="#fda4af"/>
+  <path d="M158 344v-38" stroke="#c2410c" stroke-width="8" stroke-linecap="round"/>
+  <path d="M144 308h28" stroke="#c2410c" stroke-width="8" stroke-linecap="round"/>
+  <path d="M108 520h584" stroke="#c2410c" stroke-width="18" stroke-linecap="round" opacity="0.45"/>
+</svg>

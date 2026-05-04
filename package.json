@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "concurrently -n frontend,signaling -c blue,magenta \"npm:dev:frontend\" \"npm:dev:signaling\"",
     "dev:frontend": "next dev",
-    "dev:server": "npm --prefix ./server start",
     "dev:signaling": "node index.js",
     "build": "next build",
     "lint": "eslint .",
@@ -23,18 +22,17 @@
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.13.2",
     "remark-gfm": "^4.0.1",
-    "socket.io-client": "^4.8.3"
+    "socket.io-client": "^4.8.3",
+    "ws": "^8.20.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.0",
     "concurrently": "^9.2.1",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
-    "globals": "^17.4.0",
-    "vite": "^8.0.0"
+    "globals": "^17.4.0"
   }
 }

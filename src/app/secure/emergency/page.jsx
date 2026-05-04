@@ -3,8 +3,8 @@
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
+import { Suspense } from "react"
 import { io } from "socket.io-client"
-import "../../../App.css"
 
 function formatTime(value) {
   try {
@@ -33,7 +33,7 @@ function statusCopy(request) {
   return { title: "Request updated", body: "We have recorded the latest emergency status." }
 }
 
-export default function EmergencyDashboardPage() {
+function EmergencyDashboardContent() {
   const searchParams = useSearchParams()
   const role = (searchParams.get("role") || "patient").toLowerCase()
 
@@ -566,5 +566,13 @@ export default function EmergencyDashboardPage() {
         </section>
       </main>
     </div>
+  )
+}
+
+export default function EmergencyDashboardPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center" }}>Loading emergency dashboard...</div>}>
+      <EmergencyDashboardContent />
+    </Suspense>
   )
 }

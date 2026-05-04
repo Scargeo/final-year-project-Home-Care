@@ -33,20 +33,21 @@ OPENROUTER_API_KEY=your_key_here
 ```bash
 cd server
 npm install  # (already done, but good to verify)
-npm start    # Starts nodemon on port 3003
+npm start    # Starts on port 8000
 ```
 
 Expected output:
 ```
-Server is running on port 3003
+Server is running on port 8000
+MongoDB Connected to: ...
 ```
 
 ### Step 3: Start Frontend & Test
 ```bash
 # In new terminal, from project root
-npm run dev  # Starts Vite on port 5173
+npm run dev  # Starts frontend + signaling
 
-# Open browser: http://localhost:5173
+# Open browser: http://localhost:3000
 # Click "AI Assistant" button
 # Ask: "How do I treat a burn?"
 ```
@@ -55,19 +56,19 @@ npm run dev  # Starts Vite on port 5173
 
 ### Test 1: Health Check
 ```bash
-curl http://localhost:3003/api/ai/health
+curl http://localhost:8000/api/ai/health
 ```
 Expected: `{"status":"ok","pineconeIndex":"homecare-chatbot","namespace":"default"}`
 
 ### Test 2: Simple Query
 ```bash
-curl -X POST http://localhost:3003/api/ai/chat \
+curl -X POST http://localhost:8000/api/ai/chat \
   -H "Content-Type: application/json" \
   -d '{"query":"What is first aid?"}'
 ```
 
 ### Test 3: Interactive Testing
-1. Open home page (http://localhost:5173)
+1. Open home page (http://localhost:3000)
 2. Click "AI Assistant" in header
 3. Try these sample questions:
    - "How do I perform CPR?"
