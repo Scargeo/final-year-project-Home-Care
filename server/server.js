@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
-const { createProxyMiddleware } = require('http-proxy-middleware');
+// const { createProxyMiddleware } = require('http-proxy-middleware');
 // Load environment variables from .env file
 const dotenv = require('dotenv');
 dotenv.config();
@@ -13,7 +13,16 @@ connectDB();
 
 const app = express();
 app.use(express.json());
-app.use(cors());
+
+const corsOptions = {
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}
+
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -47,11 +56,11 @@ app.use('/api/ai', require('./routes/ai/chatRoute'));
 
 
 
-// Proxy API requests to the backend server
-app.use('/external-api', createProxyMiddleware({
-  target: process.env.BACKENDSERVER, // Backend server URL
-  changeOrigin: true,
-}));
+// // Proxy API requests to the backend server
+// app.use('/external-api', createProxyMiddleware({
+//   target: process.env.BACKENDSERVER, // Backend server URL
+//   changeOrigin: true,
+// }));
 
 const PORT = process.env.BACKENDSERVER_PORT || 3003;
 

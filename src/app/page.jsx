@@ -25,11 +25,6 @@ const FEATURES = [
     icon: "map",
   },
   {
-    title: "Online Assistant",
-    description: "Get help for common health questions in real-time.",
-    icon: "chat",
-  },
-  {
     title: "Appointment Scheduling",
     description: "Book consultations quickly with doctors and nurses.",
     icon: "calendar",

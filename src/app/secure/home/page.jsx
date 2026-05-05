@@ -1,7 +1,9 @@
 "use client"
 
 import Link from "next/link"
+import aiAssistantLogo from "../../../assets/homecare_ai_assistant_logo.png"
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
+import { buildBackendApiUrl } from "../../../lib/backend-url"
 import styles from "./home.module.css"
 
 const HEALTH_TIPS = [
@@ -79,10 +81,43 @@ const FEED_ITEMS = [
   },
 ]
 
+function getTimeBasedGreeting() {
+  const hour = new Date().getHours()
+  if (hour < 12) {
+    return "Good morning"
+  } else if (hour < 18) {
+    return "Good afternoon"
+  } else {
+    return "Good evening"
+  }
+}
+
+function getWelcomeMessage(name) {
+  const timeGreeting = getTimeBasedGreeting()
+  const displayName = name && name !== "Patient" ? `, ${name}` : ""
+  const openers = [
+    `I’m here if you want to talk through symptoms, medicines, or what to do next.`,
+    `Tell me what’s going on and we’ll figure it out together.`,
+    `If something feels off, just send it here and I’ll help you work through it.`,
+  ]
+  const opener = openers[new Date().getMinutes() % openers.length]
+
+  return `${timeGreeting}${displayName}. ${opener}`
+}
+
 export default function SecureHomePage() {
+  const aiAssistantLogoSrc = aiAssistantLogo?.src || aiAssistantLogo
   const [searchOpen, setSearchOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
+  const [aiQuery, setAiQuery] = useState("")
+  const [aiMessages, setAiMessages] = useState([])
+  const [aiConversationId, setAiConversationId] = useState("")
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError, setAiError] = useState("")
   const headerRef = useRef(null)
+  const aiInputRef = useRef(null)
+  const aiThreadRef = useRef(null)
 
   useEffect(() => {
     function handleOutsideClick(event) {
@@ -99,6 +134,18 @@ export default function SecureHomePage() {
       document.removeEventListener("touchstart", handleOutsideClick)
     }
   }, [])
+
+  useEffect(() => {
+    if (!aiOpen) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      aiInputRef.current?.focus()
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [aiOpen])
 
   const userName = useSyncExternalStore(
     () => () => {},
@@ -121,6 +168,98 @@ export default function SecureHomePage() {
     },
     () => "Patient",
   )
+
+  useEffect(() => {
+    if (aiOpen && aiMessages.length === 0) {
+      setAiMessages([
+        {
+          id: "initial",
+          role: "assistant",
+          content: getWelcomeMessage(userName),
+          timestamp: new Date(),
+        },
+      ])
+    }
+  }, [aiOpen, aiMessages.length, userName])
+
+  useEffect(() => {
+    if (!aiThreadRef.current) {
+      return
+    }
+
+    aiThreadRef.current.scrollTop = aiThreadRef.current.scrollHeight
+  }, [aiMessages, aiOpen])
+
+  async function submitAiQuery(nextQuery) {
+    const query = String(nextQuery ?? aiInputRef.current?.value ?? aiQuery).trim()
+    if (!query || aiLoading) return
+
+    const userMessage = { id: `${Date.now()}-user`, role: "user", content: query, timestamp: new Date() }
+    setAiMessages((currentMessages) => [...currentMessages, userMessage])
+    setAiQuery("")
+    if (aiInputRef.current) {
+      aiInputRef.current.value = ""
+    }
+    setAiLoading(true)
+    setAiError("")
+
+    try {
+      const storedAuth = typeof window !== "undefined" ? window.localStorage.getItem("patientAuth") : null
+      let userId = "patient"
+
+      if (storedAuth) {
+        try {
+          const auth = JSON.parse(storedAuth)
+          userId = auth?.patientEmail || auth?.id || [auth?.patientFirstName, auth?.patientLastName].filter(Boolean).join(" ").trim() || "patient"
+        } catch {
+          userId = "patient"
+        }
+      }
+
+      const response = await fetch(buildBackendApiUrl("/api/ai/chat"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query,
+          userId,
+          conversationId: aiConversationId || undefined,
+        }),
+      })
+
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(data?.error || data?.details || "Could not load the assistant response.")
+      }
+
+      setAiMessages((currentMessages) => [
+        ...currentMessages,
+        {
+          id: `${Date.now()}-assistant`,
+          role: "assistant",
+          content: String(data?.response || "No response returned.").trim(),
+          timestamp: new Date(),
+          sources: Array.isArray(data?.context) ? data.context : Array.isArray(data?.sources) ? data.sources : [],
+        },
+      ])
+      setAiConversationId(String(data?.conversationId || aiConversationId || ""))
+    } catch (error) {
+      const errorMessage = error?.message || "AI assistant is unavailable right now."
+      setAiError(errorMessage)
+      setAiMessages((currentMessages) => [
+        ...currentMessages,
+        {
+          id: `${Date.now()}-error`,
+          role: "assistant",
+          content: errorMessage,
+          tone: "error",
+          timestamp: new Date(),
+        },
+      ])
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
   return (
     <main className={styles.page}>
       <header className={styles.topBar} ref={headerRef}>
@@ -209,6 +348,133 @@ export default function SecureHomePage() {
           </nav>
         )}
       </header>
+
+        <div className={`${styles.aiDock} ${aiOpen ? styles.aiDockOpen : ""}`}>
+          {!aiOpen && (
+            <button
+              type="button"
+              className={styles.aiLauncher}
+              onClick={() => setAiOpen(true)}
+              aria-label="Open AI Assistant"
+              aria-pressed={aiOpen}
+              aria-controls="secure-home-ai-panel"
+            >
+              <span className={styles.aiLauncherBubble} aria-hidden="true">
+                <img src={aiAssistantLogoSrc} alt="" className={styles.aiLauncherImage} />
+              </span>
+              <span className={styles.aiLauncherHover} aria-hidden="true">
+                Hey <span className={styles.aiLauncherWave}>👋</span>
+              </span>
+            </button>
+          )}
+
+          {aiOpen && (
+            <section className={styles.aiPanel} id="secure-home-ai-panel" aria-label="AI Assistant chat">
+              <div className={styles.aiPanelHeader}>
+                <h3>HomeCare AI</h3>
+                <button type="button" className={styles.aiPanelClose} onClick={() => setAiOpen(false)} aria-label="Close chat">
+                  ×
+                </button>
+              </div>
+
+              <div className={styles.aiThread} ref={aiThreadRef} aria-live="polite" aria-relevant="additions text">
+                  {aiMessages.map((message) => (
+                    <div key={message.id} className={`${styles.aiMessageRow} ${message.role === "user" ? styles.aiMessageRowUser : styles.aiMessageRowAssistant}`}>
+                      <div
+                        className={`${styles.aiMessage} ${
+                          message.role === "user"
+                            ? styles.aiMessageUser
+                            : message.tone === "error"
+                              ? styles.aiMessageError
+                              : styles.aiMessageAssistant
+                        }`}
+                      >
+                        <p className={styles.aiMessageText}>{message.content}</p>
+                        <div className={styles.aiMessageMeta}>
+                          <span className={styles.aiMessageLabel}>{message.role === "user" ? "You" : "HomeCare AI"}</span>
+                          {message.timestamp ? (
+                            <span className={styles.aiMessageTime}>
+                              {new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          ) : null}
+                        </div>
+                        {Array.isArray(message.sources) && message.sources.length > 0 ? (
+                          <details className={styles.aiMessageSources}>
+                            <summary>View sources ({message.sources.length})</summary>
+                            <div className={styles.aiSourcesList}>
+                              {message.sources.map((source, index) => (
+                                <div key={`${message.id}-source-${index}`} className={styles.aiSourceItem}>
+                                  <small>{String(source)}</small>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+
+                  {aiLoading && (
+                    <div className={styles.aiMessageRow}>
+                      <div className={`${styles.aiMessage} ${styles.aiMessageAssistant}`}>
+                        <div className={styles.aiTypingIndicator} aria-label="HomeCare AI is typing">
+                          <span />
+                          <span />
+                          <span />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+              </div>
+
+              {aiError ? <p className={styles.aiError}>{aiError}</p> : null}
+
+              <form
+                className={styles.aiComposer}
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  submitAiQuery()
+                }}
+              >
+                <input
+                  ref={aiInputRef}
+                  className={styles.aiInput}
+                  value={aiQuery}
+                  onChange={(event) => setAiQuery(event.target.value)}
+                  placeholder="Message HomeCare AI..."
+                  type="text"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault()
+                      submitAiQuery()
+                    }
+                  }}
+                />
+                <div className={styles.aiActions}>
+                  <button type="submit" className={styles.aiButton} disabled={aiLoading}>
+                    {aiLoading ? "Thinking..." : "Send"}
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.aiGhostButton}
+                    onClick={() => {
+                      setAiMessages([])
+                      setAiConversationId("")
+                      setAiError("")
+                      setAiQuery("")
+                      if (aiInputRef.current) {
+                        aiInputRef.current.value = ""
+                      }
+                    }}
+                    disabled={aiLoading && aiMessages.length === 0}
+                  >
+                    Clear chat
+                  </button>
+                </div>
+              </form>
+            </section>
+          )}
+        </div>
 
       <nav className={styles.mobileMenu} aria-label="Patient menu">
         <Link href="/secure/home" className={styles.menuButton}>

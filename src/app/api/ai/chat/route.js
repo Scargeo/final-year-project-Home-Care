@@ -1,26 +1,20 @@
 import { NextResponse } from "next/server"
+import { getBackendBaseUrl } from "../../../../lib/backend-url"
 
 export const runtime = "nodejs"
 
 const env = globalThis?.process?.env || {}
 
-function normalizeBaseUrl(value) {
-  const base = String(value || "").trim().replace(/\/+$/, "")
-  if (!base) return ""
-  return base.replace(/\/external-api$/i, "")
-}
-
 function getCandidateBaseUrls() {
-  const port = env.BACKENDSERVER_PORT || 8000
+  const backendBaseUrl = getBackendBaseUrl()
   const candidates = [
     env.NEXT_PUBLIC_RAG_API_BASE_URL,
     env.NEXT_PUBLIC_API_BASE_URL,
     env.BACKENDSERVER,
-    `http://localhost:${port}`,
-    `http://127.0.0.1:${port}`,
+    backendBaseUrl,
   ]
 
-  return Array.from(new Set(candidates.map(normalizeBaseUrl).filter(Boolean)))
+  return Array.from(new Set(candidates.map((value) => String(value || "").trim().replace(/\/+$/, "")).filter(Boolean)))
 }
 
 async function fetchFromAIBackend(path, init = {}) {
@@ -31,7 +25,7 @@ async function fetchFromAIBackend(path, init = {}) {
   for (const baseUrl of baseUrls) {
     try {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 10000)
+      const timeout = setTimeout(() => controller.abort(), 60000)
       const response = await fetch(new URL(path, `${baseUrl}/`).toString(), {
         ...init,
         cache: "no-store",

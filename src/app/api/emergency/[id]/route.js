@@ -1,23 +1,22 @@
 import { NextResponse } from "next/server"
-
-function normalizeBaseUrl(value) {
-  const base = String(value || "").trim().replace(/\/+$/, "")
-  if (!base) return ""
-  return base.replace(/\/external-api$/i, "")
-}
+import { getBackendBaseUrl } from "../../../../../lib/backend-url"
 
 function getCandidateBaseUrls() {
   const env = globalThis?.process?.env || {}
-  const port = env.BACKENDSERVER_PORT || 8000
   const candidates = [
+    getBackendBaseUrl(),
     env.SOS_SERVER_URL,
     env.NEXT_PUBLIC_API_BASE_URL,
     env.BACKENDSERVER,
-    `http://localhost:${port}`,
-    `http://127.0.0.1:${port}`,
   ]
 
-  return Array.from(new Set(candidates.map(normalizeBaseUrl).filter(Boolean)))
+  return Array.from(
+    new Set(
+      candidates
+        .map((value) => String(value || "").trim().replace(/\/+$/, "").replace(/\/external-api$/i, ""))
+        .filter(Boolean),
+    ),
+  )
 }
 
 async function fetchFromSOSBackend(path, init = {}) {
@@ -27,7 +26,7 @@ async function fetchFromSOSBackend(path, init = {}) {
   for (const baseUrl of baseUrls) {
     try {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 4500)
+      const timeout = setTimeout(() => controller.abort(), 60000)
       const response = await fetch(`${baseUrl}${path}`, {
         ...init,
         cache: "no-store",

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { Suspense } from "react"
 import { io } from "socket.io-client"
+import { getBackendBaseUrl } from "../../../lib/backend-url"
 
 function formatTime(value) {
   try {
@@ -55,22 +56,28 @@ function EmergencyDashboardContent() {
   const seenProviderRequestIds = useRef(new Set())
   const socketRef = useRef(null)
 
-  useEffect(() => {
-    if (isProvider) return
-    if (typeof window === "undefined") return
+  function loadPatientProfile() {
+    if (typeof window === "undefined") return null
 
     const storedAuth = window.localStorage.getItem("patientAuth")
-    if (!storedAuth) return
+    if (!storedAuth) return null
 
     try {
-      const auth = JSON.parse(storedAuth)
-      const nextPatientName = [auth.patientFirstName, auth.patientLastName].filter(Boolean).join(" ").trim()
-      setPatientName((current) => current || nextPatientName || auth.patientFirstName || "")
-      setPatientPhone((current) => current || auth.patientPhone || "")
-      setAddress((current) => current || auth.patientAddress || "")
+      return JSON.parse(storedAuth)
     } catch {
-      // Ignore malformed auth data and leave the form editable.
+      return null
     }
+  }
+
+  useEffect(() => {
+    if (isProvider) return
+    const auth = loadPatientProfile()
+    if (!auth) return
+
+    const nextPatientName = [auth.patientFirstName, auth.patientLastName].filter(Boolean).join(" ").trim()
+    setPatientName((current) => current || nextPatientName || auth.patientFirstName || "")
+    setPatientPhone((current) => current || auth.patientPhone || "")
+    setAddress((current) => current || auth.patientAddress || "")
   }, [isProvider])
 
   const title = isProvider ? "Provider Emergency Panel" : "Emergency Help Dashboard"
@@ -81,6 +88,7 @@ function EmergencyDashboardContent() {
   const quickNote = useMemo(() => statusCopy(activeRequest), [activeRequest])
 
   const publicEnv = globalThis.process?.env || {}
+  const backendBaseUrl = getBackendBaseUrl()
 
   const loadEmergencyData = useCallback(async () => {
     const response = await fetch("/api/emergency", { cache: "no-store" })
@@ -169,7 +177,7 @@ function EmergencyDashboardContent() {
     const socketUrl =
       publicEnv.NEXT_PUBLIC_SOS_SOCKET_URL ||
       publicEnv.NEXT_PUBLIC_API_BASE_URL ||
-      "http://localhost:8000"
+      backendBaseUrl
 
     // Sockets are used here so providers receive SOS alerts instantly instead of waiting for the poll loop.
     const socket = io(socketUrl, {
