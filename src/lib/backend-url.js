@@ -1,16 +1,6 @@
 const DEFAULT_BACKEND_BASE_URL = "https://home-care-ob1m.onrender.com"
 const LOCAL_BACKEND_BASE_URL = "http://localhost:8000"
 
-function isLocalhostUrl(value) {
-  const url = String(value || "").trim().toLowerCase()
-  return (
-    url.startsWith("http://localhost") ||
-    url.startsWith("https://localhost") ||
-    url.startsWith("http://127.0.0.1") ||
-    url.startsWith("https://127.0.0.1")
-  )
-}
-
 function normalizeBaseUrl(value) {
   const base = String(value || "").trim().replace(/\/+$/, "")
   if (!base) return ""
@@ -19,31 +9,15 @@ function normalizeBaseUrl(value) {
 
 export function getBackendBaseUrl() {
   const env = globalThis?.process?.env || {}
+  const publicBaseUrl = normalizeBaseUrl(env.NEXT_PUBLIC_API_BASE_URL)
+
+  if (publicBaseUrl) {
+    return publicBaseUrl
+  }
+
   const isProduction = String(env.NODE_ENV || "").toLowerCase() === "production"
-
-  const candidates = isProduction
-    ? [
-        env.NEXT_PUBLIC_API_BASE_URL,
-        env.NEXT_PUBLIC_SOS_SOCKET_URL,
-        env.NEXT_PUBLIC_RAG_API_BASE_URL,
-        env.BACKENDSERVER,
-        DEFAULT_BACKEND_BASE_URL,
-      ]
-    : [
-        env.LOCAL_BACKEND_URL,
-        LOCAL_BACKEND_BASE_URL,
-        env.NEXT_PUBLIC_API_BASE_URL,
-        env.NEXT_PUBLIC_SOS_SOCKET_URL,
-        env.NEXT_PUBLIC_RAG_API_BASE_URL,
-        env.BACKENDSERVER,
-        DEFAULT_BACKEND_BASE_URL,
-      ]
-
-  for (const candidate of candidates) {
-    const baseUrl = normalizeBaseUrl(candidate)
-    if (!baseUrl) continue
-    if (isProduction && isLocalhostUrl(baseUrl)) continue
-    return baseUrl
+  if (!isProduction) {
+    return LOCAL_BACKEND_BASE_URL
   }
 
   return DEFAULT_BACKEND_BASE_URL
