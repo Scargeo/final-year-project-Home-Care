@@ -48,10 +48,10 @@ app.use('/api/ai', require('./routes/ai/chatRoute'));
 
 
 // Proxy API requests to the backend server
-app.use('/external-api', createProxyMiddleware({
-  target: process.env.BACKENDSERVER, // Backend server URL
-  changeOrigin: true,
-}));
+// app.use('/external-api', createProxyMiddleware({
+//   target: process.env.BACKENDSERVER, // Backend server URL
+//   changeOrigin: true,
+// }));
 
 const PORT = process.env.BACKENDSERVER_PORT || 3003;
 
