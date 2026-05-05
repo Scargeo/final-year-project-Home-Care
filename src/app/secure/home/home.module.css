@@ -690,8 +690,9 @@
 }
 
 .aiMessageUser {
-  background: linear-gradient(135deg, #4e93d1, #6ba9df);
-  color: white;
+  background: #ffffff;
+  border-color: #e3ebf2;
+  color: #1f2937;
   border-top-right-radius: 0.45rem;
 }
 

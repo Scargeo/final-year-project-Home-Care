@@ -368,7 +368,7 @@ function EmergencyDashboardContent() {
           </Link>
 
           <nav className="hc-nav" aria-label="Emergency navigation">
-            <Link href="/">Home</Link>
+            <Link href="/secure/home">Home</Link>
             <Link href="/secure/chat">Chat</Link>
             <Link href="/secure/call">Call</Link>
             <Link href={isProvider ? "/secure/emergency?role=patient" : "/secure/emergency?role=provider"} className="hc-btn hc-btn--outline hc-btn--sm">

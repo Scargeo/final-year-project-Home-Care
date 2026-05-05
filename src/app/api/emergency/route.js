@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getBackendBaseUrl } from "../../../../lib/backend-url"
+import { getBackendBaseUrl } from "../../../lib/backend-url"
 
 function getCandidateBaseUrls() {
   const env = globalThis?.process?.env || {}
