@@ -49,10 +49,14 @@ export default function LoginPage() {
         throw new Error(data?.message || "Could not log in.")
       }
 
-      setSuccess("Login successful. Redirecting to your dashboard...")
+      if (typeof window !== "undefined" && data?.user) {
+        localStorage.setItem("patientAuth", JSON.stringify(data.user))
+      }
+
+      setSuccess("Login successful. Redirecting to your home feed...")
       setStatus("Access granted.")
       setForm(initialForm)
-      setTimeout(() => router.push("/"), 1000)
+      setTimeout(() => router.push("/secure/home"), 1000)
     } catch (err) {
       setError(err.message || "Login failed.")
       setStatus("Unable to log in right now.")

@@ -55,6 +55,24 @@ function EmergencyDashboardContent() {
   const seenProviderRequestIds = useRef(new Set())
   const socketRef = useRef(null)
 
+  useEffect(() => {
+    if (isProvider) return
+    if (typeof window === "undefined") return
+
+    const storedAuth = window.localStorage.getItem("patientAuth")
+    if (!storedAuth) return
+
+    try {
+      const auth = JSON.parse(storedAuth)
+      const nextPatientName = [auth.patientFirstName, auth.patientLastName].filter(Boolean).join(" ").trim()
+      setPatientName((current) => current || nextPatientName || auth.patientFirstName || "")
+      setPatientPhone((current) => current || auth.patientPhone || "")
+      setAddress((current) => current || auth.patientAddress || "")
+    } catch {
+      // Ignore malformed auth data and leave the form editable.
+    }
+  }, [isProvider])
+
   const title = isProvider ? "Provider Emergency Panel" : "Emergency Help Dashboard"
   const subtitle = isProvider
     ? "See new emergency requests, accept them immediately, and jump into chat or contact."

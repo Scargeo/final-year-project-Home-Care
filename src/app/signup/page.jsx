@@ -42,12 +42,6 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-  const displayName = useMemo(() => {
-    const first = form.patientFirstName.trim()
-    const last = form.patientLastName.trim()
-    return `${first} ${last}`.trim() || "Patient"
-  }, [form.patientFirstName, form.patientLastName])
-
   const passwordStrength = useMemo(
     () => calculatePasswordStrength(form.patientPassword),
     [form.patientPassword]
