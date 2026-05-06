@@ -5,6 +5,7 @@ import Link from "next/link"
 import aiAssistantLogo from "../../../assets/homecare_ai_assistant_logo.png"
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import styles from "./home.module.css"
+import NotificationsPanel from "../components/NotificationsPanel"
 
 const HEALTH_TIPS = [
   {
@@ -279,14 +280,16 @@ export default function SecureHomePage() {
             {!searchOpen && (
               <button 
                 type="button" 
-                className={styles.searchButton} 
+                className={`${styles.action} ${styles.actionGhost} ${styles.searchButton}`}
                 onClick={() => setSearchOpen(true)}
                 aria-label="Search health tips and channels"
+                title="Search"
               >
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                   <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="2" />
                   <path d="M15.5 15.5L20 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
+                <span className={styles.searchLabel}>Search</span>
               </button>
             )}
             {searchOpen && (
@@ -301,12 +304,18 @@ export default function SecureHomePage() {
             )}
           </div>
 
+          <button type="button" className={styles.aiHeaderButton} onClick={() => setAiOpen(true)} aria-label="Open Health Assistant" title="Health Assistant">
+            <Image src={aiAssistantLogoSrc} alt="" width={22} height={22} className={styles.aiHeaderIcon} />
+            <span className={styles.aiLabel}>Health Assistant</span>
+          </button>
+
           <Link href="/secure/emergency" className={`${styles.action} ${styles.actionDanger}`}>
             <span className={styles.emergencyLabel}>Emergency</span>
             <span className={styles.sosLabel}>SOS</span>
           </Link>
-          <Link href="/secure/chat" className={`${styles.action} ${styles.actionGhost}`}>
-            Messages
+          <NotificationsPanel variant="header" />
+          <Link href="/secure/dashboard" className={`${styles.action} ${styles.actionGhost} ${styles.desktopOnlyAction}`}>
+            Dashboard
           </Link>
 
           <button
@@ -350,133 +359,6 @@ export default function SecureHomePage() {
         )}
       </header>
 
-        <div className={`${styles.aiDock} ${aiOpen ? styles.aiDockOpen : ""}`}>
-          {!aiOpen && (
-            <button
-              type="button"
-              className={styles.aiLauncher}
-              onClick={() => setAiOpen(true)}
-              aria-label="Open AI Assistant"
-              aria-pressed={aiOpen}
-              aria-controls="secure-home-ai-panel"
-            >
-              <span className={styles.aiLauncherBubble} aria-hidden="true">
-                <Image src={aiAssistantLogoSrc} alt="" width={64} height={64} className={styles.aiLauncherImage} />
-              </span>
-              <span className={styles.aiLauncherHover} aria-hidden="true">
-                Hey <span className={styles.aiLauncherWave}>👋</span>
-              </span>
-            </button>
-          )}
-
-          {aiOpen && (
-            <section className={styles.aiPanel} id="secure-home-ai-panel" aria-label="AI Assistant chat">
-              <div className={styles.aiPanelHeader}>
-                <h3>HomeCare AI</h3>
-                <button type="button" className={styles.aiPanelClose} onClick={() => setAiOpen(false)} aria-label="Close chat">
-                  ×
-                </button>
-              </div>
-
-              <div className={styles.aiThread} ref={aiThreadRef} aria-live="polite" aria-relevant="additions text">
-                  {aiMessages.map((message) => (
-                    <div key={message.id} className={`${styles.aiMessageRow} ${message.role === "user" ? styles.aiMessageRowUser : styles.aiMessageRowAssistant}`}>
-                      <div
-                        className={`${styles.aiMessage} ${
-                          message.role === "user"
-                            ? styles.aiMessageUser
-                            : message.tone === "error"
-                              ? styles.aiMessageError
-                              : styles.aiMessageAssistant
-                        }`}
-                      >
-                        <p className={styles.aiMessageText}>{message.content}</p>
-                        <div className={styles.aiMessageMeta}>
-                          <span className={styles.aiMessageLabel}>{message.role === "user" ? "You" : "HomeCare AI"}</span>
-                          {message.timestamp ? (
-                            <span className={styles.aiMessageTime}>
-                              {new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                            </span>
-                          ) : null}
-                        </div>
-                        {Array.isArray(message.sources) && message.sources.length > 0 ? (
-                          <details className={styles.aiMessageSources}>
-                            <summary>View sources ({message.sources.length})</summary>
-                            <div className={styles.aiSourcesList}>
-                              {message.sources.map((source, index) => (
-                                <div key={`${message.id}-source-${index}`} className={styles.aiSourceItem}>
-                                  <small>{String(source)}</small>
-                                </div>
-                              ))}
-                            </div>
-                          </details>
-                        ) : null}
-                      </div>
-                    </div>
-                  ))}
-
-                  {aiLoading && (
-                    <div className={styles.aiMessageRow}>
-                      <div className={`${styles.aiMessage} ${styles.aiMessageAssistant}`}>
-                        <div className={styles.aiTypingIndicator} aria-label="HomeCare AI is typing">
-                          <span />
-                          <span />
-                          <span />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-              </div>
-
-              {aiError ? <p className={styles.aiError}>{aiError}</p> : null}
-
-              <form
-                className={styles.aiComposer}
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  submitAiQuery()
-                }}
-              >
-                <input
-                  ref={aiInputRef}
-                  className={styles.aiInput}
-                  value={aiQuery}
-                  onChange={(event) => setAiQuery(event.target.value)}
-                  placeholder="Message HomeCare AI..."
-                  type="text"
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
-                      event.preventDefault()
-                      submitAiQuery()
-                    }
-                  }}
-                />
-                <div className={styles.aiActions}>
-                  <button type="submit" className={styles.aiButton} disabled={aiLoading}>
-                    {aiLoading ? "Thinking..." : "Send"}
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.aiGhostButton}
-                    onClick={() => {
-                      setAiMessages([])
-                      setAiConversationId("")
-                      setAiError("")
-                      setAiQuery("")
-                      if (aiInputRef.current) {
-                        aiInputRef.current.value = ""
-                      }
-                    }}
-                    disabled={aiLoading && aiMessages.length === 0}
-                  >
-                    Clear chat
-                  </button>
-                </div>
-              </form>
-            </section>
-          )}
-        </div>
-
       <nav className={styles.mobileMenu} aria-label="Patient menu">
         <Link href="/secure/home" className={styles.menuButton}>
           <span>🏠</span>
@@ -512,32 +394,7 @@ export default function SecureHomePage() {
             <p>Patient dashboard</p>
           </section>
 
-          <nav className={styles.menuCard} aria-label="User menu">
-            <Link href="/secure/home" className={styles.menuButton}>
-              <span>🏠</span>
-              <span>Home</span>
-            </Link>
-            <Link href="/secure/dashboard" className={styles.menuButton}>
-              <span>📊</span>
-              <span>Dashboard</span>
-            </Link>
-            <Link href="/secure/chat" className={styles.menuButton}>
-              <span>💬</span>
-              <span>Chats</span>
-            </Link>
-            <Link href="/secure/appointments" className={styles.menuButton}>
-              <span>📅</span>
-              <span>Appointments</span>
-            </Link>
-            <Link href="/secure/health-records" className={styles.menuButton}>
-              <span>📋</span>
-              <span>Records</span>
-            </Link>
-            <Link href="/secure/emergency" className={styles.menuButtonStrong}>
-              <span>🚨</span>
-              <span>Emergency</span>
-            </Link>
-          </nav>
+          <NotificationsPanel variant="sidebar" />
         </aside>
 
         <section className={styles.feedColumn}>
@@ -606,6 +463,111 @@ export default function SecureHomePage() {
         </section>
 
         <aside className={styles.rightRail}>
+          {aiOpen && (
+            <section className={styles.aiPanel} id="secure-home-ai-panel" aria-label="AI Assistant chat">
+              <div className={styles.aiPanelHeader}>
+                <h3>HomeCare AI Assistant</h3>
+                <button type="button" className={styles.aiPanelClose} onClick={() => setAiOpen(false)} aria-label="Close chat">
+                  ×
+                </button>
+              </div>
+
+              <p className={styles.aiDisclaimer}>
+                ⚠️ This AI provides general health information and is not a substitute for professional medical advice.
+              </p>
+
+              <div className={styles.aiThread} ref={aiThreadRef} aria-live="polite" aria-relevant="additions text">
+                {aiMessages.map((message) => (
+                  <div key={message.id} className={`${styles.aiMessageRow} ${message.role === "user" ? styles.aiMessageRowUser : styles.aiMessageRowAssistant}`}>
+                    <div
+                      className={`${styles.aiMessage} ${
+                        message.role === "user" ? styles.aiMessageUser : message.tone === "error" ? styles.aiMessageError : styles.aiMessageAssistant
+                      }`}
+                    >
+                      <p className={styles.aiMessageText}>{message.content}</p>
+                      <div className={styles.aiMessageMeta}>
+                        <span className={styles.aiMessageLabel}>{message.role === "user" ? "You" : "HomeCare AI"}</span>
+                        {message.timestamp ? (
+                          <span className={styles.aiMessageTime}>{new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                        ) : null}
+                      </div>
+                      {Array.isArray(message.sources) && message.sources.length > 0 ? (
+                        <details className={styles.aiMessageSources}>
+                          <summary>View sources ({message.sources.length})</summary>
+                          <div className={styles.aiSourcesList}>
+                            {message.sources.map((source, index) => (
+                              <div key={`${message.id}-source-${index}`} className={styles.aiSourceItem}>
+                                <small>{String(source)}</small>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+
+                {aiLoading && (
+                  <div className={styles.aiMessageRow}>
+                    <div className={`${styles.aiMessage} ${styles.aiMessageAssistant}`}>
+                      <div className={styles.aiTypingIndicator} aria-label="HomeCare AI is typing">
+                        <span />
+                        <span />
+                        <span />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {aiError ? <p className={styles.aiError}>{aiError}</p> : null}
+
+              <form
+                className={styles.aiComposer}
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  submitAiQuery()
+                }}
+              >
+                <input
+                  ref={aiInputRef}
+                  className={styles.aiInput}
+                  value={aiQuery}
+                  onChange={(event) => setAiQuery(event.target.value)}
+                  placeholder="Message HomeCare AI..."
+                  type="text"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault()
+                      submitAiQuery()
+                    }
+                  }}
+                />
+                <div className={styles.aiActions}>
+                  <button type="submit" className={styles.aiButton} disabled={aiLoading}>
+                    {aiLoading ? "Thinking..." : "Send"}
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.aiGhostButton}
+                    onClick={() => {
+                      setAiMessages([])
+                      setAiConversationId("")
+                      setAiError("")
+                      setAiQuery("")
+                      if (aiInputRef.current) {
+                        aiInputRef.current.value = ""
+                      }
+                    }}
+                    disabled={aiLoading && aiMessages.length === 0}
+                  >
+                    Clear chat
+                  </button>
+                </div>
+              </form>
+            </section>
+          )}
+
           <section className={styles.sideCard}>
             <div className={styles.sideHeader}>
               <h3>Trending Health Tips</h3>
