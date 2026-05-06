@@ -22,15 +22,21 @@ export function getBackendBaseUrl() {
   const env = globalThis?.process?.env || {}
   const isProduction = String(env.NODE_ENV || "").toLowerCase() === "production"
   const publicBaseUrl = normalizeBaseUrl(env.NEXT_PUBLIC_API_BASE_URL)
+  const isLocalBrowser = isLocalBrowserHost()
 
   if (publicBaseUrl) {
     if (!isLocalhostBaseUrl(publicBaseUrl)) {
       return publicBaseUrl
     }
 
-    if (isLocalBrowserHost() || !isProduction) {
+    if (isLocalBrowser || !isProduction) {
       return publicBaseUrl
     }
+  }
+
+  // If browser is not localhost (e.g., deployed on Vercel), always use production backend
+  if (!isLocalBrowser) {
+    return DEFAULT_BACKEND_BASE_URL
   }
 
   if (!isProduction) {
