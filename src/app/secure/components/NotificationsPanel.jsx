@@ -168,13 +168,9 @@ function NotificationCard({ entry, isRead, isExpanded, onToggle, onMarkRead }) {
 export default function NotificationsPanel({ variant = "sidebar" }) {
   const [notifications, setNotifications] = useState([])
   const [items, setItems] = useState([])
-  const [readIds, setReadIds] = useState(() => new Set())
+  const [readIds, setReadIds] = useState(() => loadReadIds())
   const [expanded, setExpanded] = useState(() => new Set())
   const prevStatusRef = useRef(new Map())
-
-  useEffect(() => {
-    setReadIds(loadReadIds())
-  }, [])
 
   function markAsRead(id) {
     if (!id) return
