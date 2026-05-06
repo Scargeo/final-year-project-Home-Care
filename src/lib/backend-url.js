@@ -34,13 +34,15 @@ export function getBackendBaseUrl() {
     }
   }
 
+  // During server-side development (local dev), prefer the local backend
+  // so `next dev` and API routes proxy to a developer-run backend at localhost:8000.
+  if (!isProduction) {
+    return LOCAL_BACKEND_BASE_URL
+  }
+
   // If browser is not localhost (e.g., deployed on Vercel), always use production backend
   if (!isLocalBrowser) {
     return DEFAULT_BACKEND_BASE_URL
-  }
-
-  if (!isProduction) {
-    return LOCAL_BACKEND_BASE_URL
   }
 
   return DEFAULT_BACKEND_BASE_URL
