@@ -53,14 +53,20 @@ A comprehensive healthcare management system built with **Next.js**, **React**, 
 
 ## Environment Variables
 
-**Frontend (.env.local)**:
+**Frontend local development (.env.local)**:
+```
+LOCAL_BACKEND_URL=http://localhost:8000
+LOCAL_SOS_SOCKET_URL=http://localhost:3003
+```
+
+**Frontend production on Vercel**:
 ```
 NEXT_PUBLIC_API_BASE_URL=https://home-care-ob1m.onrender.com
 NEXT_PUBLIC_SOS_SOCKET_URL=https://home-care-ob1m.onrender.com
 ```
 
-Set the same values in Vercel environment variables so the deployed frontend talks to the Render backend.
-After changing backend CORS settings, redeploy the Render server so localhost and Vercel browsers can call it directly.
+Do not set localhost values in Vercel. The deployed frontend should point to Render only.
+After changing backend CORS settings, redeploy the Render server so Vercel browsers can call it directly.
 
 **Backend (server/.env)**:
 ```
