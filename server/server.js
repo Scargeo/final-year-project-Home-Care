@@ -17,8 +17,9 @@ app.use(express.json());
 const corsOptions = {
   origin: [
     "http://localhost:3000",
+    "https://final-year-project-home-care.vercel.app",
     process.env.FRONTEND_URL
-  ],
+  ].filter(Boolean),
   credentials: true,
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
