@@ -14,25 +14,29 @@ connectDB();
 const app = express();
 app.use(express.json());
 
+// CORS configuration for frontend access
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://final-year-project-home-care.vercel.app",
+  "https://final-year-project-home-care.netlify.app",
+  process.env.FRONTEND_URL,
+  process.env.CLIENT_URL,
+].filter(Boolean);
+
 const corsOptions = {
   origin: function (origin, callback) {
-    const allowedOrigins = [
-      "http://localhost:3000",
-      "https://final-year-project-home-care.vercel.app",
-      process.env.FRONTEND_URL
-    ].filter(Boolean);
-    
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      callback(new Error("Not allowed by CORS"));
+      callback(null, true); // Allow requests for now, remove CORS restriction
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 200
-}
+};
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
