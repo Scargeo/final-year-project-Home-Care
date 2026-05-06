@@ -72,6 +72,7 @@ export default function SignupPage() {
     try {
       const response = await fetch(buildPatientApiUrl("/api/patients/register"), {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           patientFirstName: form.patientFirstName.trim(),

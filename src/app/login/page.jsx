@@ -37,6 +37,7 @@ export default function LoginPage() {
     try {
       const response = await fetch(buildPatientApiUrl("/api/patients/login"), {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           patientEmail: form.patientEmail.trim().toLowerCase(),

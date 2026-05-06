@@ -218,6 +218,7 @@ export default function SecureHomePage() {
 
       const response = await fetch(buildBackendApiUrl("/api/ai/chat"), {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query,
