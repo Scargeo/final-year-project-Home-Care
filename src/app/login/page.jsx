@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import AuthShowcase from "../auth/AuthShowcase"
 import styles from "../auth/auth.module.css"
-import { buildPatientApiUrl } from "../../lib/patient-auth"
 
 const initialForm = {
   patientEmail: "",
