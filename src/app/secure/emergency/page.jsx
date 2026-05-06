@@ -87,7 +87,6 @@ function EmergencyDashboardContent() {
 
   const quickNote = useMemo(() => statusCopy(activeRequest), [activeRequest])
 
-  const publicEnv = globalThis.process?.env || {}
   const backendBaseUrl = getBackendBaseUrl()
 
   const loadEmergencyData = useCallback(async () => {
