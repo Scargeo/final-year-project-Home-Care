@@ -35,7 +35,8 @@ export default function LoginPage() {
     setStatus("Checking your patient credentials...")
 
     try {
-      const response = await fetch(buildPatientApiUrl("/api/patients/login"), {
+      // Use local API proxy to avoid CORS issues
+      const response = await fetch("/api/patients/login", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
