@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import AuthShowcase from "../auth/AuthShowcase"
 import styles from "../auth/auth.module.css"
-import { buildPatientApiUrl } from "../../lib/patient-auth"
 
 const initialForm = {
   patientFirstName: "",
@@ -70,7 +69,7 @@ export default function SignupPage() {
     setStatus("Creating your patient account...")
 
     try {
-      const response = await fetch(buildPatientApiUrl("/api/patients/register"), {
+      const response = await fetch("/api/patients/register", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

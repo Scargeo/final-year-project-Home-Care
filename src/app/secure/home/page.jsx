@@ -4,7 +4,6 @@ import Image from "next/image"
 import Link from "next/link"
 import aiAssistantLogo from "../../../assets/homecare_ai_assistant_logo.png"
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
-import { buildBackendApiUrl } from "../../../lib/backend-url"
 import styles from "./home.module.css"
 
 const HEALTH_TIPS = [
@@ -217,7 +216,7 @@ export default function SecureHomePage() {
         }
       }
 
-      const response = await fetch(buildBackendApiUrl("/api/ai/chat"), {
+      const response = await fetch("/api/ai/chat", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
