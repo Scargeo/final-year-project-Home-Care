@@ -1,6 +1,7 @@
 "use client"
 
 
+import Image from "next/image"
 import Link from "next/link"
 import { useState } from "react"
 const FEATURES = [
@@ -275,7 +276,14 @@ export default function HomePage() {
             </div>
 
             <div className="hc-hero__media">
-              <img src="/images/homecare-nurse-optimized.jpg" alt="Home Care healthcare professional" loading="eager" fetchPriority="high" />
+              <Image
+                src="/images/homecare-nurse-optimized.jpg"
+                alt="Home Care healthcare professional"
+                width={1200}
+                height={900}
+                priority
+                sizes="(max-width: 1024px) 100vw, 50vw"
+              />
               <aside className="hc-float-card">
                 <p>Professional Care</p>
                 <span>Certified professionals for quality service</span>

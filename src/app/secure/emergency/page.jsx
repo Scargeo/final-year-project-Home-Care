@@ -220,7 +220,7 @@ function EmergencyDashboardContent() {
       socket.disconnect()
       socketRef.current = null
     }
-  }, [isProvider, publicEnv.NEXT_PUBLIC_SOS_SOCKET_URL, publicEnv.NEXT_PUBLIC_API_BASE_URL])
+  }, [isProvider, publicEnv.NEXT_PUBLIC_SOS_SOCKET_URL, publicEnv.NEXT_PUBLIC_API_BASE_URL, backendBaseUrl])
 
   function resolveDeviceLocation() {
     if (typeof window === "undefined" || !window.navigator?.geolocation) {

@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import Link from "next/link"
 import aiAssistantLogo from "../../../assets/homecare_ai_assistant_logo.png"
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
@@ -361,7 +362,7 @@ export default function SecureHomePage() {
               aria-controls="secure-home-ai-panel"
             >
               <span className={styles.aiLauncherBubble} aria-hidden="true">
-                <img src={aiAssistantLogoSrc} alt="" className={styles.aiLauncherImage} />
+                <Image src={aiAssistantLogoSrc} alt="" width={64} height={64} className={styles.aiLauncherImage} />
               </span>
               <span className={styles.aiLauncherHover} aria-hidden="true">
                 Hey <span className={styles.aiLauncherWave}>👋</span>
