@@ -1,6 +1,17 @@
 const DEFAULT_BACKEND_BASE_URL = "https://home-care-ob1m.onrender.com"
 const LOCAL_BACKEND_BASE_URL = "http://localhost:8000"
 
+function isLocalhostBaseUrl(value) {
+  const normalizedValue = String(value || "").toLowerCase()
+  return normalizedValue.includes("localhost") || normalizedValue.includes("127.0.0.1")
+}
+
+function isLocalBrowserHost() {
+  if (typeof window === "undefined") return false
+  const browserHost = String(window.location?.hostname || "").toLowerCase()
+  return browserHost === "localhost" || browserHost === "127.0.0.1"
+}
+
 function normalizeBaseUrl(value) {
   const base = String(value || "").trim().replace(/\/+$/, "")
   if (!base) return ""
@@ -9,13 +20,19 @@ function normalizeBaseUrl(value) {
 
 export function getBackendBaseUrl() {
   const env = globalThis?.process?.env || {}
+  const isProduction = String(env.NODE_ENV || "").toLowerCase() === "production"
   const publicBaseUrl = normalizeBaseUrl(env.NEXT_PUBLIC_API_BASE_URL)
 
   if (publicBaseUrl) {
-    return publicBaseUrl
+    if (!isLocalhostBaseUrl(publicBaseUrl)) {
+      return publicBaseUrl
+    }
+
+    if (isLocalBrowserHost() || !isProduction) {
+      return publicBaseUrl
+    }
   }
 
-  const isProduction = String(env.NODE_ENV || "").toLowerCase() === "production"
   if (!isProduction) {
     return LOCAL_BACKEND_BASE_URL
   }
