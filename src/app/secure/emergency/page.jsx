@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { Suspense } from "react"
 import { io } from "socket.io-client"
-import { getBackendBaseUrl, getSocketBaseUrl } from "../../../lib/backend-url"
+import { getBackendBaseUrl } from "../../../lib/backend-url"
 
 function formatTime(value) {
   try {
@@ -87,6 +87,7 @@ function EmergencyDashboardContent() {
 
   const quickNote = useMemo(() => statusCopy(activeRequest), [activeRequest])
 
+  const publicEnv = globalThis.process?.env || {}
   const backendBaseUrl = getBackendBaseUrl()
 
   const loadEmergencyData = useCallback(async () => {
@@ -173,7 +174,10 @@ function EmergencyDashboardContent() {
   useEffect(() => {
     if (!isProvider) return undefined
 
-    const socketUrl = getSocketBaseUrl() || backendBaseUrl
+    const socketUrl =
+      publicEnv.NEXT_PUBLIC_SOS_SOCKET_URL ||
+      publicEnv.NEXT_PUBLIC_API_BASE_URL ||
+      backendBaseUrl
 
     // Sockets are used here so providers receive SOS alerts instantly instead of waiting for the poll loop.
     const socket = io(socketUrl, {
@@ -216,7 +220,7 @@ function EmergencyDashboardContent() {
       socket.disconnect()
       socketRef.current = null
     }
-  }, [isProvider, backendBaseUrl])
+  }, [isProvider, publicEnv.NEXT_PUBLIC_SOS_SOCKET_URL, publicEnv.NEXT_PUBLIC_API_BASE_URL])
 
   function resolveDeviceLocation() {
     if (typeof window === "undefined" || !window.navigator?.geolocation) {
