@@ -1,0 +1,361 @@
+.page {
+  min-height: 100svh;
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.14), transparent 30%),
+    radial-gradient(circle at 90% 15%, rgba(20, 184, 166, 0.12), transparent 24%),
+    linear-gradient(180deg, #f8fdff 0%, #eff8fc 100%);
+  color: #0f172a;
+}
+
+.topBar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem;
+  border-bottom: 1px solid rgba(8, 145, 178, 0.12);
+  background: rgba(255, 255, 255, 0.84);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.kicker {
+  margin: 0 0 0.4rem;
+  color: #0a66c2;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.topBar h1 {
+  margin: 0;
+  font-size: clamp(2rem, 3vw, 3rem);
+  letter-spacing: -0.04em;
+}
+
+.subtitle {
+  margin: 0.55rem 0 0;
+  max-width: 60ch;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.topActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.shell {
+  width: min(1360px, calc(100% - 1.5rem));
+  margin: 0 auto;
+  padding: 1.25rem 0 2rem;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.summaryCard,
+.card,
+.fileCard {
+  border: 1px solid rgba(8, 145, 178, 0.12);
+  border-radius: 1.2rem;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.06);
+}
+
+.summaryCard {
+  padding: 1rem;
+}
+
+.summaryCard span {
+  display: block;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.summaryCard strong {
+  display: block;
+  margin-top: 0.35rem;
+  color: #0f172a;
+  font-size: 1.1rem;
+}
+
+.status,
+.notice,
+.error,
+.emptyState {
+  margin: 0 0 1rem;
+  padding: 0.8rem 1rem;
+  border-radius: 0.9rem;
+}
+
+.status {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.notice {
+  background: #ecfdf5;
+  color: #166534;
+}
+
+.error {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.card {
+  padding: 1rem;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.cardHeader h2 {
+  margin: 0;
+  letter-spacing: -0.03em;
+}
+
+.cardHeader p {
+  margin: 0.35rem 0 0;
+  color: #64748b;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  background: #ecfeff;
+  color: #0e7490;
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.field {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 0.9rem;
+}
+
+.field span {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.field textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 120px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 1rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbfd 100%);
+  padding: 0.9rem 1rem;
+  color: #0f172a;
+  font: inherit;
+  line-height: 1.6;
+}
+
+.field textarea:focus {
+  outline: none;
+  border-color: rgba(14, 165, 233, 0.55);
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.12);
+}
+
+.field textarea[readonly] {
+  background: linear-gradient(180deg, #f8fbfd 0%, #eef6fb 100%);
+  color: #334155;
+  cursor: not-allowed;
+}
+
+.actionsRow {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.primaryButton,
+.secondaryButton,
+.ghostButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  padding: 0.72rem 1rem;
+  font: inherit;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.primaryButton {
+  border: none;
+  color: #ffffff;
+  background: linear-gradient(135deg, #0ea5e9 0%, #0891b2 100%);
+  box-shadow: 0 14px 28px rgba(8, 145, 178, 0.18);
+}
+
+.secondaryButton {
+  border: 1px solid rgba(8, 145, 178, 0.16);
+  background: rgba(255, 255, 255, 0.92);
+  color: #0b728f;
+}
+
+.ghostButton {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: transparent;
+  color: #334155;
+}
+
+.primaryButton:hover,
+.secondaryButton:hover,
+.ghostButton:hover {
+  transform: translateY(-1px);
+}
+
+.primaryButton:disabled {
+  cursor: progress;
+  opacity: 0.8;
+}
+
+.uploadBox {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem;
+  border: 1px dashed rgba(14, 165, 233, 0.3);
+  border-radius: 1rem;
+  background: linear-gradient(180deg, #f8fdff 0%, #eefbff 100%);
+  cursor: pointer;
+}
+
+.uploadBox input {
+  display: none;
+}
+
+.uploadBox span {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.uploadBox small {
+  color: #64748b;
+}
+
+.fileList {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
+.emptyState {
+  background: #f8fafc;
+  color: #475569;
+}
+
+.fileCard {
+  padding: 1rem;
+}
+
+.fileMeta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.fileMeta strong {
+  display: block;
+  color: #0f172a;
+}
+
+.fileMeta span {
+  display: block;
+  margin-top: 0.25rem;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.fileActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  justify-content: flex-end;
+}
+
+.previewDetails {
+  margin-top: 0.9rem;
+}
+
+.previewDetails summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #0b728f;
+}
+
+.previewFrame {
+  width: 100%;
+  height: 420px;
+  margin-top: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 0.9rem;
+  background: #ffffff;
+}
+
+@media (max-width: 1100px) {
+  .summaryGrid,
+  .grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .topBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .topActions {
+    justify-content: flex-start;
+  }
+
+  .shell {
+    width: min(100% - 1rem, 1360px);
+  }
+
+  .summaryGrid,
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fileMeta {
+    flex-direction: column;
+  }
+
+  .fileActions {
+    justify-content: flex-start;
+  }
+
+  .previewFrame {
+    height: 320px;
+  }
+}

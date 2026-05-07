@@ -367,6 +367,12 @@ function EmergencyDashboardContent() {
             </span>
           </Link>
 
+          <div className="hc-header__actions">
+            <Link href="/secure/home" className="hc-btn hc-btn--outline hc-btn--sm hc-home-header">
+              Home
+            </Link>
+          </div>
+
           <nav className="hc-nav" aria-label="Emergency navigation">
             <Link href="/secure/home">Home</Link>
             <Link href="/secure/chat">Chat</Link>

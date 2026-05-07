@@ -161,22 +161,26 @@ router.post('/chat', async (req, res) => {
     // Step 4: Generate response using LLM with context
     let llmResponse
     try {
-      const systemPrompt = `You are a medical information assistant for HomeCare Hospital.
-    Answer in plain language.
-    Be short, direct, and unambiguous.
-    Start with the answer, not with filler.
-    Use only the information that is relevant to the user's question.
-    If the information is missing or uncertain, say so clearly and recommend a healthcare professional.`
+      const systemPrompt = `You are a friendly medical and care support assistant for HomeCare Hospital.
+    Speak naturally, warmly, and in plain language.
+    Answer the user's question directly, but do not sound rigid or overly formal.
+    It is okay to give a brief, helpful explanation, clarification, or example when that makes the answer easier to understand.
+    If the question is basic or general, answer it normally instead of forcing a narrow medical-only response.
+    If the information is missing or uncertain, say so clearly and suggest the safest next step.
+    If a question could affect someone's health or safety, include a brief caution to contact a healthcare professional.`
 
       const formattingPrompt = `Format the answer in GitHub-flavored Markdown.
-    Use short sentences.
+    Keep the tone friendly and easy to read.
+    Use short sentences when helpful, but do not make the answer feel clipped.
+    If the user asks for first aid, emergency care, or a how-to guide, structure the answer like a guide with a short title, a brief opening line, and numbered steps.
+    Add a short "When to get urgent help" note when that improves safety.
     Use numbered steps only when giving instructions.
     Use bullets only for short lists.
     Do not use markdown headings (#, ##, ###).
     Do not add an introduction like "Based on the medical information provided".
     Do not repeat the question.
     Do not use tables.
-    Keep the answer brief and easy to follow.`
+    Keep the answer concise, but allow a little more detail when it helps the user.`
 
       const baseUserPrompt = context
         ? `Based on the following medical information:\n\n${context}\n\nPlease answer this question: ${sanitizedQuery}`
@@ -197,8 +201,8 @@ router.post('/chat', async (req, res) => {
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userPrompt },
             ],
-            temperature: 0.3,
-            max_tokens: 350,
+            temperature: 0.6,
+            max_tokens: 500,
           })
 
           llmResponse = completion.choices[0]?.message?.content

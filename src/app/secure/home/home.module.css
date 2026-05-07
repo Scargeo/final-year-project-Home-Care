@@ -384,6 +384,19 @@
   transition: background 150ms ease;
 }
 
+.dropdownItem {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.dropdownItemStrong {
+  width: 100%;
+}
+
 .dropdownItem:hover {
   background: #f0f4f8;
 }
@@ -395,6 +408,9 @@
 .dropdownItemStrong:hover {
   background: #fff5f5;
 }
+
+/* Logout in header dropdown (mobile) */
+/* dropdownLogout removed — logout uses .dropdownItem to match other items */
 
 .layout {
   display: grid;
@@ -470,6 +486,12 @@
   height: 3.5rem;
   margin: 0 auto 0.75rem;
   font-size: 1.25rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.profileImage {
+  object-fit: cover !important;
 }
 
 .profileCard h1,
@@ -1104,6 +1126,38 @@
   margin: 0;
   line-height: 1.48;
   white-space: pre-wrap;
+}
+
+.aiMessageMarkdown {
+  line-height: 1.48;
+}
+
+.aiMessageMarkdown :global(p) {
+  margin: 0 0 0.65rem;
+}
+
+.aiMessageMarkdown :global(p:last-child) {
+  margin-bottom: 0;
+}
+
+.aiMessageMarkdown :global(ul),
+.aiMessageMarkdown :global(ol) {
+  margin: 0.55rem 0 0.55rem 1.1rem;
+  padding-left: 0.8rem;
+}
+
+.aiMessageMarkdown :global(li) {
+  margin: 0.2rem 0;
+}
+
+.aiMessageMarkdown :global(strong) {
+  font-weight: 700;
+}
+
+.aiMessageMarkdown :global(code) {
+  padding: 0.1rem 0.25rem;
+  border-radius: 0.35rem;
+  background: rgba(15, 23, 42, 0.06);
 }
 
 .aiMessageMeta {

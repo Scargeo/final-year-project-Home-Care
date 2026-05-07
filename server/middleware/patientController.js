@@ -13,16 +13,16 @@ const registerPatient = async (req, res) => {
         // }
         bcrypt.hash(patientPassword, 10).then((hash) => {
             const newPatient = new Patient({
-                patientFirstName,
-                patientLastName,
-                patientEmail,
-                patientPhone,
-                patientPassword: hash,
-                patientAddress,
-            });
-            newPatient.save().then((savedPatient) => {
-                res.status(201).json({message: "Account Created", user: savedPatient});
-            })
+                    patientFirstName,
+                    patientLastName,
+                    patientEmail,
+                    patientPhone,
+                    patientPassword: hash,
+                    patientAddress,
+                });
+                newPatient.save().then((savedPatient) => {
+                    res.status(201).json({message: "Account Created", user: savedPatient});
+                })
         })
     } catch (error) {
         res.status(500).json({ message: 'Error registering patient', error: error.message });
@@ -49,8 +49,51 @@ const loginPatient = async (req, res) => {
     }
 };
 
+// Update patient presence / ai status
+const updateStatus = async (req, res) => {
+    try {
+        const { id } = req.params || {}
+        const body = req.body || {}
+
+        let patient = null
+
+        if (id) {
+            patient = await Patient.findOne({ patientId: id })
+        }
+
+        if (!patient && body.patientEmail) {
+            patient = await Patient.findOne({ patientEmail: String(body.patientEmail).trim().toLowerCase() })
+        }
+
+        if (!patient && body._id) {
+            patient = await Patient.findById(body._id)
+        }
+
+        if (!patient) {
+            return res.status(404).json({ message: 'Patient not found' })
+        }
+
+        const updates = {}
+        if (typeof body.online === 'boolean') updates.online = body.online
+        if (typeof body.aiActive === 'boolean') updates.aiActive = body.aiActive
+
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ message: 'No valid status fields provided' })
+        }
+
+        Object.assign(patient, updates)
+        await patient.save()
+
+        return res.status(200).json({ message: 'Status updated', user: patient })
+    } catch (error) {
+        console.error('Error updating patient status:', error)
+        return res.status(500).json({ message: 'Failed to update status', error: error.message })
+    }
+}
+
 module.exports = {
     registerPatient,
     loginPatient,
+    updateStatus,
 };
 

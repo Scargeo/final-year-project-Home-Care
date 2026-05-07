@@ -92,15 +92,18 @@ function buildNotificationEntries(notifications, items) {
       important: true,
     })),
     ...items
-      .filter((request) => request && String(request.status || "").toLowerCase() !== "pending")
+      .filter((request) => request)
       .map((request) => ({
         id: buildEntryId("request", request.id, request.status),
-        title: request.status === "accepted" ? "Accepted" : "Updated",
-        body: `${request.patientName || "Your request"} — ${request.location || "Unknown"}`,
+        title: String(request.status || "").toLowerCase() === "pending" ? "Pending" : request.status === "accepted" ? "Accepted" : "Updated",
+        body:
+          String(request.status || "").toLowerCase() === "pending"
+            ? `${request.patientName || "Your request"} — ${request.symptoms || "What is happening"}`
+            : `${request.patientName || "Your request"} — ${request.location || "Unknown"}`,
         at: request.createdAt || request.updatedAt || new Date().toISOString(),
         emergency: request,
         source: "request",
-        important: true,
+        important: String(request.status || "").toLowerCase() !== "pending",
       })),
   ]
 
@@ -115,6 +118,7 @@ function NotificationCard({ entry, isRead, isExpanded, onToggle, onMarkRead }) {
 
   return (
     <article
+      data-notification-item="true"
       className={`${styles.notificationItem} ${isRead ? styles.notificationItemRead : styles.notificationItemUnread} ${entry.important ? styles["notificationItem--important"] : ""}`}
       aria-expanded={isExpanded}
     >
@@ -142,9 +146,6 @@ function NotificationCard({ entry, isRead, isExpanded, onToggle, onMarkRead }) {
           </div>
         </div>
 
-        <div className={styles.notificationSummary}>
-          <span className={styles.notificationSummaryLabel}>Tap to open</span>
-        </div>
       </button>
 
       {isExpanded && (
@@ -153,11 +154,6 @@ function NotificationCard({ entry, isRead, isExpanded, onToggle, onMarkRead }) {
           <div className={styles.notificationDetailsTime}>{timeLabel}</div>
           <div className={styles.notificationDetailsBody}>
             {preview.latestNote ? <p style={{ margin: 0 }}>{preview.latestNote}</p> : preview.latestTimeline ? <p style={{ margin: 0 }}>{preview.latestTimeline}</p> : <p style={{ margin: 0 }}>{entry.body}</p>}
-          </div>
-          <div className={styles.notificationDetailsActions}>
-            <button type="button" onClick={() => onToggle(entry.id)} className={styles.notificationCloseButton}>
-              Close
-            </button>
           </div>
         </div>
       )}
@@ -210,6 +206,21 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
       return next
     })
   }
+
+  useEffect(() => {
+    function handleOutsideClick(event) {
+      if (event.target.closest('[data-notification-item="true"]')) return
+      setExpanded(new Set())
+    }
+
+    document.addEventListener("mousedown", handleOutsideClick)
+    document.addEventListener("touchstart", handleOutsideClick)
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick)
+      document.removeEventListener("touchstart", handleOutsideClick)
+    }
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -297,7 +308,8 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
   }, [])
 
   const entries = buildNotificationEntries(notifications, items)
-  const unreadEntries = entries.filter((entry) => entry.source === "live" && !readIds.has(entry.id))
+  // Count any unread entry (live updates or request entries, including pending requests)
+  const unreadEntries = entries.filter((entry) => !readIds.has(entry.id))
   const unreadCount = unreadEntries.length
   const latestEntry = entries[0] || null
 
@@ -320,7 +332,6 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
       <section className={styles.notificationPageShell}>
         <div className={styles.notificationPageHeader}>
           <div>
-            <p className={styles.notificationPageEyebrow}>Live updates</p>
             <h1>Notifications</h1>
             <p>Track new replies, status changes, and emergency updates in one place.</p>
           </div>
@@ -328,9 +339,6 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
             <button type="button" className={styles.notificationPageAction} onClick={() => markAllAsRead(entries.map((entry) => entry.id))}>
               Mark all read
             </button>
-            <Link href="/secure/home" className={styles.notificationPageActionSecondary}>
-              Back to home
-            </Link>
           </div>
         </div>
 

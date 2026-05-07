@@ -69,6 +69,8 @@ app.use('/api/nurses', require('./routes/privateHealthworker/privateNurse/nurseR
 app.use('/api/sos', require('./routes/sos/sosRoute'));
 // AI Chat routes for RAG chatbot
 app.use('/api/ai', require('./routes/ai/chatRoute'));
+// Uploads (images, pdfs) to Cloudinary
+app.use('/api/uploads', require('./routes/uploadsRoute'));
 
 
 

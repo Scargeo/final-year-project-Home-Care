@@ -48,6 +48,20 @@ const patientRegistrationSchema = new mongoose.Schema({
         required: true,
         trim: true,
     },
+    online: {
+        type: Boolean,
+        default: false,
+    },
+    aiActive: {
+        type: Boolean,
+        default: false,
+    },
+    profileImage: {
+        url: { type: String, default: '' },
+        publicId: { type: String, default: '' },
+        mimeType: { type: String, default: '' },
+        uploadedAt: { type: Date },
+    },
 
 }, { timestamps: true });
 

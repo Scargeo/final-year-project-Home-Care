@@ -3,9 +3,13 @@
 import Image from "next/image"
 import Link from "next/link"
 import aiAssistantLogo from "../../../assets/homecare_ai_assistant_logo.png"
-import { useEffect, useRef, useState, useSyncExternalStore } from "react"
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
+import { useRouter } from "next/navigation"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 import styles from "./home.module.css"
 import NotificationsPanel from "../components/NotificationsPanel"
+import ProfileImageUpload from "../components/ProfileImageUpload"
 
 const HEALTH_TIPS = [
   {
@@ -116,6 +120,8 @@ export default function SecureHomePage() {
   const [aiConversationId, setAiConversationId] = useState("")
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState("")
+  const [profileImage, setProfileImage] = useState(null)
+  const [patientId, setPatientId] = useState(null)
   const headerRef = useRef(null)
   const aiInputRef = useRef(null)
   const aiThreadRef = useRef(null)
@@ -137,6 +143,23 @@ export default function SecureHomePage() {
   }, [])
 
   useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const storedAuth = window.localStorage.getItem("patientAuth")
+    if (!storedAuth) return
+
+    try {
+      const auth = JSON.parse(storedAuth)
+      setPatientId(auth.patientId || auth.id || auth._id)
+      if (auth.profileImage && auth.profileImage.url) {
+        setProfileImage(auth.profileImage)
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }, [])
+
+  useEffect(() => {
     if (!aiOpen) {
       return
     }
@@ -147,6 +170,94 @@ export default function SecureHomePage() {
 
     return () => window.clearTimeout(timer)
   }, [aiOpen])
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return
+    }
+
+    const url = new URL(window.location.href)
+    if (url.searchParams.get("assistant") === "open" || url.hash === "#secure-home-ai-panel") {
+      setAiOpen(true)
+    }
+  }, [])
+
+  const router = useRouter()
+
+  function getStoredAuth() {
+    if (typeof window === "undefined") return null
+    const stored = window.localStorage.getItem("patientAuth")
+    if (!stored) return null
+    try {
+      return JSON.parse(stored)
+    } catch {
+      return null
+    }
+  }
+
+  const patchPatientStatus = useCallback(async (updates = {}) => {
+    const auth = getStoredAuth()
+    const id = auth?.patientId || auth?.id || auth?._id || auth?.patientEmail
+    if (!id) return
+
+    const encodedId = encodeURIComponent(id)
+    try {
+      await fetch(`/api/patients/status/${encodedId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      })
+    } catch (err) {
+      console.error("Failed to update patient status", err)
+    }
+  }, [])
+
+  // Toggle aiActive when ai panel opens/closes
+  useEffect(() => {
+    const auth = getStoredAuth()
+    if (!auth) return
+
+    // when aiOpen is true -> aiActive true, otherwise false
+    patchPatientStatus({ aiActive: Boolean(aiOpen) })
+  }, [aiOpen, patchPatientStatus])
+
+  // Mark user as online while this page is mounted
+  useEffect(() => {
+    const auth = getStoredAuth()
+    if (!auth) return
+    patchPatientStatus({ online: true })
+
+    return () => {
+      // best-effort set offline when leaving
+      patchPatientStatus({ online: false, aiActive: false })
+    }
+  }, [patchPatientStatus])
+
+  // Logout handler
+  async function handleLogout() {
+    const auth = getStoredAuth()
+    if (auth) {
+      const id = auth?.patientId || auth?.id || auth?._id || auth?.patientEmail
+      if (id) {
+        try {
+          await fetch(`/api/patients/status/${encodeURIComponent(id)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ online: false, aiActive: false }),
+          })
+        } catch (err) {
+          console.error("Logout status update failed", err)
+        }
+      }
+    }
+
+    try {
+      window.localStorage.removeItem("patientAuth")
+    } catch {
+      // ignore storage failures during logout cleanup
+    }
+    router.push("/login")
+  }
 
   const userName = useSyncExternalStore(
     () => () => {},
@@ -168,6 +279,21 @@ export default function SecureHomePage() {
       }
     },
     () => "Patient",
+  )
+
+  const handleProfileImageUpload = useCallback(
+    (attachment) => {
+      setProfileImage(attachment)
+      // Update localStorage with new profile image
+      try {
+        const auth = JSON.parse(window.localStorage.getItem("patientAuth") || "{}")
+        auth.profileImage = { url: attachment.url, publicId: attachment.publicId }
+        window.localStorage.setItem("patientAuth", JSON.stringify(auth))
+      } catch (err) {
+        console.error("Failed to save profile image to localStorage", err)
+      }
+    },
+    [],
   )
 
   useEffect(() => {
@@ -318,6 +444,10 @@ export default function SecureHomePage() {
             Dashboard
           </Link>
 
+          <button type="button" className={`${styles.action} ${styles.actionGhost} ${styles.desktopOnlyAction}`} onClick={() => handleLogout()}>
+            Logout
+          </button>
+
           <button
             type="button"
             className={styles.menuToggle}
@@ -331,10 +461,6 @@ export default function SecureHomePage() {
 
         {menuOpen && (
           <nav className={styles.headerDropdown} aria-label="Mobile menu">
-            <Link href="/secure/home" className={styles.dropdownItem}>
-              <span>🏠</span>
-              <span>Home</span>
-            </Link>
             <Link href="/secure/dashboard" className={styles.dropdownItem}>
               <span>📊</span>
               <span>Dashboard</span>
@@ -355,6 +481,10 @@ export default function SecureHomePage() {
               <span>🚨</span>
               <span>SOS</span>
             </Link>
+            <button type="button" className={styles.dropdownItem} onClick={() => handleLogout()}>
+              <span>🔓</span>
+              <span>Logout</span>
+            </button>
           </nav>
         )}
       </header>
@@ -384,14 +514,32 @@ export default function SecureHomePage() {
           <span>🚨</span>
           <span>Emergency</span>
         </Link>
+        <button type="button" className={styles.menuButton} onClick={() => handleLogout()}>
+          <span>🔓</span>
+          <span>Logout</span>
+        </button>
       </nav>
 
       <div className={styles.layout}>
         <aside className={styles.leftRail}>
           <section className={styles.profileCard}>
-            <div className={styles.profileAvatar}>{userName.slice(0, 1).toUpperCase()}</div>
+            <div className={styles.profileAvatar}>
+              {profileImage?.url ? (
+                <Image src={profileImage.url} alt={userName} fill className={styles.profileImage} />
+              ) : (
+                userName.slice(0, 1).toUpperCase()
+              )}
+            </div>
             <h1>{userName}</h1>
             <p>Patient dashboard</p>
+            {patientId && (
+              <ProfileImageUpload
+                patientId={patientId}
+                currentImage={profileImage}
+                onUploadComplete={handleProfileImageUpload}
+                onError={(err) => console.error("Profile image upload error:", err)}
+              />
+            )}
           </section>
 
           <NotificationsPanel variant="sidebar" />
@@ -484,7 +632,13 @@ export default function SecureHomePage() {
                         message.role === "user" ? styles.aiMessageUser : message.tone === "error" ? styles.aiMessageError : styles.aiMessageAssistant
                       }`}
                     >
-                      <p className={styles.aiMessageText}>{message.content}</p>
+                      <div className={styles.aiMessageMarkdown}>
+                        {message.role === "assistant" ? (
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                        ) : (
+                          <p className={styles.aiMessageText}>{message.content}</p>
+                        )}
+                      </div>
                       <div className={styles.aiMessageMeta}>
                         <span className={styles.aiMessageLabel}>{message.role === "user" ? "You" : "HomeCare AI"}</span>
                         {message.timestamp ? (

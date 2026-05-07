@@ -33,6 +33,10 @@
   gap: 0.5rem;
 }
 
+.hc-header__actions .hc-home-header {
+  display: none;
+}
+
 .hc-header__actions .hc-sos-header {
   display: none;
 }
@@ -1260,6 +1264,10 @@
   .hc-header__actions {
     display: flex;
     align-items: center;
+  }
+
+  .hc-header__actions .hc-home-header {
+    display: inline-flex;
   }
 
   .hc-header__actions .hc-sos-header {
