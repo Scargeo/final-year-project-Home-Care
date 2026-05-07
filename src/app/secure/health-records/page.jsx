@@ -419,7 +419,6 @@ export default function HealthRecordsPage() {
               {labResults.length === 0 ? <p className={styles.emptyState}>No lab results uploaded yet.</p> : null}
 
               {labResults.map((file, index) => {
-                const previewUrl = toPdfDataUrl(file)
                 const viewerUrl = toPdfViewerUrl(file)
                 return (
                   <article key={`${file.fileName}-${index}`} className={styles.fileCard}>
