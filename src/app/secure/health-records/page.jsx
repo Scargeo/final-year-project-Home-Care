@@ -26,12 +26,6 @@ function getPatientIdentity() {
   return { patientId, patientName }
 }
 
-function toPdfDataUrl(file) {
-  // Support both base64 (legacy) and Cloudinary URLs
-  if (file.url) return file.url
-  return `data:${file.mimeType || "application/pdf"};base64,${file.fileData}`
-}
-
 function toPdfViewerUrl(file) {
   // For iframe preview, use Google Docs Viewer for Cloudinary URLs
   // For base64, use data URL directly
