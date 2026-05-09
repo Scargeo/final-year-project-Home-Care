@@ -1,6 +1,7 @@
+/* eslint-disable no-undef */
 import { NextResponse } from 'next/server'
 
-export async function GET(req) {
+export async function GET() {
   try {
     const url = `${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:8000'}/api/posts`
     const response = await fetch(url, { cache: 'no-store' })
