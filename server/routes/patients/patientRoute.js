@@ -3,6 +3,12 @@ const router = express.Router();
 
 const { registerPatient, loginPatient, updateStatus } = require('../../middleware/patientController');
 const HealthRecord = require('../../models/patient/healthRecord');
+const { allowOwnerOrDoctor } = require('../../middleware/permissionMiddleware')
+const { loadUser } = require('../../middleware/loadUserMiddleware')
+const settingsRoute = require('./settingsRoute');
+
+// Attempt to load user object from headers for subsequent permission checks
+router.use(loadUser)
 
 // Route for patient registration
 router.post('/register', registerPatient);
@@ -13,7 +19,10 @@ router.post('/login', loginPatient);
 // Route to update patient presence / ai status
 router.patch('/:id/status', updateStatus);
 
-router.get('/:id/health-records', async (req, res) => {
+// Route for patient settings
+router.use('/:id/settings', settingsRoute);
+
+router.get('/:id/health-records', allowOwnerOrDoctor((req) => req.params.id), async (req, res) => {
 	try {
 		const { id } = req.params;
 		if (!id) {
@@ -36,7 +45,7 @@ router.get('/:id/health-records', async (req, res) => {
 	}
 });
 
-router.put('/:id/health-records', async (req, res) => {
+router.put('/:id/health-records', allowOwnerOrDoctor((req) => req.params.id), async (req, res) => {
 	try {
 		const { id } = req.params;
 		if (!id) {

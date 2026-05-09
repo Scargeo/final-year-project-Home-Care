@@ -21,13 +21,25 @@ const registerPatient = async (req, res) => {
                     patientAddress,
                 });
                 newPatient.save().then((savedPatient) => {
-                    res.status(201).json({message: "Account Created", user: savedPatient});
+                    res.status(201).json({
+                        message: "Account Created",
+                        user: {
+                            patientId: savedPatient.patientId,
+                            patientFirstName: savedPatient.patientFirstName,
+                            patientLastName: savedPatient.patientLastName,
+                            patientEmail: savedPatient.patientEmail,
+                            role: 'patient',
+                            profileImage: savedPatient.profileImage,
+                        },
+                    });
                 })
         })
     } catch (error) {
         res.status(500).json({ message: 'Error registering patient', error: error.message });
     }
 };
+
+const { signToken } = require('./jwtAuth')
 
 // Login controller function to handle patient login
 const loginPatient = async (req, res) => {
@@ -43,7 +55,28 @@ const loginPatient = async (req, res) => {
         if (!isMatch) {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
-        res.status(200).json({ message: 'Login successful', user: patient });
+
+        const userPayload = {
+            id: patient.patientId,
+            role: 'patient',
+            patientId: patient.patientId,
+            patientEmail: patient.patientEmail,
+        }
+
+        const token = signToken(userPayload)
+
+        res.status(200).json({
+            message: 'Login successful',
+            token,
+            user: {
+                patientId: patient.patientId,
+                patientFirstName: patient.patientFirstName,
+                patientLastName: patient.patientLastName,
+                patientEmail: patient.patientEmail,
+                role: 'patient',
+                profileImage: patient.profileImage,
+            },
+        });
     } catch (error) {
         res.status(500).json({ message: 'Error logging in patient', error: error.message });
     }

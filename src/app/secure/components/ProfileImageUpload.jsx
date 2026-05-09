@@ -31,7 +31,7 @@ export default function ProfileImageUpload({ patientId, currentImage, onUploadCo
       // Upload to Cloudinary
       const uploaded = await upload(imageFiles, patientId, 'profile')
       if (uploaded.length > 0) {
-        const attachment = uploaded[0]
+        const attachment = uploaded.doctor || uploaded[0]
         onUploadComplete?.(attachment)
         setShowUpload(false)
       } else {

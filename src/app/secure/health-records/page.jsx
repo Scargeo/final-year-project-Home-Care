@@ -18,6 +18,18 @@ function getStoredAuth() {
   }
 }
 
+function getStoredToken() {
+  if (typeof window === 'undefined') return null
+  try {
+    const patientAuth = window.localStorage.getItem('patientAuth')
+    const doctorAuth = window.localStorage.getItem('doctorAuth')
+    const parsed = patientAuth ? JSON.parse(patientAuth) : doctorAuth ? JSON.parse(doctorAuth) : null
+    return parsed?.token || parsed?.accessToken || null
+  } catch {
+    return null
+  }
+}
+
 function getPatientIdentity() {
   const auth = getStoredAuth()
   const patientId = auth?.patientId || auth?.id || auth?._id || auth?.patientEmail || "patient"
@@ -68,8 +80,12 @@ export default function HealthRecordsPage() {
       setError("")
 
       try {
+        const headers = {}
+        const token = getStoredToken()
+        if (token) headers.authorization = `Bearer ${token}`
         const response = await fetch(`/api/patients/${encodeURIComponent(patientId)}/health-records`, {
           cache: "no-store",
+          headers,
         })
 
         const data = await response.json().catch(() => ({}))
@@ -155,8 +171,12 @@ export default function HealthRecordsPage() {
 
     if (file.attachmentId) {
       try {
+        const headers = {}
+        const token = getStoredToken()
+        if (token) headers.authorization = `Bearer ${token}`
         const response = await fetch(`/api/uploads/${encodeURIComponent(file.attachmentId)}`, {
           method: "DELETE",
+          headers,
         })
 
         const data = await response.json().catch(() => ({}))
@@ -182,9 +202,12 @@ export default function HealthRecordsPage() {
     setNotice("")
 
     try {
+      const headers = { "Content-Type": "application/json" }
+      const token = getStoredToken()
+      if (token) headers.authorization = `Bearer ${token}`
       const response = await fetch(`/api/patients/${encodeURIComponent(patientId)}/health-records`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ medicalHistory, prescriptions, allergies, labResults }),
       })
 
@@ -216,9 +239,12 @@ export default function HealthRecordsPage() {
     setNotice("")
 
     try {
+      const headers = { "Content-Type": "application/json" }
+      const token = getStoredToken()
+      if (token) headers.authorization = `Bearer ${token}`
       const response = await fetch(`/api/patients/${encodeURIComponent(patientId)}/health-records`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ medicalHistory: "", prescriptions, allergies, labResults }),
       })
 
@@ -246,9 +272,12 @@ export default function HealthRecordsPage() {
     setNotice("")
 
     try {
+      const headers = { "Content-Type": "application/json" }
+      const token = getStoredToken()
+      if (token) headers.authorization = `Bearer ${token}`
       const response = await fetch(`/api/patients/${encodeURIComponent(patientId)}/health-records`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ medicalHistory, prescriptions: "", allergies, labResults }),
       })
 
@@ -276,9 +305,12 @@ export default function HealthRecordsPage() {
     setNotice("")
 
     try {
+      const headers = { "Content-Type": "application/json" }
+      const token = getStoredToken()
+      if (token) headers.authorization = `Bearer ${token}`
       const response = await fetch(`/api/patients/${encodeURIComponent(patientId)}/health-records`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ medicalHistory, prescriptions, allergies: "", labResults }),
       })
 

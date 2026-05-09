@@ -65,12 +65,17 @@ io.on('connection', (socket) => {
 
 app.use('/api/patients', require('./routes/patients/patientRoute'));
 app.use('/api/nurses', require('./routes/privateHealthworker/privateNurse/nurseRoute'));
+app.use('/api/doctors', require('./routes/privateHealthworker/privateDoctor/doctorDashboardRoute'));
+// Unified auth (tries patient then doctor)
+app.use('/api/auth', require('./routes/auth/authRoute'));
 // SOS routes persist alerts in MongoDB for live provider and patient tracking.
 app.use('/api/sos', require('./routes/sos/sosRoute'));
 // AI Chat routes for RAG chatbot
 app.use('/api/ai', require('./routes/ai/chatRoute'));
 // Uploads (images, pdfs) to Cloudinary
 app.use('/api/uploads', require('./routes/uploadsRoute'));
+// Public posts (doctors can post thoughts/images; visible to all users)
+app.use('/api/posts', require('./routes/posts/postRoute'));
 
 
 

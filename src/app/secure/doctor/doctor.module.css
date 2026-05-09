@@ -1,0 +1,838 @@
+.page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e8eef5 100%);
+  overflow-x: hidden;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  background: rgba(255, 255, 255, 0.95);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: #0a3a66;
+  font-weight: 700;
+  font-size: 1.125rem;
+  transition: opacity 160ms ease;
+}
+
+.brand:hover {
+  opacity: 0.8;
+}
+
+.brandMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg, #0891b2 0%, #0369a1 100%);
+  color: white;
+}
+
+.brandText {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+}
+
+.topActions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.actionButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 160ms ease;
+  border: none;
+  cursor: pointer;
+}
+
+.actionPrimary {
+  color: #ffffff;
+  background: linear-gradient(135deg, #0891b2 0%, #0369a1 100%);
+  box-shadow: 0 4px 12px rgba(8, 145, 178, 0.3);
+}
+
+.actionPrimary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(8, 145, 178, 0.4);
+}
+
+.actionSecondary {
+  color: #0a3a66;
+  background: rgba(8, 145, 178, 0.08);
+  border: 1px solid rgba(8, 145, 178, 0.16);
+}
+
+.actionSecondary:hover {
+  background: rgba(8, 145, 178, 0.12);
+}
+
+.shell {
+  width: min(1320px, calc(100% - 1.5rem));
+  margin-inline: auto;
+  padding: 1.25rem 0 2rem;
+}
+
+.hero {
+  margin-bottom: 2.5rem;
+}
+
+.heroKicker {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0891b2;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.5rem;
+}
+
+.heroTitle {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #0a3a66;
+  margin: 0 0 1rem;
+  line-height: 1.1;
+}
+
+.heroBody {
+  font-size: 1rem;
+  color: #475569;
+  margin: 0;
+  max-width: 60ch;
+  line-height: 1.6;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.statCard {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 160ms ease;
+}
+
+.statCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.statLabel {
+  display: block;
+  font-size: 0.875rem;
+  color: #64748b;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.statValue {
+  display: block;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #0891b2;
+}
+
+.tabNav {
+  display: flex;
+  gap: 1rem;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.06);
+  margin-bottom: 2rem;
+  overflow-x: auto;
+  -ms-overflow-style: none;
+}
+
+.tabNav::-webkit-scrollbar {
+  display: none;
+}
+
+.tabButton {
+  padding: 1rem 1.5rem;
+  border: none;
+  background: none;
+  color: #64748b;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 160ms ease;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  white-space: nowrap;
+}
+
+.tabButton:hover {
+  color: #0a3a66;
+}
+
+.tabButton.active {
+  color: #0891b2;
+  border-bottom-color: #0891b2;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.card {
+  background: white;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.cardHeader {
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cardHeader h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #0a3a66;
+  margin: 0 0 0.5rem;
+}
+
+.cardHeader p {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.appointmentsList {
+  padding: 1.5rem;
+}
+
+.appointmentItem {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  transition: all 160ms ease;
+}
+
+.appointmentItem:last-child {
+  margin-bottom: 0;
+}
+
+.appointmentItem:hover {
+  background: rgba(8, 145, 178, 0.04);
+  border-color: rgba(8, 145, 178, 0.2);
+}
+
+.appointmentTime {
+  flex-shrink: 0;
+  min-width: 80px;
+  text-align: center;
+}
+
+.appointmentTime strong {
+  display: block;
+  font-size: 1.125rem;
+  color: #0891b2;
+}
+
+.appointmentTime small {
+  display: block;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-top: 0.25rem;
+}
+
+.appointmentInfo {
+  flex: 1;
+}
+
+.appointmentInfo strong {
+  display: block;
+  color: #0a3a66;
+  margin-bottom: 0.25rem;
+}
+
+.appointmentInfo span {
+  display: block;
+  font-size: 0.875rem;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+}
+
+.appointmentInfo small {
+  display: block;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.appointmentStatus {
+  flex-shrink: 0;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge.status-scheduled {
+  background: rgba(59, 130, 246, 0.1);
+  color: #1e40af;
+}
+
+.badge.status-in-progress {
+  background: rgba(245, 158, 11, 0.1);
+  color: #b45309;
+}
+
+.badge.status-completed {
+  background: rgba(34, 197, 94, 0.1);
+  color: #166534;
+}
+
+.badge.status-cancelled {
+  background: rgba(239, 68, 68, 0.1);
+  color: #991b1b;
+}
+
+.badge.priority-normal {
+  background: rgba(148, 163, 184, 0.1);
+  color: #334155;
+}
+
+.badge.priority-high {
+  background: rgba(245, 158, 11, 0.1);
+  color: #b45309;
+}
+
+.badge.priority-urgent {
+  background: rgba(239, 68, 68, 0.1);
+  color: #991b1b;
+}
+
+.badge.type-appointment {
+  background: rgba(59, 130, 246, 0.1);
+  color: #1e40af;
+}
+
+.badge.type-queue {
+  background: rgba(139, 92, 246, 0.1);
+  color: #5b21b6;
+}
+
+.badge.type-urgent {
+  background: rgba(239, 68, 68, 0.1);
+  color: #991b1b;
+}
+
+.queueList {
+  padding: 1.5rem;
+}
+
+.queueItem {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  transition: all 160ms ease;
+}
+
+.queueItem:last-child {
+  margin-bottom: 0;
+}
+
+.queueItem:hover {
+  background: rgba(139, 92, 246, 0.04);
+  border-color: rgba(139, 92, 246, 0.2);
+}
+
+.queueNumber {
+  flex-shrink: 0;
+}
+
+.number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+  color: white;
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+.queueInfo {
+  flex: 1;
+}
+
+.queueInfo strong {
+  display: block;
+  color: #0a3a66;
+  margin-bottom: 0.25rem;
+}
+
+.queueInfo span {
+  display: block;
+  font-size: 0.875rem;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+}
+
+.queueInfo small {
+  display: block;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.queueStatus {
+  flex-shrink: 0;
+}
+
+.notificationsList {
+  padding: 1.5rem;
+}
+
+.notificationItem {
+  padding: 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  transition: all 160ms ease;
+}
+
+.notificationItem.unread {
+  background: rgba(8, 145, 178, 0.04);
+  border-color: rgba(8, 145, 178, 0.2);
+}
+
+.notificationItem:last-child {
+  margin-bottom: 0;
+}
+
+.notificationContent {
+  margin-top: 0.75rem;
+}
+
+.notificationContent strong {
+  display: block;
+  color: #0a3a66;
+  margin-bottom: 0.5rem;
+}
+
+.notificationContent p {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 0 0 0.5rem;
+  line-height: 1.5;
+}
+
+.notificationContent small {
+  display: block;
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+
+.quickActions {
+  padding: 1.5rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.quickActions .actionButton {
+  width: 100%;
+  justify-content: center;
+}
+
+.primaryButton,
+.secondaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 160ms ease;
+  border: none;
+  cursor: pointer;
+}
+
+.primaryButton {
+  color: #ffffff;
+  background: linear-gradient(135deg, #0891b2 0%, #0369a1 100%);
+}
+
+.secondaryButton {
+  color: #0a3a66;
+  background: rgba(8, 145, 178, 0.08);
+  border: 1px solid rgba(8, 145, 178, 0.16);
+}
+
+.appointmentActionButtons {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-top: 0.75rem;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(8, 15, 27, 0.55);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.modalCard {
+  width: min(1100px, 100%);
+  max-height: min(88vh, 920px);
+  overflow: auto;
+  background: #ffffff;
+  border-radius: 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.3);
+  padding: 1.5rem;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.modalSubtitle {
+  margin: 0;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.modalCloseButton {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #f8fafc;
+  color: #0f172a;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+}
+
+.consentCheckbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: rgba(8, 145, 178, 0.06);
+  margin-bottom: 1rem;
+}
+
+.consentCheckbox input {
+  margin-top: 0.2rem;
+}
+
+.modalGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.modalSection {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  background: #fbfdff;
+}
+
+.modalSection h3 {
+  margin: 0 0 0.75rem;
+  color: #0a3a66;
+  font-size: 1rem;
+}
+
+.modalList {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.attachmentItem,
+.previewItem {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 0.6rem;
+  padding: 0.85rem;
+  background: white;
+}
+
+.attachmentItem strong,
+.previewItem strong {
+  display: block;
+  color: #0a3a66;
+  margin-bottom: 0.35rem;
+}
+
+.attachmentItem span,
+.attachmentItem small,
+.previewItem p {
+  display: block;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.notice {
+  margin-top: 1rem;
+  color: #166534;
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.18);
+  border-radius: 0.6rem;
+  padding: 0.75rem 1rem;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 2rem;
+  color: #94a3b8;
+  font-size: 0.95rem;
+}
+
+.error {
+  padding: 1rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 0.5rem;
+  color: #991b1b;
+  margin-bottom: 1.5rem;
+}
+
+.status {
+  text-align: center;
+  padding: 2rem;
+  color: #94a3b8;
+}
+
+.appointmentDetailItem,
+.queueDetailItem,
+.notificationDetailItem {
+  padding: 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  transition: all 160ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.appointmentDetailItem:last-child,
+.queueDetailItem:last-child,
+.notificationDetailItem:last-child {
+  margin-bottom: 0;
+}
+
+.appointmentDetail,
+.queueDetail,
+.notificationDetail {
+  flex: 1;
+}
+
+.appointmentDetail strong,
+.queueDetail strong,
+.notificationDetail strong {
+  display: block;
+  color: #0a3a66;
+  margin-bottom: 0.5rem;
+}
+
+.appointmentDetail span,
+.queueDetail span,
+.notificationDetail span {
+  display: block;
+  font-size: 0.875rem;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+}
+
+.appointmentDetail small,
+.queueDetail small,
+.notificationDetail small {
+  display: block;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.appointmentActions,
+.queueDetailActions {
+  flex-shrink: 0;
+  text-align: right;
+  margin-left: 1rem;
+}
+
+.queuePosition {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.queuePosition .number {
+  width: 40px;
+  height: 40px;
+  font-size: 1rem;
+}
+
+.appointmentsList .appointmentDetailItem:hover,
+.queueDetailsList .queueDetailItem:hover,
+.notificationsDetailList .notificationDetailItem:hover {
+  background: rgba(8, 145, 178, 0.04);
+  border-color: rgba(8, 145, 178, 0.2);
+}
+
+/* Remove scrollbar */
+.page::-webkit-scrollbar {
+  display: none;
+}
+
+.page {
+  -ms-overflow-style: none;
+}
+
+@media (max-width: 1100px) {
+  .shell {
+    width: calc(100% - 1.5rem);
+  }
+
+  .heroTitle {
+    font-size: 2rem;
+  }
+
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .topBar {
+    padding: 1rem;
+  }
+
+  .shell {
+    padding: 1rem 0 2rem;
+  }
+
+  .heroTitle {
+    font-size: 1.5rem;
+  }
+
+  .heroBody {
+    font-size: 0.9rem;
+  }
+
+  .statsGrid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .tabNav {
+    margin-bottom: 1.5rem;
+    gap: 0.5rem;
+  }
+
+  .tabButton {
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+  }
+
+  .appointmentItem,
+  .queueItem {
+    flex-direction: column;
+    text-align: left;
+  }
+
+  .appointmentTime,
+  .appointmentStatus,
+  .queueStatus {
+    text-align: left;
+  }
+
+  .appointmentDetailItem,
+  .queueDetailItem,
+  .notificationDetailItem {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .appointmentActionButtons,
+  .modalGrid,
+  .modalActions {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .appointmentActions,
+  .queueDetailActions {
+    margin-left: 0;
+    margin-top: 0.75rem;
+  }
+}

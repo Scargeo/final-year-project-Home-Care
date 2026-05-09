@@ -5,7 +5,10 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary')
 const cloudinary = require('cloudinary').v2
 const Attachment = require('../models/media/attachment')
 const Patient = require('../models/patient/patientRegistration')
+const Doctor = require('../models/privateHealthWorker/doctor/doctorRegistration')
 const HealthRecord = require('../models/patient/healthRecord')
+const { allowOwnerOrDoctor } = require('../middleware/permissionMiddleware')
+const { loadUser } = require('../middleware/loadUserMiddleware')
 
 // Configure cloudinary from env
 cloudinary.config({
@@ -29,15 +32,29 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage })
 
+function serializeDoctor(doctor) {
+  if (!doctor) return null
+
+  const doctorObject = typeof doctor.toObject === 'function' ? doctor.toObject() : doctor
+  const safeDoctor = { ...doctorObject }
+  delete safeDoctor.doctorPassword
+  return safeDoctor
+}
+
+// Load user (from headers) for permission checks on all routes
+router.use(loadUser)
+
 // Upload one or multiple files. Expects multipart form-data with fields:
 // - files (file inputs)
 // - ownerRef (string): id of owner (patient or user)
 // - purpose (profile|document|post|other)
+// Doctors can upload without permission checks. Patients must own the resource.
 router.post('/', upload.array('files', 10), async (req, res) => {
   try {
     const files = req.files || []
     const ownerRef = String(req.body.ownerRef || '')
     const purpose = String(req.body.purpose || 'other')
+    let updatedDoctor = null
 
     if (!ownerRef) {
       return res.status(400).json({ message: 'Missing ownerRef in form data' })
@@ -71,22 +88,44 @@ router.post('/', upload.array('files', 10), async (req, res) => {
         resourceType: f.resource_type || (f.mimetype && f.mimetype.includes('pdf') ? 'raw' : 'image'),
       })
 
-      // If purpose is profile, update patient record and remove previous image
+      // If purpose is profile, update patient OR doctor record and remove previous image
       if (purpose === 'profile') {
         try {
+          // Try updating patient first
           const patient = await Patient.findOne({ patientId: ownerRef })
-          if (patient && patient.profileImage && patient.profileImage.publicId) {
-            // Attempt to delete previous image from cloud
-            try {
-              await cloudinary.uploader.destroy(patient.profileImage.publicId, {
-                resource_type: patient.profileImage.mimeType && patient.profileImage.mimeType.includes('pdf') ? 'raw' : 'image',
-              })
-            } catch (e) {
-              console.warn('Failed to delete previous Cloudinary image:', e.message)
+          if (patient) {
+            if (patient.profileImage && patient.profileImage.publicId) {
+              try {
+                await cloudinary.uploader.destroy(patient.profileImage.publicId, {
+                  resource_type: patient.profileImage.mimeType && patient.profileImage.mimeType.includes('pdf') ? 'raw' : 'image',
+                })
+              } catch (e) {
+                console.warn('Failed to delete previous Cloudinary image for patient:', e.message)
+              }
+            }
+
+            await Patient.updateOne({ patientId: ownerRef }, { $set: { profileImage: { url, publicId, mimeType: f.mimetype, uploadedAt: new Date() } } })
+          } else {
+            // Not a patient — try doctor
+            const doctor = await Doctor.findOne({ doctorId: ownerRef })
+            if (doctor) {
+              if (doctor.profileImage && doctor.profileImage.publicId) {
+                try {
+                  await cloudinary.uploader.destroy(doctor.profileImage.publicId, {
+                    resource_type: doctor.profileImage.mimeType && doctor.profileImage.mimeType.includes('pdf') ? 'raw' : 'image',
+                  })
+                } catch (e) {
+                  console.warn('Failed to delete previous Cloudinary image for doctor:', e.message)
+                }
+              }
+
+              updatedDoctor = await Doctor.findOneAndUpdate(
+                { doctorId: ownerRef },
+                { $set: { profileImage: { url, publicId, mimeType: f.mimetype, uploadedAt: new Date() } } },
+                { new: true },
+              )
             }
           }
-
-          await Patient.updateOne({ patientId: ownerRef }, { $set: { profileImage: { url, publicId, mimeType: f.mimetype, uploadedAt: new Date() } } })
         } catch (err) {
           console.warn('Failed to update patient profile image', err)
         }
@@ -95,10 +134,23 @@ router.post('/', upload.array('files', 10), async (req, res) => {
       saved.push(doc)
     }
 
-    return res.status(200).json({ files: saved })
+    return res.status(200).json({ files: saved, doctor: serializeDoctor(updatedDoctor) })
   } catch (error) {
     console.error('Upload failed', error)
     return res.status(500).json({ message: `File upload failed: ${error?.message || 'Unknown error'}` })
+  }
+})
+
+// Get attachments for an ownerRef (only owner or doctor)
+router.get('/owner/:ownerRef', allowOwnerOrDoctor((req) => req.params.ownerRef), async (req, res) => {
+  try {
+    const { ownerRef } = req.params
+    if (!ownerRef) return res.status(400).json({ message: 'Missing ownerRef' })
+    const attachments = await Attachment.find({ ownerRef }).sort({ uploadedAt: -1 })
+    return res.status(200).json({ files: attachments })
+  } catch (err) {
+    console.error('Failed to fetch attachments by ownerRef', err)
+    return res.status(500).json({ message: 'Failed to fetch attachments' })
   }
 })
 
@@ -108,6 +160,33 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params
     const attachment = await Attachment.findById(id)
     if (!attachment) return res.status(404).json({ message: 'Attachment not found' })
+
+    // Permission check: only owner (patient) or doctor may delete
+    try {
+      if (String(process.env.DISABLE_AUTH || '') !== 'true') {
+        // Prefer req.user if loaded
+        if (req.user && req.user.role) {
+          if (!(req.user.role === 'doctor' || (req.user.role === 'patient' && req.user.id === String(attachment.ownerRef)))) {
+            return res.status(403).json({ message: 'Forbidden' })
+          }
+        } else {
+          const userId = String(req.get('x-user-id') || '').trim()
+          const userRole = String(req.get('x-user-role') || '').trim().toLowerCase()
+          const ownerRef = String(attachment.ownerRef || '').trim()
+
+          if (!userId || !userRole) {
+            return res.status(401).json({ message: 'Missing authentication headers' })
+          }
+
+          if (!(userRole === 'doctor' || (userRole === 'patient' && userId === ownerRef))) {
+            return res.status(403).json({ message: 'Forbidden' })
+          }
+        }
+      }
+    } catch (permErr) {
+      console.error('Permission check failed for delete', permErr)
+      return res.status(500).json({ message: 'Permission check failed' })
+    }
 
     // Delete from Cloudinary
     try {

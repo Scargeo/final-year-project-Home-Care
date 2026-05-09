@@ -437,3 +437,22 @@
     gap: 1.5rem;
   }
 }
+
+/* Footer visibility tweaks */
+.authFooter {
+  margin-top: 1rem;
+  display: block;
+}
+.authFooter p {
+  margin: 0.35rem 0;
+  color: #334155; /* stronger color than faded grey */
+  font-size: 0.95rem;
+}
+.authFooter a {
+  color: #1d4ed8;
+  font-weight: 700;
+  text-decoration: none;
+}
+.authFooter a:hover {
+  text-decoration: underline;
+}

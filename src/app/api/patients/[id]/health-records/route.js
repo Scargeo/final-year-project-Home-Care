@@ -14,6 +14,13 @@ async function proxyHealthRecords(request, id, method) {
     init.headers = { "Content-Type": "application/json" }
     init.body = JSON.stringify(body)
   }
+  // Forward simple auth headers for permission checks
+  const userId = request.headers.get('x-user-id')
+  const userRole = request.headers.get('x-user-role')
+  const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
+  if (userId) init.headers['x-user-id'] = userId
+  if (userRole) init.headers['x-user-role'] = userRole
+  if (authHeader) init.headers['authorization'] = authHeader
 
   const response = await fetch(backendUrl, init)
   const data = await response.json().catch(() => ({}))

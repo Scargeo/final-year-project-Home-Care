@@ -113,6 +113,7 @@ function getWelcomeMessage(name) {
 export default function DashboardPage() {
   const patientName = useSyncExternalStore(() => () => {}, getDisplayName, () => "Patient")
   const [aiOpen, setAiOpen] = useState(false)
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const [aiQuery, setAiQuery] = useState("")
   const [aiMessages, setAiMessages] = useState([])
   const [aiConversationId, setAiConversationId] = useState("")
@@ -121,6 +122,8 @@ export default function DashboardPage() {
   const [profileImage, setProfileImage] = useState(null)
   const aiInputRef = useRef(null)
   const aiThreadRef = useRef(null)
+  const fileInputRef = useRef(null)
+  const headerRef = useRef(null)
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -151,6 +154,84 @@ export default function DashboardPage() {
       return null
     }
   }
+
+  function getStoredToken() {
+    if (typeof window === 'undefined') return null
+    try {
+      const patientAuth = window.localStorage.getItem('patientAuth')
+      const doctorAuth = window.localStorage.getItem('doctorAuth')
+      const parsed = patientAuth ? JSON.parse(patientAuth) : doctorAuth ? JSON.parse(doctorAuth) : null
+      return parsed?.token || parsed?.accessToken || null
+    } catch {
+      return null
+    }
+  }
+
+  const handleProfileImageSelect = useCallback(
+    async (event) => {
+      const files = Array.from(event.target.files || [])
+      if (files.length === 0) return
+
+      const imageFiles = files.filter((file) => file.type.startsWith('image/'))
+      if (imageFiles.length !== files.length) {
+        console.error('Only image files are allowed for profile pictures.')
+        return
+      }
+
+      try {
+        const formData = new FormData()
+        imageFiles.forEach((file) => formData.append('files', file))
+        formData.append('reference', getStoredAuth()?.patientId || getStoredAuth()?.id || '')
+        formData.append('type', 'profile')
+
+        const headers = {}
+        const token = getStoredToken()
+        if (token) headers.authorization = `Bearer ${token}`
+
+        const response = await fetch('/api/uploads', {
+          method: 'POST',
+          headers,
+          body: formData,
+        })
+
+        if (!response.ok) throw new Error('Upload failed')
+
+        const data = await response.json().catch(() => ({}))
+        const uploaded = data?.attachments?.[0] || data?.attachment || data
+        if (uploaded) {
+          setProfileImage(uploaded)
+          try {
+            const stored = window.localStorage.getItem('patientAuth') || '{}'
+            const auth = JSON.parse(stored)
+            auth.profileImage = { url: uploaded.url, publicId: uploaded.publicId }
+            window.localStorage.setItem('patientAuth', JSON.stringify(auth))
+          } catch (e) {
+            console.error('Failed to save profile image to localStorage', e)
+          }
+        }
+      } catch (err) {
+        console.error('Profile image upload error:', err)
+      }
+
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      setProfileDropdownOpen(false)
+    },
+    [setProfileImage],
+  )
+
+  useEffect(() => {
+    function handleOutside(e) {
+      if (headerRef.current && !headerRef.current.contains(e.target)) {
+        setProfileDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutside)
+    document.addEventListener('touchstart', handleOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleOutside)
+      document.removeEventListener('touchstart', handleOutside)
+    }
+  }, [])
 
   const patchPatientStatus = useCallback(async (updates = {}) => {
     const auth = getStoredAuth()
@@ -316,15 +397,34 @@ export default function DashboardPage() {
             Emergency
           </Link>
           {profileImage?.url && (
-            <Link href="/secure/home" className={styles.profileButtonHeader} title="View profile">
-              <Image
-                src={profileImage.url}
-                alt={patientName}
-                width={56}
-                height={56}
-                className={styles.profileImageHeader}
-              />
-            </Link>
+            <div ref={headerRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                className={styles.profileButtonHeader}
+                onClick={() => setProfileDropdownOpen((s) => !s)}
+                aria-expanded={profileDropdownOpen}
+                aria-label="Open profile menu"
+              >
+                <Image src={profileImage.url} alt={patientName} width={56} height={56} className={styles.profileImageHeader} />
+              </button>
+
+              {profileDropdownOpen && (
+                <div className={styles.headerDropdown}>
+                  <div>
+                    <button type="button" className={styles.dropdownItem} onClick={() => fileInputRef.current?.click()}>
+                      <span>🖼️</span>
+                      <span>Change photo</span>
+                    </button>
+                    <Link href="/secure/settings" className={styles.dropdownItem}>
+                      <span>⚙️</span>
+                      <span>Settings</span>
+                    </Link>
+                  </div>
+                </div>
+              )}
+
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleProfileImageSelect} style={{ display: 'none' }} />
+            </div>
           )}
         </div>
       </header>
@@ -334,7 +434,7 @@ export default function DashboardPage() {
           <div>
             <p className={styles.heroKicker}>Patient Dashboard</p>
             <h1 className={styles.heroTitle}>
-              Welcome Back, <strong>{patientName}</strong>.
+              Welcome, <strong>{patientName}</strong>.
             </h1>
             <p className={styles.heroBody}>
               This dashboard brings together your emergency status, AI assistant, notifications, and care actions in one calm place.

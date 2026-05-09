@@ -62,6 +62,25 @@ const patientRegistrationSchema = new mongoose.Schema({
         mimeType: { type: String, default: '' },
         uploadedAt: { type: Date },
     },
+    notificationPrefs: {
+        emailAlerts: { type: Boolean, default: true },
+        pushNotifications: { type: Boolean, default: true },
+        appointmentReminders: { type: Boolean, default: true },
+        healthTips: { type: Boolean, default: true },
+        emergencyNotifications: { type: Boolean, default: true },
+    },
+    privacyPrefs: {
+        shareWithHealthProfessionals: { type: Boolean, default: false },
+        shareAnonymousData: { type: Boolean, default: false },
+        enableTwoFactor: { type: Boolean, default: false },
+    },
+    personalizationPrefs: {
+        language: { type: String, default: 'en' },
+        theme: { type: String, default: 'light' },
+        fontSizeMultiplier: { type: Number, default: 1 },
+        healthGoals: [{ type: String }],
+        preferredMeasurements: { type: String, default: 'metric' },
+    },
 
 }, { timestamps: true });
 

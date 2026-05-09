@@ -9,7 +9,6 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import styles from "./home.module.css"
 import NotificationsPanel from "../components/NotificationsPanel"
-import ProfileImageUpload from "../components/ProfileImageUpload"
 
 const HEALTH_TIPS = [
   {
@@ -65,27 +64,6 @@ const PROFESSIONAL_CHANNELS = [
   },
 ]
 
-const FEED_ITEMS = [
-  {
-    id: 1,
-    type: "Tip of the day",
-    author: "Dr. Michael Chen",
-    role: "Cardiologist",
-    body:
-      "A healthy morning routine is often the most effective place to start. Check your blood pressure, hydrate, and move for five minutes before checking messages.",
-    engagement: "183 reactions · 26 comments",
-  },
-  {
-    id: 2,
-    type: "Professional update",
-    author: "Nurse Patricia Owusu",
-    role: "Community Nurse",
-    body:
-      "We are now sharing follow-up care reminders and discharge tips directly in the channel feed so families can act earlier and with more confidence.",
-    engagement: "241 reactions · 41 comments",
-  },
-]
-
 function getTimeBasedGreeting() {
   const hour = new Date().getHours()
   if (hour < 12) {
@@ -114,6 +92,7 @@ export default function SecureHomePage() {
   const aiAssistantLogoSrc = aiAssistantLogo?.src || aiAssistantLogo
   const [searchOpen, setSearchOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
   const [aiQuery, setAiQuery] = useState("")
   const [aiMessages, setAiMessages] = useState([])
@@ -121,21 +100,51 @@ export default function SecureHomePage() {
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState("")
   const [profileImage, setProfileImage] = useState(null)
+  const [doctorId, setDoctorId] = useState(null)
   const [patientId, setPatientId] = useState(null)
+  const [doctorDetails, setDoctorDetails] = useState(null)
+  const [userRole, setUserRole] = useState(null)
+  // Posts (doctor feed)
+  const [postBody, setPostBody] = useState("")
+  const [postImages, setPostImages] = useState([])
+  const [posting, setPosting] = useState(false)
+  const [posts, setPosts] = useState([])
+  const [postsLoading, setPostsLoading] = useState(true)
+  const postImageInputRef = useRef(null)
+  const [commentingPostId, setCommentingPostId] = useState(null)
+  const [commentText, setCommentText] = useState('')
+  const [submittingComment, setSubmittingComment] = useState(false)
+  const [postComments, setPostComments] = useState({})
+  const [loadingComments, setLoadingComments] = useState({})
   const headerRef = useRef(null)
+  const profileCardRef = useRef(null)
+  const commentPanelRef = useRef(null)
+  const commentOpenRef = useRef(false)
   const aiInputRef = useRef(null)
   const aiThreadRef = useRef(null)
+  const currentUserId = doctorId || patientId || null
+
+  useEffect(() => {
+    commentOpenRef.current = Boolean(commentingPostId)
+  }, [commentingPostId])
+
 
   useEffect(() => {
     function handleOutsideClick(event) {
       if (headerRef.current && !headerRef.current.contains(event.target)) {
         setMenuOpen(false)
       }
+      if (profileCardRef.current && !profileCardRef.current.contains(event.target)) {
+        setProfileDropdownOpen(false)
+      }
+      if (commentOpenRef.current && commentPanelRef.current && !commentPanelRef.current.contains(event.target)) {
+        setCommentingPostId(null)
+        setCommentText('')
+      }
     }
 
     document.addEventListener("mousedown", handleOutsideClick)
     document.addEventListener("touchstart", handleOutsideClick)
-
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick)
       document.removeEventListener("touchstart", handleOutsideClick)
@@ -145,18 +154,94 @@ export default function SecureHomePage() {
   useEffect(() => {
     if (typeof window === "undefined") return
 
-    const storedAuth = window.localStorage.getItem("patientAuth")
-    if (!storedAuth) return
-
-    try {
-      const auth = JSON.parse(storedAuth)
-      setPatientId(auth.patientId || auth.id || auth._id)
-      if (auth.profileImage && auth.profileImage.url) {
-        setProfileImage(auth.profileImage)
+    // Check for patient auth
+    const patientAuthStr = window.localStorage.getItem("patientAuth")
+    if (patientAuthStr) {
+      try {
+        const auth = JSON.parse(patientAuthStr)
+        setPatientId(auth.patientId || auth.id || auth._id || null)
+        setDoctorId(null)
+        setDoctorDetails(null)
+        setUserRole("patient")
+        if (auth.profileImage && auth.profileImage.url) {
+          setProfileImage(auth.profileImage)
+        }
+      } catch {
+        // ignore parse errors
       }
-    } catch {
-      // ignore parse errors
+      return
     }
+
+    // Check for doctor auth
+    const doctorAuthStr = window.localStorage.getItem("doctorAuth")
+    if (doctorAuthStr) {
+      try {
+        const auth = JSON.parse(doctorAuthStr)
+        setDoctorId(auth.doctorId || auth.id || auth._id || null)
+        setPatientId(null)
+        setUserRole("doctor")
+        if (auth.profileImage && auth.profileImage.url) {
+          setProfileImage(auth.profileImage)
+        }
+      } catch {
+        setDoctorId(null)
+        setUserRole("doctor")
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (userRole !== "doctor" || !doctorId) return
+
+    let active = true
+
+    async function loadDoctorDetails() {
+      try {
+        const headers = {}
+        const token = getStoredToken()
+        if (token) headers.authorization = `Bearer ${token}`
+        const response = await fetch(`/api/doctors/${encodeURIComponent(doctorId)}/dashboard`, { cache: "no-store", headers })
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok) {
+          throw new Error(data?.message || "Could not load doctor details.")
+        }
+
+        if (!active) return
+        setDoctorDetails(data?.doctor || null)
+      } catch (err) {
+        if (active) {
+          console.error("Failed to load doctor details", err)
+        }
+      }
+    }
+
+    loadDoctorDetails()
+
+    return () => {
+      active = false
+    }
+  }, [doctorId, userRole])
+
+  // Load public posts feed (visible to all users)
+  useEffect(() => {
+    let active = true
+    async function loadPosts() {
+      setPostsLoading(true)
+      try {
+        const response = await fetch('/api/posts', { cache: 'no-store' })
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(data?.message || 'Could not load posts')
+        if (!active) return
+        setPosts(Array.isArray(data.posts) ? data.posts : [])
+      } catch (err) {
+        console.error('Failed to load posts', err)
+      } finally {
+        if (active) setPostsLoading(false)
+      }
+    }
+
+    loadPosts()
+    return () => { active = false }
   }, [])
 
   useEffect(() => {
@@ -195,6 +280,18 @@ export default function SecureHomePage() {
     }
   }
 
+  function getStoredToken() {
+    if (typeof window === 'undefined') return null
+    try {
+      const patientAuth = window.localStorage.getItem('patientAuth')
+      const doctorAuth = window.localStorage.getItem('doctorAuth')
+      const parsed = patientAuth ? JSON.parse(patientAuth) : doctorAuth ? JSON.parse(doctorAuth) : null
+      return parsed?.token || parsed?.accessToken || null
+    } catch {
+      return null
+    }
+  }
+
   const patchPatientStatus = useCallback(async (updates = {}) => {
     const auth = getStoredAuth()
     const id = auth?.patientId || auth?.id || auth?._id || auth?.patientEmail
@@ -202,9 +299,12 @@ export default function SecureHomePage() {
 
     const encodedId = encodeURIComponent(id)
     try {
+      const headers = { "Content-Type": "application/json" }
+      const token = getStoredToken()
+      if (token) headers.authorization = `Bearer ${token}`
       await fetch(`/api/patients/status/${encodedId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(updates),
       })
     } catch (err) {
@@ -212,17 +312,21 @@ export default function SecureHomePage() {
     }
   }, [])
 
-  // Toggle aiActive when ai panel opens/closes
+  // Toggle aiActive when ai panel opens/closes (patients only)
   useEffect(() => {
+    if (userRole !== "patient") return
+    
     const auth = getStoredAuth()
     if (!auth) return
 
     // when aiOpen is true -> aiActive true, otherwise false
     patchPatientStatus({ aiActive: Boolean(aiOpen) })
-  }, [aiOpen, patchPatientStatus])
+  }, [aiOpen, patchPatientStatus, userRole])
 
-  // Mark user as online while this page is mounted
+  // Mark user as online while this page is mounted (patients only)
   useEffect(() => {
+    if (userRole !== "patient") return
+    
     const auth = getStoredAuth()
     if (!auth) return
     patchPatientStatus({ online: true })
@@ -231,18 +335,21 @@ export default function SecureHomePage() {
       // best-effort set offline when leaving
       patchPatientStatus({ online: false, aiActive: false })
     }
-  }, [patchPatientStatus])
+  }, [patchPatientStatus, userRole])
 
   // Logout handler
   async function handleLogout() {
-    const auth = getStoredAuth()
-    if (auth) {
-      const id = auth?.patientId || auth?.id || auth?._id || auth?.patientEmail
+    const patientAuth = getStoredAuth()
+    if (patientAuth) {
+      const id = patientAuth?.patientId || patientAuth?.id || patientAuth?._id || patientAuth?.patientEmail
       if (id) {
         try {
+          const headers = { "Content-Type": "application/json" }
+          const token = getStoredToken()
+          if (token) headers.authorization = `Bearer ${token}`
           await fetch(`/api/patients/status/${encodeURIComponent(id)}`, {
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
+            headers,
             body: JSON.stringify({ online: false, aiActive: false }),
           })
         } catch (err) {
@@ -253,6 +360,7 @@ export default function SecureHomePage() {
 
     try {
       window.localStorage.removeItem("patientAuth")
+      window.localStorage.removeItem("doctorAuth")
     } catch {
       // ignore storage failures during logout cleanup
     }
@@ -263,38 +371,37 @@ export default function SecureHomePage() {
     () => () => {},
     () => {
       if (typeof window === "undefined") {
-        return "Patient"
+        return "User"
       }
 
-      const storedAuth = window.localStorage.getItem("patientAuth")
-      if (!storedAuth) {
-        return "Patient"
+      // Check patient auth first
+      const patientAuth = window.localStorage.getItem("patientAuth")
+      if (patientAuth) {
+        try {
+          const auth = JSON.parse(patientAuth)
+          return [auth.patientFirstName, auth.patientLastName].filter(Boolean).join(" ").trim() || auth.patientFirstName || "Patient"
+        } catch {
+          return "User"
+        }
       }
 
-      try {
-        const auth = JSON.parse(storedAuth)
-        return [auth.patientFirstName, auth.patientLastName].filter(Boolean).join(" ").trim() || auth.patientFirstName || "Patient"
-      } catch {
-        return "Patient"
+      // Check doctor auth
+      const doctorAuth = window.localStorage.getItem("doctorAuth")
+      if (doctorAuth) {
+        try {
+          const auth = JSON.parse(doctorAuth)
+          return [auth.firstName, auth.lastName].filter(Boolean).join(" ").trim() || auth.firstName || "Doctor"
+        } catch {
+          return "User"
+        }
       }
+
+      return "User"
     },
-    () => "Patient",
+    () => "User",
   )
 
-  const handleProfileImageUpload = useCallback(
-    (attachment) => {
-      setProfileImage(attachment)
-      // Update localStorage with new profile image
-      try {
-        const auth = JSON.parse(window.localStorage.getItem("patientAuth") || "{}")
-        auth.profileImage = { url: attachment.url, publicId: attachment.publicId }
-        window.localStorage.setItem("patientAuth", JSON.stringify(auth))
-      } catch (err) {
-        console.error("Failed to save profile image to localStorage", err)
-      }
-    },
-    [],
-  )
+  // profile image updates are handled in the dashboard and doctor pages
 
   useEffect(() => {
     if (aiOpen && aiMessages.length === 0) {
@@ -343,10 +450,13 @@ export default function SecureHomePage() {
         }
       }
 
+      const headers = { "Content-Type": "application/json" }
+      const token = getStoredToken()
+      if (token) headers.authorization = `Bearer ${token}`
       const response = await fetch("/api/ai/chat", {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           query,
           userId,
@@ -388,6 +498,202 @@ export default function SecureHomePage() {
     }
   }
 
+  // Handle attaching images for a post (uploads to /api/uploads)
+  async function handlePostImageSelect(event) {
+    const files = Array.from(event.target.files || [])
+    if (files.length === 0) return
+
+    const imageFiles = files.filter((file) => file.type && file.type.startsWith('image/'))
+    if (imageFiles.length !== files.length) {
+      console.error('Only image files are allowed for posts.')
+      return
+    }
+
+    try {
+      const formData = new FormData()
+      imageFiles.forEach((file) => formData.append('files', file))
+      formData.append('type', 'post')
+      formData.append('reference', doctorId || 'anonymous')
+
+      const headers = {}
+      const token = getStoredToken()
+      if (token) headers.authorization = `Bearer ${token}`
+
+      const response = await fetch('/api/uploads', { method: 'POST', headers, body: formData })
+      if (!response.ok) throw new Error('Upload failed')
+      const data = await response.json()
+      const attachments = data?.attachments || data?.files || []
+      setPostImages((current) => [...current, ...(Array.isArray(attachments) ? attachments : [attachments])])
+    } catch (err) {
+      console.error('Post image upload error:', err)
+    } finally {
+      if (postImageInputRef.current) postImageInputRef.current.value = ''
+    }
+  }
+
+  async function createPost() {
+    if (!postBody && postImages.length === 0) return
+    setPosting(true)
+    try {
+      const body = {
+        body: String(postBody || ''),
+        images: postImages.map((p) => ({ url: p.url || p.path || p.secure_url, publicId: p.publicId || p.public_id, mimeType: p.mimeType || p.mimetype })),
+        visibility: 'public',
+      }
+      const headers = { 'Content-Type': 'application/json' }
+      const token = getStoredToken()
+      if (token) headers.authorization = `Bearer ${token}`
+
+      const response = await fetch('/api/posts', { method: 'POST', headers, body: JSON.stringify(body) })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data?.message || 'Failed to create post')
+
+      setPosts((cur) => [data.post, ...cur])
+      setPostBody('')
+      setPostImages([])
+    } catch (err) {
+      console.error('Failed to create post', err)
+    } finally {
+      setPosting(false)
+    }
+  }
+
+  async function handleLikePost(postId) {
+    try {
+      const headers = { 'Content-Type': 'application/json' }
+      const token = getStoredToken()
+      if (token) headers.authorization = `Bearer ${token}`
+
+      const response = await fetch(`/api/posts/${encodeURIComponent(postId)}/like`, { method: 'PATCH', headers, body: JSON.stringify({}) })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data?.message || 'Failed to toggle like')
+
+      // Update posts list with updated post
+      setPosts((cur) =>
+        cur.map((p) => (p.postId === postId || p._id === postId ? data.post : p))
+      )
+    } catch (err) {
+      console.error('Failed to toggle like', err)
+    }
+  }
+
+  async function handleAddComment(postId) {
+    if (!commentText.trim()) return
+    setSubmittingComment(true)
+    try {
+      const headers = { 'Content-Type': 'application/json' }
+      const token = getStoredToken()
+      if (token) headers.authorization = `Bearer ${token}`
+
+      const response = await fetch(`/api/posts/${encodeURIComponent(postId)}/comments`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ text: commentText.trim() }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data?.message || 'Failed to add comment')
+
+      // Update posts list with updated post
+      setPosts((cur) =>
+        cur.map((p) => (p.postId === postId || p._id === postId ? data.post : p))
+      )
+      setCommentText('')
+      
+      // Refresh comments
+      await fetchCommentsForPost(postId)
+    } catch (err) {
+      console.error('Failed to add comment', err)
+    } finally {
+      setSubmittingComment(false)
+    }
+  }
+
+  async function handleDeleteComment(postId, commentId) {
+    try {
+      const headers = {}
+      const token = getStoredToken()
+      if (token) headers.authorization = `Bearer ${token}`
+
+      const response = await fetch(`/api/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}`, {
+        method: 'DELETE',
+        headers,
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data?.message || 'Failed to delete comment')
+
+      setPosts((cur) => cur.map((p) => (p.postId === postId || p._id === postId ? data.post : p)))
+      setPostComments((cur) => ({
+        ...cur,
+        [postId]: data.post?.comments?.list || [],
+      }))
+    } catch (err) {
+      console.error('Failed to delete comment', err)
+    }
+  }
+
+  async function handleDeletePost(postId) {
+    if (!window.confirm('Delete this post? This cannot be undone.')) return
+
+    try {
+      const headers = {}
+      const token = getStoredToken()
+      if (token) headers.authorization = `Bearer ${token}`
+
+      const response = await fetch(`/api/posts/${encodeURIComponent(postId)}`, {
+        method: 'DELETE',
+        headers,
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data?.message || 'Failed to delete post')
+
+      setPosts((cur) => cur.filter((p) => (p.postId || p._id) !== postId))
+      setPostComments((cur) => {
+        const next = { ...cur }
+        delete next[postId]
+        return next
+      })
+      if (commentingPostId === postId) {
+        setCommentingPostId(null)
+        setCommentText('')
+      }
+    } catch (err) {
+      console.error('Failed to delete post', err)
+    }
+  }
+
+  async function fetchCommentsForPost(postId) {
+    try {
+      setLoadingComments((cur) => ({ ...cur, [postId]: true }))
+      const headers = {}
+      const token = getStoredToken()
+      if (token) headers.authorization = `Bearer ${token}`
+
+      const response = await fetch(`/api/posts/${encodeURIComponent(postId)}/comments`, {
+        method: 'GET',
+        headers,
+      })
+      const data = await response.json().catch(() => ({ comments: [], count: 0 }))
+      
+      setPostComments((cur) => ({ ...cur, [postId]: data.comments || [] }))
+    } catch (err) {
+      console.error('Failed to fetch comments', err)
+    } finally {
+      setLoadingComments((cur) => ({ ...cur, [postId]: false }))
+    }
+  }
+
+  function toggleComments(postId) {
+    if (commentingPostId === postId) {
+      setCommentingPostId(null)
+    } else {
+      setCommentingPostId(postId)
+      // Fetch comments if not already loaded
+      if (!postComments[postId]) {
+        fetchCommentsForPost(postId)
+      }
+    }
+  }
+
   return (
     <main className={styles.page}>
       <header className={styles.topBar} ref={headerRef}>
@@ -402,33 +708,35 @@ export default function SecureHomePage() {
         </Link>
 
         <div className={styles.topActions}>
-          <div className={`${styles.searchContainer} ${searchOpen ? styles.searchActive : ''}`}>
-            {!searchOpen && (
-              <button 
-                type="button" 
-                className={`${styles.action} ${styles.actionGhost} ${styles.searchButton}`}
-                onClick={() => setSearchOpen(true)}
-                aria-label="Search health tips and channels"
-                title="Search"
-              >
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="2" />
-                  <path d="M15.5 15.5L20 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-                <span className={styles.searchLabel}>Search</span>
-              </button>
-            )}
-            {searchOpen && (
-              <input
-                type="text"
-                placeholder="Search health tips and channels..."
-                className={styles.searchInput}
-                autoFocus
-                onBlur={() => setSearchOpen(false)}
-                onKeyDown={(e) => e.key === 'Escape' && setSearchOpen(false)}
-              />
-            )}
-          </div>
+          {userRole === "patient" && (
+            <div className={`${styles.searchContainer} ${searchOpen ? styles.searchActive : ''}`}>
+              {!searchOpen && (
+                <button 
+                  type="button" 
+                  className={`${styles.action} ${styles.actionGhost} ${styles.searchButton}`}
+                  onClick={() => setSearchOpen(true)}
+                  aria-label="Search health tips and channels"
+                  title="Search"
+                >
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="2" />
+                    <path d="M15.5 15.5L20 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                  <span className={styles.searchLabel}>Search</span>
+                </button>
+              )}
+              {searchOpen && (
+                <input
+                  type="text"
+                  placeholder="Search health tips and channels..."
+                  className={styles.searchInput}
+                  autoFocus
+                  onBlur={() => setSearchOpen(false)}
+                  onKeyDown={(e) => e.key === 'Escape' && setSearchOpen(false)}
+                />
+              )}
+            </div>
+          )}
 
           <button type="button" className={styles.aiHeaderButton} onClick={() => setAiOpen(true)} aria-label="Open Health Assistant" title="Health Assistant">
             <Image src={aiAssistantLogoSrc} alt="" width={22} height={22} className={styles.aiHeaderIcon} />
@@ -440,7 +748,7 @@ export default function SecureHomePage() {
             <span className={styles.sosLabel}>SOS</span>
           </Link>
           <NotificationsPanel variant="header" />
-          <Link href="/secure/dashboard" className={`${styles.action} ${styles.actionGhost} ${styles.desktopOnlyAction}`}>
+          <Link href={userRole === "doctor" ? "/secure/doctor" : "/secure/dashboard"} className={`${styles.action} ${styles.actionGhost} ${styles.desktopOnlyAction}`}>
             Dashboard
           </Link>
 
@@ -461,7 +769,7 @@ export default function SecureHomePage() {
 
         {menuOpen && (
           <nav className={styles.headerDropdown} aria-label="Mobile menu">
-            <Link href="/secure/dashboard" className={styles.dropdownItem}>
+            <Link href={userRole === "doctor" ? "/secure/doctor" : "/secure/dashboard"} className={styles.dropdownItem}>
               <span>📊</span>
               <span>Dashboard</span>
             </Link>
@@ -476,6 +784,10 @@ export default function SecureHomePage() {
             <Link href="/secure/health-records" className={styles.dropdownItem}>
               <span>📋</span>
               <span>Records</span>
+            </Link>
+            <Link href="/secure/settings" className={styles.dropdownItem}>
+              <span>⚙️</span>
+              <span>Settings</span>
             </Link>
             <Link href="/secure/emergency" className={styles.dropdownItemStrong}>
               <span>🚨</span>
@@ -494,7 +806,7 @@ export default function SecureHomePage() {
           <span>🏠</span>
           <span>Home</span>
         </Link>
-        <Link href="/secure/dashboard" className={styles.menuButton}>
+        <Link href={userRole === "doctor" ? "/secure/doctor" : "/secure/dashboard"} className={styles.menuButton}>
           <span>📊</span>
           <span>Dashboard</span>
         </Link>
@@ -510,6 +822,10 @@ export default function SecureHomePage() {
           <span>📋</span>
           <span>Records</span>
         </Link>
+        <Link href="/secure/settings" className={styles.menuButton}>
+          <span>⚙️</span>
+          <span>Settings</span>
+        </Link>
         <Link href="/secure/emergency" className={styles.menuButtonStrong}>
           <span>🚨</span>
           <span>Emergency</span>
@@ -521,34 +837,73 @@ export default function SecureHomePage() {
       </nav>
 
       <div className={styles.layout}>
-        <aside className={styles.leftRail}>
-          <section className={styles.profileCard}>
-            <div className={styles.profileAvatar}>
-              {profileImage?.url ? (
-                <Image src={profileImage.url} alt={userName} fill className={styles.profileImage} />
-              ) : (
-                userName.slice(0, 1).toUpperCase()
-              )}
-            </div>
-            <h1>{userName}</h1>
-            <p>Patient dashboard</p>
-            {patientId && (
-              <ProfileImageUpload
-                patientId={patientId}
-                currentImage={profileImage}
-                onUploadComplete={handleProfileImageUpload}
-                onError={(err) => console.error("Profile image upload error:", err)}
-              />
-            )}
-          </section>
+        {userRole === "patient" && (
+          <>
+            <aside className={styles.leftRail}>
+              <section className={styles.profileCard} ref={profileCardRef}>
+                <button
+                  type="button"
+                  className={styles.profileAvatarButton}
+                  onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                  aria-label={`Profile menu for ${userName}`}
+                  aria-expanded={profileDropdownOpen}
+                >
+                  <div className={styles.profileAvatar}>
+                    {profileImage?.url ? (
+                      <Image src={profileImage.url} alt={userName} fill className={styles.profileImage} />
+                    ) : (
+                      userName.slice(0, 1).toUpperCase()
+                    )}
+                  </div>
+                </button>
+                <h1>{userName}</h1>
+                <p>Patient dashboard</p>
 
-          <NotificationsPanel variant="sidebar" />
-        </aside>
+                {/* profile actions moved to dashboard */}
+              </section>
 
-        <section className={styles.feedColumn}>
+              <section className={styles.sideCard}>
+                <div className={styles.sideHeader}>
+                  <h3>Your details</h3>
+                </div>
+                <div style={{ display: "grid", gap: "0.5rem" }}>
+                  {(() => {
+                    const auth = getStoredAuth()
+                    const name = auth ? ([auth.patientFirstName, auth.patientLastName].filter(Boolean).join(" ") || auth.patientFirstName || userName) : userName
+                    const email = auth?.patientEmail || auth?.email || "No email"
+                    const phone = auth?.patientPhone || auth?.phone || "No phone"
+                    const address = auth?.patientAddress || auth?.address || "No address"
+                    return (
+                      <>
+                        <div>
+                          <p style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 0.25rem" }}>Name</p>
+                          <p style={{ margin: 0, fontWeight: "600" }}>{name}</p>
+                        </div>
+                        <div>
+                          <p style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 0.25rem" }}>Email</p>
+                          <p style={{ margin: 0, fontWeight: "500" }}>{email}</p>
+                        </div>
+                        <div>
+                          <p style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 0.25rem" }}>Phone</p>
+                          <p style={{ margin: 0, fontWeight: "500" }}>{phone}</p>
+                        </div>
+                        <div>
+                          <p style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 0.25rem" }}>Address</p>
+                          <p style={{ margin: 0, fontWeight: "500" }}>{address}</p>
+                        </div>
+                      </>
+                    )
+                  })()}
+                </div>
+              </section>
+
+              <NotificationsPanel variant="sidebar" />
+            </aside>
+
+            <section className={styles.feedColumn}>
           <article className={styles.heroCard}>
             <div>
-              <p className={styles.eyebrow}>Welcome back</p>
+              <p className={styles.eyebrow}></p>
               <h2>Your health feed is ready.</h2>
               <p>
                 Trending health tips and professional channels now appear in a LinkedIn-style feed, so patients can
@@ -586,185 +941,918 @@ export default function SecureHomePage() {
           </article>
 
           <div className={styles.feedList}>
-            {FEED_ITEMS.map((item) => (
-              <article key={item.id} className={styles.feedCard}>
-                <div className={styles.feedHeader}>
-                  <div className={styles.feedAvatar}>{item.author.slice(0, 1)}</div>
-                  <div>
-                    <h3>{item.author}</h3>
-                    <p>{item.role}</p>
+            {postsLoading ? <p className={styles.status}>Loading posts…</p> : null}
+            {posts.map((post) => {
+              const userLiked = post.likes?.userIds?.includes(currentUserId) || false
+              const canDeletePost = post.author?.id === currentUserId
+              const postLabel = post.label || 'Post'
+              return (
+                <article key={post.postId || post._id} className={styles.feedCard}>
+                  {/* Header with profile info and label */}
+                  <div className={styles.feedHeader}>
+                    <div className={styles.feedAvatar}>
+                      {post.author?.profileImage?.url ? (
+                        <Image src={post.author.profileImage.url} alt={post.author?.name} fill style={{ objectFit: 'cover' }} />
+                      ) : (
+                        (post.author?.name || 'D').slice(0, 1).toUpperCase()
+                      )}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <h3 style={{ margin: '0 0 0.2rem 0', fontSize: '1rem', fontWeight: 600 }}>{post.author?.name}</h3>
+                      <p style={{ margin: 0, fontSize: '0.875rem', color: '#666' }}>{post.author?.role}</p>
+                    </div>
+                    <span style={{ color: '#0a66c2', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{postLabel}</span>
+                    {canDeletePost ? (
+                      <button
+                        type="button"
+                        onClick={() => handleDeletePost(post.postId || post._id)}
+                        style={{
+                          padding: '0.35rem 0.75rem',
+                          border: '1px solid #f0c6c6',
+                          background: '#fff5f5',
+                          color: '#b42318',
+                          fontSize: '0.8rem',
+                          fontWeight: 500,
+                          borderRadius: '999px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Delete
+                      </button>
+                    ) : null}
                   </div>
-                  <span>{item.type}</span>
-                </div>
-                <p className={styles.feedBody}>{item.body}</p>
-                <div className={styles.feedFooter}>
-                  <span>{item.engagement}</span>
-                  <div>
-                    <button type="button">Like</button>
-                    <button type="button">Comment</button>
-                    <button type="button">Share</button>
+
+                  {/* Post content */}
+                  {post.body ? <p className={styles.feedBody}>{post.body}</p> : null}
+                  {Array.isArray(post.images) && post.images.length > 0 && (
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.75rem', marginBottom: '0.75rem' }}>
+                      {post.images.map((img, i) => (
+                        <Image key={i} src={img.url} alt={`post-${i}`} width={200} height={150} style={{ objectFit: 'cover', borderRadius: '0.5rem' }} />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Separator bar between content and reactions */}
+                  <div style={{ borderBottom: '1px solid #e5eaef', marginBottom: '0.75rem' }} />
+
+                  {/* Reaction counts and buttons row */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <div style={{ fontSize: '0.875rem', color: '#666' }}>
+                      <span>❤️ {post.likes?.count || 0} reaction{(post.likes?.count || 0) !== 1 ? 's' : ''}</span>
+                      <span style={{ margin: '0 0.5rem' }}>·</span>
+                      <span>{post.comments?.count || 0} comment{(post.comments?.count || 0) !== 1 ? 's' : ''}</span>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleLikePost(post.postId || post._id)}
+                        style={{
+                          padding: '0.4rem 1rem',
+                          border: '1px solid #cdd9e3',
+                          background: userLiked ? '#fff3f0' : '#fff',
+                          color: userLiked ? '#e74c3c' : '#334155',
+                          fontSize: '0.875rem',
+                          fontWeight: 500,
+                          borderRadius: '999px',
+                          cursor: 'pointer',
+                          transition: 'all 150ms ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.background = userLiked ? '#ffe6e1' : '#f6f8fa'
+                          e.target.style.borderColor = '#999'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.background = userLiked ? '#fff3f0' : '#fff'
+                          e.target.style.borderColor = '#cdd9e3'
+                        }}
+                      >
+                        Like
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleComments(post.postId || post._id)}
+                        style={{
+                          padding: '0.4rem 1rem',
+                          border: '1px solid #cdd9e3',
+                          background: commentingPostId === (post.postId || post._id) ? '#0a66c2' : '#fff',
+                          color: commentingPostId === (post.postId || post._id) ? '#fff' : '#334155',
+                          fontSize: '0.875rem',
+                          fontWeight: 500,
+                          borderRadius: '999px',
+                          cursor: 'pointer',
+                          transition: 'all 150ms ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.background = commentingPostId === (post.postId || post._id) ? '#0a4fa0' : '#f6f8fa'
+                          e.target.style.borderColor = '#999'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.background = commentingPostId === (post.postId || post._id) ? '#0a66c2' : '#fff'
+                          e.target.style.borderColor = '#cdd9e3'
+                        }}
+                      >
+                        Comment
+                      </button>
+                      <button
+                        type="button"
+                        style={{
+                          padding: '0.4rem 1rem',
+                          border: '1px solid #cdd9e3',
+                          background: '#fff',
+                          color: '#334155',
+                          fontSize: '0.875rem',
+                          fontWeight: 500,
+                          borderRadius: '999px',
+                          cursor: 'pointer',
+                          transition: 'all 150ms ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.background = '#f6f8fa'
+                          e.target.style.borderColor = '#999'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.background = '#fff'
+                          e.target.style.borderColor = '#cdd9e3'
+                        }}
+                      >
+                        Share
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
+
+                  {/* Comment section */}
+                  {commentingPostId === (post.postId || post._id) && (
+                    <div ref={commentPanelRef} style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #e5eaef' }}>
+                      {/* Existing comments */}
+                      {loadingComments[post.postId || post._id] ? (
+                        <p style={{ color: '#999', fontSize: '0.875rem', margin: '0.5rem 0' }}>Loading comments...</p>
+                      ) : (
+                        <div className={styles.commentList}>
+                          {(postComments[post.postId || post._id] || []).map((comment) => {
+                            const canDeleteComment = comment.author?.id === currentUserId
+                            return (
+                              <div key={comment.commentId} style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #f0f0f0' }}>
+                                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.3rem', alignItems: 'center' }}>
+                                  <strong style={{ fontSize: '0.875rem' }}>{comment.author?.name || 'Unknown'}</strong>
+                                  <span style={{ color: '#999', fontSize: '0.75rem' }}>· {comment.author?.role || 'user'}</span>
+                                  {canDeleteComment ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteComment(post.postId || post._id, comment.commentId)}
+                                      style={{
+                                        marginLeft: 'auto',
+                                        padding: '0',
+                                        border: 'none',
+                                        background: 'transparent',
+                                        color: '#b42318',
+                                        fontSize: '0.75rem',
+                                        cursor: 'pointer',
+                                      }}
+                                    >
+                                      Delete
+                                    </button>
+                                  ) : null}
+                                </div>
+                                <p style={{ margin: '0.25rem 0', fontSize: '0.875rem', lineHeight: 1.5 }}>{comment.text}</p>
+                                <small style={{ color: '#999', fontSize: '0.7rem' }}>
+                                  {new Date(comment.createdAt).toLocaleString()}
+                                </small>
+                              </div>
+                            )
+                          })}
+                          {(postComments[post.postId || post._id] || []).length === 0 && (
+                            <p style={{ color: '#999', fontSize: '0.875rem', margin: '0.5rem 0' }}>No comments yet</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Comment input */}
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <textarea
+                          value={commentText}
+                          onChange={(e) => setCommentText(e.target.value)}
+                          placeholder="Add a comment..."
+                          rows={2}
+                          style={{
+                            flex: 1,
+                            padding: '0.5rem',
+                            border: '1px solid #cdd9e3',
+                            borderRadius: '0.5rem',
+                            fontSize: '0.875rem',
+                            fontFamily: 'inherit',
+                            resize: 'vertical',
+                            background: '#fff',
+                            color: '#000',
+                          }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleAddComment(post.postId || post._id)}
+                          disabled={submittingComment || !commentText.trim()}
+                          style={{
+                            padding: '0.4rem 1rem',
+                            border: '1px solid #cdd9e3',
+                            background: '#0a66c2',
+                            color: '#fff',
+                            fontSize: '0.875rem',
+                            fontWeight: 700,
+                            borderRadius: '999px',
+                            cursor: submittingComment || !commentText.trim() ? 'not-allowed' : 'pointer',
+                            opacity: submittingComment || !commentText.trim() ? 0.6 : 1,
+                          }}
+                        >
+                          {submittingComment ? 'Posting...' : 'Post'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </article>
+              )
+            })}
           </div>
         </section>
 
-        <aside className={styles.rightRail}>
-          {aiOpen && (
-            <section className={styles.aiPanel} id="secure-home-ai-panel" aria-label="AI Assistant chat">
-              <div className={styles.aiPanelHeader}>
-                <h3>HomeCare AI Assistant</h3>
-                <button type="button" className={styles.aiPanelClose} onClick={() => setAiOpen(false)} aria-label="Close chat">
-                  ×
-                </button>
-              </div>
+            <aside className={styles.rightRail}>
+              {aiOpen && (
+                <section className={styles.aiPanel} id="secure-home-ai-panel" aria-label="AI Assistant chat">
+                  <div className={styles.aiPanelHeader}>
+                    <h3>HomeCare AI Assistant</h3>
+                    <button type="button" className={styles.aiPanelClose} onClick={() => setAiOpen(false)} aria-label="Close chat">
+                      ×
+                    </button>
+                  </div>
 
-              <p className={styles.aiDisclaimer}>
-                ⚠️ This AI provides general health information and is not a substitute for professional medical advice.
-              </p>
+                  <p className={styles.aiDisclaimer}>
+                    ⚠️ This AI provides general health information and is not a substitute for professional medical advice.
+                  </p>
 
-              <div className={styles.aiThread} ref={aiThreadRef} aria-live="polite" aria-relevant="additions text">
-                {aiMessages.map((message) => (
-                  <div key={message.id} className={`${styles.aiMessageRow} ${message.role === "user" ? styles.aiMessageRowUser : styles.aiMessageRowAssistant}`}>
-                    <div
-                      className={`${styles.aiMessage} ${
-                        message.role === "user" ? styles.aiMessageUser : message.tone === "error" ? styles.aiMessageError : styles.aiMessageAssistant
-                      }`}
-                    >
-                      <div className={styles.aiMessageMarkdown}>
-                        {message.role === "assistant" ? (
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
-                        ) : (
-                          <p className={styles.aiMessageText}>{message.content}</p>
-                        )}
-                      </div>
-                      <div className={styles.aiMessageMeta}>
-                        <span className={styles.aiMessageLabel}>{message.role === "user" ? "You" : "HomeCare AI"}</span>
-                        {message.timestamp ? (
-                          <span className={styles.aiMessageTime}>{new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                        ) : null}
-                      </div>
-                      {Array.isArray(message.sources) && message.sources.length > 0 ? (
-                        <details className={styles.aiMessageSources}>
-                          <summary>View sources ({message.sources.length})</summary>
-                          <div className={styles.aiSourcesList}>
-                            {message.sources.map((source, index) => (
-                              <div key={`${message.id}-source-${index}`} className={styles.aiSourceItem}>
-                                <small>{String(source)}</small>
-                              </div>
-                            ))}
+                  <div className={styles.aiThread} ref={aiThreadRef} aria-live="polite" aria-relevant="additions text">
+                    {aiMessages.map((message) => (
+                      <div key={message.id} className={`${styles.aiMessageRow} ${message.role === "user" ? styles.aiMessageRowUser : styles.aiMessageRowAssistant}`}>
+                        <div
+                          className={`${styles.aiMessage} ${
+                            message.role === "user" ? styles.aiMessageUser : message.tone === "error" ? styles.aiMessageError : styles.aiMessageAssistant
+                          }`}
+                        >
+                          <div className={styles.aiMessageMarkdown}>
+                            {message.role === "assistant" ? (
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                            ) : (
+                              <p className={styles.aiMessageText}>{message.content}</p>
+                            )}
                           </div>
-                        </details>
-                      ) : null}
-                    </div>
-                  </div>
-                ))}
-
-                {aiLoading && (
-                  <div className={styles.aiMessageRow}>
-                    <div className={`${styles.aiMessage} ${styles.aiMessageAssistant}`}>
-                      <div className={styles.aiTypingIndicator} aria-label="HomeCare AI is typing">
-                        <span />
-                        <span />
-                        <span />
+                          <div className={styles.aiMessageMeta}>
+                            <span className={styles.aiMessageLabel}>{message.role === "user" ? "You" : "HomeCare AI"}</span>
+                            {message.timestamp ? (
+                              <span className={styles.aiMessageTime}>{new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                            ) : null}
+                          </div>
+                          {Array.isArray(message.sources) && message.sources.length > 0 ? (
+                            <details className={styles.aiMessageSources}>
+                              <summary>View sources ({message.sources.length})</summary>
+                              <div className={styles.aiSourcesList}>
+                                {message.sources.map((source, index) => (
+                                  <div key={`${message.id}-source-${index}`} className={styles.aiSourceItem}>
+                                    <small>{String(source)}</small>
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
+                    ))}
+
+                    {aiLoading && (
+                      <div className={styles.aiMessageRow}>
+                        <div className={`${styles.aiMessage} ${styles.aiMessageAssistant}`}>
+                          <div className={styles.aiTypingIndicator} aria-label="HomeCare AI is typing">
+                            <span />
+                            <span />
+                            <span />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              {aiError ? <p className={styles.aiError}>{aiError}</p> : null}
+                  {aiError ? <p className={styles.aiError}>{aiError}</p> : null}
 
-              <form
-                className={styles.aiComposer}
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  submitAiQuery()
-                }}
-              >
-                <input
-                  ref={aiInputRef}
-                  className={styles.aiInput}
-                  value={aiQuery}
-                  onChange={(event) => setAiQuery(event.target.value)}
-                  placeholder="Message HomeCare AI..."
-                  type="text"
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
+                  <form
+                    className={styles.aiComposer}
+                    onSubmit={(event) => {
                       event.preventDefault()
                       submitAiQuery()
-                    }
-                  }}
-                />
-                <div className={styles.aiActions}>
-                  <button type="submit" className={styles.aiButton} disabled={aiLoading}>
-                    {aiLoading ? "Thinking..." : "Send"}
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.aiGhostButton}
-                    onClick={() => {
-                      setAiMessages([])
-                      setAiConversationId("")
-                      setAiError("")
-                      setAiQuery("")
-                      if (aiInputRef.current) {
-                        aiInputRef.current.value = ""
-                      }
                     }}
-                    disabled={aiLoading && aiMessages.length === 0}
                   >
-                    Clear chat
-                  </button>
+                    <input
+                      ref={aiInputRef}
+                      className={styles.aiInput}
+                      value={aiQuery}
+                      onChange={(event) => setAiQuery(event.target.value)}
+                      placeholder="Message HomeCare AI..."
+                      type="text"
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && !event.shiftKey) {
+                          event.preventDefault()
+                          submitAiQuery()
+                        }
+                      }}
+                    />
+                    <div className={styles.aiActions}>
+                      <button type="submit" className={styles.aiButton} disabled={aiLoading}>
+                        {aiLoading ? "Thinking..." : "Send"}
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.aiGhostButton}
+                        onClick={() => {
+                          setAiMessages([])
+                          setAiConversationId("")
+                          setAiError("")
+                          setAiQuery("")
+                          if (aiInputRef.current) {
+                            aiInputRef.current.value = ""
+                          }
+                        }}
+                        disabled={aiLoading && aiMessages.length === 0}
+                      >
+                        Clear chat
+                      </button>
+                    </div>
+                  </form>
+                </section>
+              )}
+
+              <section className={styles.sideCard}>
+                <div className={styles.sideHeader}>
+                  <h3>Trending Health Tips</h3>
+                  <Link href="#">See all</Link>
                 </div>
-              </form>
+                <div className={styles.tipStack}>
+                  {HEALTH_TIPS.map((tip) => (
+                    <article key={tip.id} className={styles.tipCard} style={{ background: tip.accent }}>
+                      <div className={styles.tipMeta}>
+                        <span>{tip.category}</span>
+                        <span>{tip.time}</span>
+                      </div>
+                      <h4>{tip.title}</h4>
+                      <p>{tip.summary}</p>
+                      <small>By {tip.author}</small>
+                    </article>
+                  ))}
+                </div>
+              </section>
+
+              <section className={styles.sideCard}>
+                <div className={styles.sideHeader}>
+                  <h3>Professional Channels</h3>
+                  <Link href="#">See all</Link>
+                </div>
+                <div className={styles.channelStack}>
+                  {PROFESSIONAL_CHANNELS.map((channel) => (
+                    <article key={channel.id} className={styles.channelCard}>
+                      <div className={styles.channelAvatar}>{channel.name.slice(0, 1)}</div>
+                      <div className={styles.channelInfo}>
+                        <h4>{channel.name}</h4>
+                        <p>{channel.role}</p>
+                        <small>{channel.followers}</small>
+                        <span>{channel.description}</span>
+                      </div>
+                      <button type="button" className={styles.followButton}>
+                        Follow
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            </aside>
+          </>
+        )}
+        {userRole === "doctor" && (
+          <>
+            <aside className={styles.leftRail}>
+              <section className={styles.profileCard}>
+                <div className={styles.profileAvatar}>
+                  {profileImage?.url ? (
+                    <Image src={profileImage.url} alt={userName} fill className={styles.profileImage} />
+                  ) : (
+                    userName.slice(0, 1).toUpperCase()
+                  )}
+                </div>
+                <h1>{doctorDetails?.doctorFirstName || doctorDetails?.doctorLastName ? `Dr. ${[doctorDetails?.doctorFirstName, doctorDetails?.doctorLastName].filter(Boolean).join(" ")}` : userName}</h1>
+                <p>Doctor profile</p>
+              </section>
+
+              <section className={styles.sideCard}>
+                <div className={styles.sideHeader}>
+                  <h3>Doctor details</h3>
+                </div>
+                <div style={{ display: "grid", gap: "0.5rem" }}>
+                  <div>
+                    <p style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 0.25rem" }}>Name</p>
+                    <p style={{ margin: 0, fontWeight: "600" }}>{doctorDetails?.doctorFirstName || doctorDetails?.doctorLastName ? `Dr. ${[doctorDetails?.doctorFirstName, doctorDetails?.doctorLastName].filter(Boolean).join(" ")}` : userName}</p>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 0.25rem" }}>Email</p>
+                    <p style={{ margin: 0, fontWeight: "500" }}>{doctorDetails?.doctorEmail || "No email"}</p>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 0.25rem" }}>Phone</p>
+                    <p style={{ margin: 0, fontWeight: "500" }}>{doctorDetails?.doctorPhone || "No phone"}</p>
+                  </div>
+                  
+                  <div>
+                    <p style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 0.25rem" }}>Address</p>
+                    <p style={{ margin: 0, fontWeight: "500" }}>{doctorDetails?.doctorAddress || "No address"}</p>
+                  </div>
+                </div>
+              </section>
+
+              <NotificationsPanel variant="sidebar" />
+            </aside>
+
+            <section className={styles.feedColumn}>
+              <article className={styles.heroCard}>
+                <div>
+                  <p className={styles.eyebrow}></p>
+                  <h2>Welcome, {userName}</h2>
+                  <p>
+                    Access health tips, connect with the AI assistant, manage notifications, and stay updated with the latest professional insights.
+                  </p>
+                </div>
+
+                <div className={styles.heroStats}>
+                  <div>
+                    <strong>{doctorDetails?.doctorId || doctorId || "--"}</strong>
+                    <span>Doctor ID</span>
+                  </div>
+                  <div>
+                    <strong>{doctorDetails?.specialization || "Doctor"}</strong>
+                    <span>Specialization</span>
+                  </div>
+                  <div>
+                    <strong>{doctorDetails?.yearsOfExperience ?? 0}</strong>
+                    <span>Years of experience</span>
+                  </div>
+                </div>
+              </article>
+
+              {/* Post composer (doctors) */}
+              <section className={styles.composerSection}>
+                <article className={styles.composerCard}>
+                  <div className={styles.composerTop}>
+                    <div className={styles.profileAvatarSmall}>{(userName || 'D').slice(0, 1).toUpperCase()}</div>
+                    <input
+                      type="text"
+                      className={styles.composerInput}
+                      placeholder="Share a question or health update with your care network..."
+                      onClick={() => {
+                        const textarea = postImageInputRef.current?.parentElement?.querySelector('textarea')
+                        if (textarea) textarea.focus()
+                      }}
+                      readOnly
+                    />
+                  </div>
+                  <div className={styles.composerActions}>
+                    <button type="button">Health tip</button>
+                    <button type="button">Follow channel</button>
+                    <button type="button">Ask a professional</button>
+                  </div>
+                </article>
+
+                {/* Hidden form for actual post creation */}
+                <article className={styles.composerCard} style={{ display: 'none' }}>
+                  <div className={styles.composerTop}>
+                    <div className={styles.profileAvatarSmall}>{(userName || 'D').slice(0, 1).toUpperCase()}</div>
+                    <textarea
+                      className={styles.composerInput}
+                      placeholder="Share a thought, case update, or image with all users..."
+                      value={postBody}
+                      onChange={(e) => setPostBody(e.target.value)}
+                      rows={3}
+                    />
+                  </div>
+                  <div className={styles.composerActions}>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <button type="button" onClick={() => postImageInputRef.current?.click()} disabled={posting}>Add image</button>
+                      <input ref={postImageInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handlePostImageSelect} />
+                      <small style={{ color: '#666' }}>{postImages.length} image(s) attached</small>
+                    </div>
+                    <div>
+                      <button type="button" onClick={createPost} disabled={posting}>{posting ? 'Posting…' : 'Post'}</button>
+                    </div>
+                  </div>
+                  {postImages.length > 0 && (
+                    <div className={styles.postPreviewRow}>
+                      {postImages.map((img, idx) => (
+                        <div key={idx} className={styles.postPreviewItem}>
+                          <Image src={img.url || img.path || img.secure_url} alt={`attachment-${idx}`} width={96} height={96} style={{ objectFit: 'cover', borderRadius: 8 }} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              </section>
+
+              {/* Public posts feed */}
+              <section className={styles.feedList} aria-live="polite">
+                {postsLoading ? <p className={styles.status}>Loading posts…</p> : null}
+                {posts.map((post) => {
+                  const userLiked = post.likes?.userIds?.includes(currentUserId) || false
+                  const canDeletePost = post.author?.id === currentUserId
+                  const postLabel = post.label || 'Post'
+                  return (
+                    <article key={post.postId || post._id} className={styles.feedCard}>
+                      {/* Header with profile info and label */}
+                      <div className={styles.feedHeader}>
+                        <div className={styles.feedAvatar}>
+                          {post.author?.profileImage?.url ? (
+                            <Image src={post.author.profileImage.url} alt={post.author?.name} fill style={{ objectFit: 'cover' }} />
+                          ) : (
+                            (post.author?.name || 'D').slice(0, 1).toUpperCase()
+                          )}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <h3 style={{ margin: '0 0 0.2rem 0', fontSize: '1rem', fontWeight: 600 }}>{post.author?.name}</h3>
+                          <p style={{ margin: 0, fontSize: '0.875rem', color: '#666' }}>{post.author?.role}</p>
+                        </div>
+                        <span style={{ color: '#0a66c2', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{postLabel}</span>
+                        {canDeletePost ? (
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePost(post.postId || post._id)}
+                            style={{
+                              padding: '0.35rem 0.75rem',
+                              border: '1px solid #f0c6c6',
+                              background: '#fff5f5',
+                              color: '#b42318',
+                              fontSize: '0.8rem',
+                              fontWeight: 500,
+                              borderRadius: '999px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Delete
+                          </button>
+                        ) : null}
+                      </div>
+
+                      {/* Post content */}
+                      {post.body ? <p className={styles.feedBody}>{post.body}</p> : null}
+                      {Array.isArray(post.images) && post.images.length > 0 && (
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.75rem', marginBottom: '0.75rem' }}>
+                          {post.images.map((img, i) => (
+                            <Image key={i} src={img.url} alt={`post-${i}`} width={200} height={150} style={{ objectFit: 'cover', borderRadius: '0.5rem' }} />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Separator bar between content and reactions */}
+                      <div style={{ borderBottom: '1px solid #e5eaef', marginBottom: '0.75rem' }} />
+
+                      {/* Reaction counts and buttons row */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                        <div style={{ fontSize: '0.875rem', color: '#666' }}>
+                          <span>❤️ {post.likes?.count || 0} reaction{(post.likes?.count || 0) !== 1 ? 's' : ''}</span>
+                          <span style={{ margin: '0 0.5rem' }}>·</span>
+                          <span>{post.comments?.count || 0} comment{(post.comments?.count || 0) !== 1 ? 's' : ''}</span>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleLikePost(post.postId || post._id)}
+                            style={{
+                              padding: '0.4rem 1rem',
+                              border: '1px solid #cdd9e3',
+                              background: userLiked ? '#fff3f0' : '#fff',
+                              color: userLiked ? '#e74c3c' : '#334155',
+                              fontSize: '0.875rem',
+                              fontWeight: 500,
+                              borderRadius: '999px',
+                              cursor: 'pointer',
+                              transition: 'all 150ms ease',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.background = userLiked ? '#ffe6e1' : '#f6f8fa'
+                              e.target.style.borderColor = '#999'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.background = userLiked ? '#fff3f0' : '#fff'
+                              e.target.style.borderColor = '#cdd9e3'
+                            }}
+                          >
+                            Like
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleComments(post.postId || post._id)}
+                            style={{
+                              padding: '0.4rem 1rem',
+                              border: '1px solid #cdd9e3',
+                              background: commentingPostId === (post.postId || post._id) ? '#0a66c2' : '#fff',
+                              color: commentingPostId === (post.postId || post._id) ? '#fff' : '#334155',
+                              fontSize: '0.875rem',
+                              fontWeight: 500,
+                              borderRadius: '999px',
+                              cursor: 'pointer',
+                              transition: 'all 150ms ease',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.background = commentingPostId === (post.postId || post._id) ? '#0a4fa0' : '#f6f8fa'
+                              e.target.style.borderColor = '#999'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.background = commentingPostId === (post.postId || post._id) ? '#0a66c2' : '#fff'
+                              e.target.style.borderColor = '#cdd9e3'
+                            }}
+                          >
+                            Comment
+                          </button>
+                          <button
+                            type="button"
+                            style={{
+                              padding: '0.4rem 1rem',
+                              border: '1px solid #cdd9e3',
+                              background: '#fff',
+                              color: '#334155',
+                              fontSize: '0.875rem',
+                              fontWeight: 500,
+                              borderRadius: '999px',
+                              cursor: 'pointer',
+                              transition: 'all 150ms ease',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.background = '#f6f8fa'
+                              e.target.style.borderColor = '#999'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.background = '#fff'
+                              e.target.style.borderColor = '#cdd9e3'
+                            }}
+                          >
+                            Share
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Comment section */}
+                      {commentingPostId === (post.postId || post._id) && (
+                        <div ref={commentPanelRef} style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #e5eaef' }}>
+                          {/* Existing comments */}
+                          {loadingComments[post.postId || post._id] ? (
+                            <p style={{ color: '#999', fontSize: '0.875rem', margin: '0.5rem 0' }}>Loading comments...</p>
+                          ) : (
+                            <div className={styles.commentList}>
+                              {(postComments[post.postId || post._id] || []).map((comment) => {
+                                const canDeleteComment = comment.author?.id === currentUserId
+                                return (
+                                  <div key={comment.commentId} style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #f0f0f0' }}>
+                                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.3rem', alignItems: 'center' }}>
+                                      <strong style={{ fontSize: '0.875rem' }}>{comment.author?.name || 'Unknown'}</strong>
+                                      <span style={{ color: '#999', fontSize: '0.75rem' }}>· {comment.author?.role || 'user'}</span>
+                                      {canDeleteComment ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteComment(post.postId || post._id, comment.commentId)}
+                                          style={{
+                                            marginLeft: 'auto',
+                                            padding: '0',
+                                            border: 'none',
+                                            background: 'transparent',
+                                            color: '#b42318',
+                                            fontSize: '0.75rem',
+                                            cursor: 'pointer',
+                                          }}
+                                        >
+                                          Delete
+                                        </button>
+                                      ) : null}
+                                    </div>
+                                    <p style={{ margin: '0.25rem 0', fontSize: '0.875rem', lineHeight: 1.5 }}>{comment.text}</p>
+                                    <small style={{ color: '#999', fontSize: '0.7rem' }}>
+                                      {new Date(comment.createdAt).toLocaleString()}
+                                    </small>
+                                  </div>
+                                )
+                              })}
+                              {(postComments[post.postId || post._id] || []).length === 0 && (
+                                <p style={{ color: '#999', fontSize: '0.875rem', margin: '0.5rem 0' }}>No comments yet</p>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Comment input */}
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <textarea
+                              value={commentText}
+                              onChange={(e) => setCommentText(e.target.value)}
+                              placeholder="Add a comment..."
+                              rows={2}
+                              style={{
+                                flex: 1,
+                                padding: '0.5rem',
+                                border: '1px solid #cdd9e3',
+                                borderRadius: '0.5rem',
+                                fontSize: '0.875rem',
+                                fontFamily: 'inherit',
+                                resize: 'vertical',
+                                background: '#fff',
+                                color: '#000',
+                              }}
+                            />
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleAddComment(post.postId || post._id)}
+                              disabled={submittingComment || !commentText.trim()}
+                              style={{
+                                padding: '0.4rem 1rem',
+                                border: '1px solid #cdd9e3',
+                                background: '#0a66c2',
+                                color: '#fff',
+                                fontSize: '0.875rem',
+                                fontWeight: 700,
+                                borderRadius: '999px',
+                                cursor: submittingComment || !commentText.trim() ? 'not-allowed' : 'pointer',
+                                opacity: submittingComment || !commentText.trim() ? 0.6 : 1,
+                              }}
+                            >
+                              {submittingComment ? 'Posting...' : 'Post'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </article>
+                  )
+                })}
+              </section>
             </section>
-          )}
 
-          <section className={styles.sideCard}>
-            <div className={styles.sideHeader}>
-              <h3>Trending Health Tips</h3>
-              <Link href="#">See all</Link>
-            </div>
-            <div className={styles.tipStack}>
-              {HEALTH_TIPS.map((tip) => (
-                <article key={tip.id} className={styles.tipCard} style={{ background: tip.accent }}>
-                  <div className={styles.tipMeta}>
-                    <span>{tip.category}</span>
-                    <span>{tip.time}</span>
+            <aside className={styles.rightRail}>
+              {aiOpen && (
+                <section className={styles.aiPanel} id="secure-home-ai-panel" aria-label="AI Assistant chat">
+                  <div className={styles.aiPanelHeader}>
+                    <h3>HomeCare AI Assistant</h3>
+                    <button type="button" className={styles.aiPanelClose} onClick={() => setAiOpen(false)} aria-label="Close chat">
+                      ×
+                    </button>
                   </div>
-                  <h4>{tip.title}</h4>
-                  <p>{tip.summary}</p>
-                  <small>By {tip.author}</small>
-                </article>
-              ))}
-            </div>
-          </section>
 
-          <section className={styles.sideCard}>
-            <div className={styles.sideHeader}>
-              <h3>Professional Channels</h3>
-              <Link href="#">See all</Link>
-            </div>
-            <div className={styles.channelStack}>
-              {PROFESSIONAL_CHANNELS.map((channel) => (
-                <article key={channel.id} className={styles.channelCard}>
-                  <div className={styles.channelAvatar}>{channel.name.slice(0, 1)}</div>
-                  <div className={styles.channelInfo}>
-                    <h4>{channel.name}</h4>
-                    <p>{channel.role}</p>
-                    <small>{channel.followers}</small>
-                    <span>{channel.description}</span>
+                  <p className={styles.aiDisclaimer}>
+                    ⚠️ This AI provides general health information and is not a substitute for professional medical advice.
+                  </p>
+
+                  <div className={styles.aiThread} ref={aiThreadRef} aria-live="polite" aria-relevant="additions text">
+                    {aiMessages.map((message) => (
+                      <div key={message.id} className={`${styles.aiMessageRow} ${message.role === "user" ? styles.aiMessageRowUser : styles.aiMessageRowAssistant}`}>
+                        <div
+                          className={`${styles.aiMessage} ${
+                            message.role === "user" ? styles.aiMessageUser : message.tone === "error" ? styles.aiMessageError : styles.aiMessageAssistant
+                          }`}
+                        >
+                          <div className={styles.aiMessageMarkdown}>
+                            {message.role === "assistant" ? (
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                            ) : (
+                              <p className={styles.aiMessageText}>{message.content}</p>
+                            )}
+                          </div>
+                          <div className={styles.aiMessageMeta}>
+                            <span className={styles.aiMessageLabel}>{message.role === "user" ? "You" : "HomeCare AI"}</span>
+                            {message.timestamp ? (
+                              <span className={styles.aiMessageTime}>{new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                            ) : null}
+                          </div>
+                          {Array.isArray(message.sources) && message.sources.length > 0 ? (
+                            <details className={styles.aiMessageSources}>
+                              <summary>View sources ({message.sources.length})</summary>
+                              <div className={styles.aiSourcesList}>
+                                {message.sources.map((source, index) => (
+                                  <div key={`${message.id}-source-${index}`} className={styles.aiSourceItem}>
+                                    <small>{String(source)}</small>
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+
+                    {aiLoading && (
+                      <div className={styles.aiMessageRow}>
+                        <div className={`${styles.aiMessage} ${styles.aiMessageAssistant}`}>
+                          <div className={styles.aiTypingIndicator} aria-label="HomeCare AI is typing">
+                            <span />
+                            <span />
+                            <span />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <button type="button" className={styles.followButton}>
-                    Follow
-                  </button>
-                </article>
-              ))}
-            </div>
-          </section>
-        </aside>
+
+                  {aiError ? <p className={styles.aiError}>{aiError}</p> : null}
+
+                  <form
+                    className={styles.aiComposer}
+                    onSubmit={(event) => {
+                      event.preventDefault()
+                      submitAiQuery()
+                    }}
+                  >
+                    <input
+                      ref={aiInputRef}
+                      className={styles.aiInput}
+                      value={aiQuery}
+                      onChange={(event) => setAiQuery(event.target.value)}
+                      placeholder="Message HomeCare AI..."
+                      type="text"
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && !event.shiftKey) {
+                          event.preventDefault()
+                          submitAiQuery()
+                        }
+                      }}
+                    />
+                    <div className={styles.aiActions}>
+                      <button type="submit" className={styles.aiButton} disabled={aiLoading}>
+                        {aiLoading ? "Thinking..." : "Send"}
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.aiGhostButton}
+                        onClick={() => {
+                          setAiMessages([])
+                          setAiConversationId("")
+                          setAiError("")
+                          setAiQuery("")
+                          if (aiInputRef.current) {
+                            aiInputRef.current.value = ""
+                          }
+                        }}
+                        disabled={aiLoading && aiMessages.length === 0}
+                      >
+                        Clear chat
+                      </button>
+                    </div>
+                  </form>
+                </section>
+              )}
+
+              <section className={styles.sideCard}>
+                <div className={styles.sideHeader}>
+                  <h3>Trending Health Tips</h3>
+                  <Link href="#">See all</Link>
+                </div>
+                <div className={styles.tipStack}>
+                  {HEALTH_TIPS.map((tip) => (
+                    <article key={tip.id} className={styles.tipCard} style={{ background: tip.accent }}>
+                      <div className={styles.tipMeta}>
+                        <span>{tip.category}</span>
+                        <span>{tip.time}</span>
+                      </div>
+                      <h4>{tip.title}</h4>
+                      <p>{tip.summary}</p>
+                      <small>By {tip.author}</small>
+                    </article>
+                  ))}
+                </div>
+              </section>
+
+              <section className={styles.sideCard}>
+                <div className={styles.sideHeader}>
+                  <h3>Professional Channels</h3>
+                  <Link href="#">See all</Link>
+                </div>
+                <div className={styles.channelStack}>
+                  {PROFESSIONAL_CHANNELS.map((channel) => (
+                    <article key={channel.id} className={styles.channelCard}>
+                      <div className={styles.channelAvatar}>{channel.name.slice(0, 1)}</div>
+                      <div className={styles.channelInfo}>
+                        <h4>{channel.name}</h4>
+                        <p>{channel.role}</p>
+                        <small>{channel.followers}</small>
+                        <span>{channel.description}</span>
+                      </div>
+                      <button type="button" className={styles.followButton}>
+                        Follow
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            </aside>
+          </>
+        )}
       </div>
     </main>
   )

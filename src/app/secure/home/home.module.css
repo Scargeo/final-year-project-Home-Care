@@ -495,6 +495,60 @@
 }
 
 .profileCard h1,
+.profileImage {
+  object-fit: cover !important;
+}
+
+.profileAvatarButton {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 150ms ease;
+}
+
+.profileAvatarButton:hover .profileAvatar {
+  transform: scale(1.05);
+}
+
+.profileDropdown {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  border: 1px solid #dbe5ee;
+  border-radius: 0.8rem;
+  min-width: 220px;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.12);
+  z-index: 25;
+}
+
+.profileDropdownContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.profileDropdownItem {
+  display: block;
+  padding: 0.75rem 1rem;
+  text-decoration: none;
+  color: #1f2937;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-radius: 0.5rem;
+  transition: background 150ms ease;
+  text-align: center;
+}
+
+.profileDropdownItem:hover {
+  background: #f0f4f8;
+}
+
+.profileCard h1,
 .heroCard h2,
 .feedCard h3,
 .sideCard h3,
@@ -652,6 +706,8 @@
   width: 3rem;
   height: 3rem;
   font-size: 1.05rem;
+  position: relative;
+  overflow: hidden;
 }
 
 .feedHeader p,
@@ -672,6 +728,17 @@
 .feedBody {
   margin-top: 0.9rem;
   line-height: 1.65;
+}
+
+.commentList {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+  -ms-overflow-style: none;
+}
+
+.commentList::-webkit-scrollbar {
+  display: none;
 }
 
 .feedFooter {

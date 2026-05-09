@@ -974,8 +974,10 @@
 
 .hc-hero__media img {
   width: 100%;
-  min-height: 20rem;
+  height: auto;
+  max-height: 520px;
   object-fit: cover;
+  object-position: center;
   border-radius: 1.2rem;
   border: 1px solid #bae6fd;
   box-shadow: 0 28px 60px rgba(8, 145, 178, 0.2);
@@ -1244,6 +1246,10 @@
 
   .hc-hero__grid {
     grid-template-columns: 1fr;
+  }
+
+  .hc-hero__media img {
+    max-height: 360px;
   }
 
   .hc-float-card--left {

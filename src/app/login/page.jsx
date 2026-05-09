@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import AuthShowcase from "../auth/AuthShowcase"
 import styles from "../auth/auth.module.css"
+import { getRoleRedirect } from "../../lib/getRoleRedirect"
 
 const initialForm = {
   patientEmail: "",
@@ -31,17 +32,17 @@ export default function LoginPage() {
     setError("")
     setSuccess("")
     setLoading(true)
-    setStatus("Checking your patient credentials...")
+    setStatus('Checking your credentials...')
 
     try {
-      // Use local API proxy to avoid CORS issues
-      const response = await fetch("/api/patients/login", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
+      // Use unified auth endpoint which checks patients then doctors
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          patientEmail: form.patientEmail.trim().toLowerCase(),
-          patientPassword: form.patientPassword,
+          email: form.patientEmail.trim().toLowerCase(),
+          password: form.patientPassword,
         }),
       })
 
@@ -50,14 +51,21 @@ export default function LoginPage() {
         throw new Error(data?.message || "Could not log in.")
       }
 
-      if (typeof window !== "undefined" && data?.user) {
-        localStorage.setItem("patientAuth", JSON.stringify(data.user))
+      if (typeof window !== 'undefined' && data?.user) {
+        // store token alongside user data for future requests
+        const payload = { ...data.user, token: data.token }
+        if (data.user.role === 'doctor') {
+          localStorage.setItem('doctorAuth', JSON.stringify(payload))
+        } else {
+          localStorage.setItem('patientAuth', JSON.stringify(payload))
+        }
       }
 
-      setSuccess("Login successful. Redirecting to your home feed...")
-      setStatus("Access granted.")
+      setSuccess('Login successful. Redirecting...')
+      setStatus('Access granted.')
       setForm(initialForm)
-      setTimeout(() => router.push("/secure/home"), 1000)
+      const redirectPath = getRoleRedirect(data.user?.role)
+      setTimeout(() => router.push(redirectPath), 1000)
     } catch (err) {
       setError(err.message || "Login failed.")
       setStatus("Unable to log in right now.")
@@ -90,8 +98,8 @@ export default function LoginPage() {
 
       <section className={styles.authPanel}>
         <div className={styles.authCard}>
-          <h2>Patient login</h2>
-          <p>Use the email and password tied to your patient registration.</p>
+          <h2>Sign in</h2>
+          <p>Enter your email and password to access your account.</p>
 
           <form className={styles.authForm} onSubmit={handleSubmit}>
             <label className={styles.authField}>
@@ -156,15 +164,22 @@ export default function LoginPage() {
                   "Log in"
                 )}
               </button>
-              <Link href="/signup" className={styles.authSecondary}>
-                New patient? Create an account
-              </Link>
             </div>
           </form>
 
           {status ? <div className={styles.authMessage}>{status}</div> : null}
           {error ? <div className={styles.authError}>{error}</div> : null}
           {success ? <div className={styles.authSuccess}>{success}</div> : null}
+
+          <div className={styles.authFooter}>
+            <p>
+              New patient?{" "}
+              <Link href="/signup">Create an account</Link>
+            </p>
+            <p>
+              Health workers: <Link href="/doctor-signup">Create a practitioner account</Link>
+            </p>
+          </div>
         </div>
       </section>
     </main>

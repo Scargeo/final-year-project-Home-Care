@@ -185,6 +185,9 @@ export default function HomePage() {
             <Link href="/signup" className="hc-btn hc-btn--primary hc-btn--sm">
               Sign up
             </Link>
+            <Link href="/doctor-signup" className="hc-btn hc-btn--outline hc-btn--sm">
+              Health worker signup
+            </Link>
             <Link href="/secure/emergency" className="hc-btn hc-btn--sos hc-btn--sm">
               SOS
             </Link>
@@ -241,6 +244,9 @@ export default function HomePage() {
                 </Link>
                 <Link href="/login" className="hc-btn hc-btn--outline">
                   Sign In
+                </Link>
+                <Link href="/doctor-signup" className="hc-btn hc-btn--outline">
+                  For health workers
                 </Link>
               </div>
 

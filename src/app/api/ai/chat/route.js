@@ -58,9 +58,12 @@ async function fetchFromAIBackend(path, init = {}) {
 export async function POST(request) {
   try {
     const body = await request.json().catch(() => ({}))
+    const headers = { "Content-Type": "application/json" }
+    const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
+    if (authHeader) headers.authorization = authHeader
     const response = await fetchFromAIBackend("/api/ai/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(body),
     })
 

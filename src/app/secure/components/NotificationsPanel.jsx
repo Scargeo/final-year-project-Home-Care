@@ -230,7 +230,17 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
 
     async function load() {
       try {
-        const res = await fetch("/api/emergency", { cache: "no-store" })
+          const headers = {}
+          try {
+            const patientAuth = typeof window !== 'undefined' ? window.localStorage.getItem('patientAuth') : null
+            const doctorAuth = typeof window !== 'undefined' ? window.localStorage.getItem('doctorAuth') : null
+            const parsed = patientAuth ? JSON.parse(patientAuth) : doctorAuth ? JSON.parse(doctorAuth) : null
+            const token = parsed?.token || parsed?.accessToken || null
+            if (token) headers.authorization = `Bearer ${token}`
+          } catch {
+            // ignore
+          }
+          const res = await fetch("/api/emergency", { cache: "no-store", headers })
         if (!res.ok) return
 
         const data = await res.json()

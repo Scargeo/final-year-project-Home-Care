@@ -33,17 +33,78 @@ export function useUpload() {
       formData.append('ownerRef', ownerRef)
       formData.append('purpose', purpose)
 
-      const response = await fetch('/api/uploads', {
+      // Get auth info from localStorage to send headers
+      let userId = ''
+      let userRole = ''
+
+      if (typeof window !== 'undefined') {
+        // Try patient auth first
+        try {
+          const patientAuth = window.localStorage.getItem('patientAuth')
+          if (patientAuth) {
+            const parsed = JSON.parse(patientAuth)
+            userId = parsed.patientId || parsed.id || ''
+            userRole = 'patient'
+          }
+        } catch {
+          // Ignore parse errors
+        }
+
+        // Try doctor auth if no patient auth
+        if (!userId) {
+          try {
+            const doctorAuth = window.localStorage.getItem('doctorAuth')
+            if (doctorAuth) {
+              const parsed = JSON.parse(doctorAuth)
+              userId = parsed.doctorId || parsed.id || ''
+              userRole = 'doctor'
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        }
+      }
+
+      const fetchOptions = {
         method: 'POST',
         body: formData,
-      })
+      }
+
+      // Add auth headers if available (send token if present; keep legacy x-user headers)
+      if (userId && userRole) {
+        fetchOptions.headers = {
+          'x-user-id': userId,
+          'x-user-role': userRole,
+        }
+      }
+
+      // Check for token on either auth object
+      try {
+        const patientAuth = typeof window !== 'undefined' ? window.localStorage.getItem('patientAuth') : null
+        const doctorAuth = typeof window !== 'undefined' ? window.localStorage.getItem('doctorAuth') : null
+        const parsed = patientAuth ? JSON.parse(patientAuth) : doctorAuth ? JSON.parse(doctorAuth) : null
+        const token = parsed?.token || parsed?.accessToken || null
+        if (token) {
+          fetchOptions.headers = fetchOptions.headers || {}
+          fetchOptions.headers['authorization'] = `Bearer ${token}`
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      const response = await fetch('/api/uploads', fetchOptions)
 
       const data = await response.json().catch(() => ({}))
       if (!response.ok) {
         throw new Error(data?.message || 'Upload failed')
       }
 
-      return data.files || []
+      const uploadedFiles = data.files || []
+      if (Array.isArray(uploadedFiles)) {
+        uploadedFiles.doctor = data.doctor || null
+      }
+
+      return uploadedFiles
     } catch (err) {
       const errMsg = err?.message || 'Upload failed'
       setError(errMsg)

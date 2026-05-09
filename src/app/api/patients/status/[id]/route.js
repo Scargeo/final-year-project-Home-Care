@@ -10,9 +10,17 @@ export async function PATCH(request, context) {
 
     const backendUrl = `${getBackendBaseUrl()}/api/patients/${encodeURIComponent(id)}/status`
 
+    const forwardHeaders = { 'Content-Type': 'application/json' }
+    const userId = request.headers.get('x-user-id')
+    const userRole = request.headers.get('x-user-role')
+    const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
+    if (userId) forwardHeaders['x-user-id'] = userId
+    if (userRole) forwardHeaders['x-user-role'] = userRole
+    if (authHeader) forwardHeaders['authorization'] = authHeader
+
     const response = await fetch(backendUrl, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: forwardHeaders,
       body: JSON.stringify(body),
       cache: 'no-store',
     })
