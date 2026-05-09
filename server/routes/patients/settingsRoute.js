@@ -41,7 +41,7 @@ router.patch('/', async (req, res) => {
     const updated = await Patient.findOneAndUpdate(
       { patientId: id },
       { $set: updateFields },
-      { new: true, runValidators: false }
+      { returnDocument: 'after', runValidators: false }
     );
 
     if (!updated) {

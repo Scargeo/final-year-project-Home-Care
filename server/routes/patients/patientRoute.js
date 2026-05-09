@@ -90,7 +90,7 @@ router.put('/:id/health-records', allowOwnerOrDoctor((req) => req.params.id), as
 					labResults: sanitizedLabResults,
 				},
 			},
-			{ new: true, upsert: true, setDefaultsOnInsert: true },
+			{ returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
 		);
 
 		return res.status(200).json(record);
