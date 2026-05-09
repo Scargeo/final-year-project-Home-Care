@@ -195,7 +195,7 @@ router.patch('/:doctorId/notifications/:notificationId', async (req, res) => {
         isRead: true,
         readAt: new Date(),
       },
-      { returnDocument: 'after' },
+      { new: true },
     )
 
     if (!notification) {
@@ -252,7 +252,7 @@ router.patch('/:doctorId/appointments/:appointmentId', async (req, res) => {
         notes: notes || undefined,
         updatedAt: new Date(),
       },
-      { returnDocument: 'after' },
+      { new: true },
     )
 
     if (!appointment) {

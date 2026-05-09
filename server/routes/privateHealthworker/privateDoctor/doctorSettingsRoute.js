@@ -47,7 +47,7 @@ router.patch('/', async (req, res) => {
     const updated = await Doctor.findOneAndUpdate(
       { doctorId: doctorId },
       { $set: updateFields },
-      { returnDocument: 'after', runValidators: false }
+      { new: true, runValidators: false }
     );
 
     if (!updated) {

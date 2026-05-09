@@ -1,5 +1,5 @@
-/* eslint-disable no-undef */
 import { NextResponse } from 'next/server'
+import { getBackendBaseUrl } from '../../../../../lib/backend-url'
 
 export async function PATCH(req, context) {
   try {
@@ -31,11 +31,12 @@ export async function PATCH(req, context) {
     if (privacyPrefs) updateFields.privacyPrefs = privacyPrefs
 
     // Call backend server to update patient
-    const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000'}/api/patients/${encodeURIComponent(id)}/settings`, {
+    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || ''
+    const response = await fetch(`${getBackendBaseUrl()}/api/patients/${encodeURIComponent(id)}/settings`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: req.headers.get('Authorization') || '',
+        authorization: authHeader,
       },
       body: JSON.stringify(updateFields),
     })

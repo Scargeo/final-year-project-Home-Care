@@ -122,7 +122,7 @@ router.post('/', upload.array('files', 10), async (req, res) => {
               updatedDoctor = await Doctor.findOneAndUpdate(
                 { doctorId: ownerRef },
                 { $set: { profileImage: { url, publicId, mimeType: f.mimetype, uploadedAt: new Date() } } },
-                { returnDocument: 'after' },
+                { new: true },
               )
             }
           }

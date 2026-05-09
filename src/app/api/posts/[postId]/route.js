@@ -1,14 +1,15 @@
-/* eslint-disable no-undef */
 import { NextResponse } from 'next/server'
+import { getBackendBaseUrl } from '../../../../lib/backend-url'
 
 export async function DELETE(req, context) {
   try {
     const { postId } = await context.params
-    const url = `${process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:8000'}/api/posts/${encodeURIComponent(postId)}`
+    const url = `${getBackendBaseUrl()}/api/posts/${encodeURIComponent(postId)}`
+    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || ''
     const response = await fetch(url, {
       method: 'DELETE',
       headers: {
-        Authorization: req.headers.get('Authorization') || '',
+        authorization: authHeader,
       },
       cache: 'no-store',
     })
