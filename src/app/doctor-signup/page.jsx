@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import AuthShowcase from "../auth/AuthShowcase"
 import styles from "../auth/auth.module.css"
-import { getRoleRedirect } from "../../lib/getRoleRedirect"
 
 const initialForm = {
   doctorFirstName: "",
