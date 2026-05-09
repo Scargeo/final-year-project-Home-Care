@@ -88,7 +88,7 @@ export function useUpload() {
           fetchOptions.headers = fetchOptions.headers || {}
           fetchOptions.headers['authorization'] = `Bearer ${token}`
         }
-      } catch {
+      } catch (e) {
         // ignore
       }
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getBackendBaseUrl } from '../../../../../lib/backend-url'
+import { getBackendBaseUrl } from '../../../../../../lib/backend-url'
 
 export async function GET(request, context) {
   try {

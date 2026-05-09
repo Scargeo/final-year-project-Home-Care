@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 import { NextResponse } from 'next/server'
 
 export async function DELETE(req, context) {
