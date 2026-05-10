@@ -401,6 +401,15 @@ export default function SecureHomePage() {
     () => "User",
   )
 
+  const doctorDisplayName = doctorDetails?.doctorFirstName || doctorDetails?.doctorLastName
+    ? `Dr. ${[doctorDetails?.doctorFirstName, doctorDetails?.doctorLastName].filter(Boolean).join(" ")}`
+    : userName
+  const doctorDisplayId = doctorDetails?.doctorId || doctorId || "--"
+  const doctorDisplaySpecialization = doctorDetails?.specialization || "Not provided"
+  const doctorDisplayYears = Number.isFinite(Number(doctorDetails?.yearsOfExperience))
+    ? Number(doctorDetails.yearsOfExperience)
+    : 0
+
   // profile image updates are handled in the dashboard and doctor pages
 
   useEffect(() => {
@@ -511,9 +520,12 @@ export default function SecureHomePage() {
 
     try {
       const formData = new FormData()
+      const ownerRef = currentUserId || doctorId || patientId || 'anonymous'
       imageFiles.forEach((file) => formData.append('files', file))
       formData.append('type', 'post')
-      formData.append('reference', doctorId || 'anonymous')
+      formData.append('purpose', 'post')
+      formData.append('ownerRef', ownerRef)
+      formData.append('reference', ownerRef)
 
       const headers = {}
       const token = getStoredToken()
@@ -914,10 +926,6 @@ export default function SecureHomePage() {
               <div>
                 <strong>24</strong>
                 <span>Live channels</span>
-              </div>
-              <div>
-                <strong>128</strong>
-                <span>New tips</span>
               </div>
               <div>
                 <strong>12k+</strong>
@@ -1344,7 +1352,7 @@ export default function SecureHomePage() {
                     userName.slice(0, 1).toUpperCase()
                   )}
                 </div>
-                <h1>{doctorDetails?.doctorFirstName || doctorDetails?.doctorLastName ? `Dr. ${[doctorDetails?.doctorFirstName, doctorDetails?.doctorLastName].filter(Boolean).join(" ")}` : userName}</h1>
+                <h1>{doctorDisplayName}</h1>
                 <p>Doctor profile</p>
               </section>
 
@@ -1355,7 +1363,7 @@ export default function SecureHomePage() {
                 <div style={{ display: "grid", gap: "0.5rem" }}>
                   <div>
                     <p style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 0.25rem" }}>Name</p>
-                    <p style={{ margin: 0, fontWeight: "600" }}>{doctorDetails?.doctorFirstName || doctorDetails?.doctorLastName ? `Dr. ${[doctorDetails?.doctorFirstName, doctorDetails?.doctorLastName].filter(Boolean).join(" ")}` : userName}</p>
+                    <p style={{ margin: 0, fontWeight: "600" }}>{doctorDisplayName}</p>
                   </div>
                   <div>
                     <p style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 0.25rem" }}>Email</p>
@@ -1370,6 +1378,10 @@ export default function SecureHomePage() {
                     <p style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 0.25rem" }}>Address</p>
                     <p style={{ margin: 0, fontWeight: "500" }}>{doctorDetails?.doctorAddress || "No address"}</p>
                   </div>
+                  <div>
+                    <p style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 0.25rem" }}>Doctor ID</p>
+                    <p style={{ margin: 0, fontWeight: "500" }}>{doctorDisplayId || "No ID"}</p>
+                  </div>
                 </div>
               </section>
 
@@ -1380,7 +1392,7 @@ export default function SecureHomePage() {
               <article className={styles.heroCard}>
                 <div>
                   <p className={styles.eyebrow}></p>
-                  <h2>Welcome, {userName}</h2>
+                  <h2>Welcome, {doctorDisplayName}</h2>
                   <p>
                     Access health tips, connect with the AI assistant, manage notifications, and stay updated with the latest professional insights.
                   </p>
@@ -1388,15 +1400,11 @@ export default function SecureHomePage() {
 
                 <div className={styles.heroStats}>
                   <div>
-                    <strong>{doctorDetails?.doctorId || doctorId || "--"}</strong>
-                    <span>Doctor ID</span>
-                  </div>
-                  <div>
-                    <strong>{doctorDetails?.specialization || "Doctor"}</strong>
+                    <strong>{doctorDisplaySpecialization}</strong>
                     <span>Specialization</span>
                   </div>
                   <div>
-                    <strong>{doctorDetails?.yearsOfExperience ?? 0}</strong>
+                    <strong>{doctorDisplayYears}</strong>
                     <span>Years of experience</span>
                   </div>
                 </div>
@@ -1407,53 +1415,89 @@ export default function SecureHomePage() {
                 <article className={styles.composerCard}>
                   <div className={styles.composerTop}>
                     <div className={styles.profileAvatarSmall}>{(userName || 'D').slice(0, 1).toUpperCase()}</div>
-                    <input
-                      type="text"
-                      className={styles.composerInput}
-                      placeholder="Share a question or health update with your care network..."
-                      onClick={() => {
-                        const textarea = postImageInputRef.current?.parentElement?.querySelector('textarea')
-                        if (textarea) textarea.focus()
-                      }}
-                      readOnly
-                    />
+                    <div className={styles.composerInputWrap}>
+                      <textarea
+                        className={styles.composerInput}
+                        placeholder="Share a question or health update with your care network..."
+                        value={postBody}
+                        onChange={(e) => setPostBody(e.target.value)}
+                        rows={postBody || postImages.length > 0 ? 3 : 1}
+                        style={{ resize: 'none' }}
+                      />
+                      <button
+                        type="button"
+                        className={styles.attachButton}
+                        onClick={() => postImageInputRef.current?.click()}
+                        disabled={posting}
+                        title="Attach images"
+                        aria-label="Attach images"
+                      >
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                          <path d="M8.5 11.5l5.7-5.7a3 3 0 114.2 4.2l-7.7 7.7a5 5 0 11-7.1-7.1l7.9-7.9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                      <input 
+                        ref={postImageInputRef} 
+                        type="file" 
+                        accept="image/*" 
+                        multiple 
+                        style={{ display: 'none' }} 
+                        onChange={handlePostImageSelect}
+                        aria-label="Upload post images"
+                      />
+                    </div>
                   </div>
-                  <div className={styles.composerActions}>
-                    <button type="button">Health tip</button>
-                    <button type="button">Follow channel</button>
-                    <button type="button">Ask a professional</button>
-                  </div>
-                </article>
 
-                {/* Hidden form for actual post creation */}
-                <article className={styles.composerCard} style={{ display: 'none' }}>
-                  <div className={styles.composerTop}>
-                    <div className={styles.profileAvatarSmall}>{(userName || 'D').slice(0, 1).toUpperCase()}</div>
-                    <textarea
-                      className={styles.composerInput}
-                      placeholder="Share a thought, case update, or image with all users..."
-                      value={postBody}
-                      onChange={(e) => setPostBody(e.target.value)}
-                      rows={3}
-                    />
-                  </div>
-                  <div className={styles.composerActions}>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <button type="button" onClick={() => postImageInputRef.current?.click()} disabled={posting}>Add image</button>
-                      <input ref={postImageInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handlePostImageSelect} />
-                      <small style={{ color: '#666' }}>{postImages.length} image(s) attached</small>
-                    </div>
-                    <div>
-                      <button type="button" onClick={createPost} disabled={posting}>{posting ? 'Posting…' : 'Post'}</button>
-                    </div>
-                  </div>
+                  {/* Image preview section - always show if images exist */}
                   {postImages.length > 0 && (
                     <div className={styles.postPreviewRow}>
                       {postImages.map((img, idx) => (
                         <div key={idx} className={styles.postPreviewItem}>
                           <Image src={img.url || img.path || img.secure_url} alt={`attachment-${idx}`} width={96} height={96} style={{ objectFit: 'cover', borderRadius: 8 }} />
+                          <button
+                            type="button"
+                            onClick={() => setPostImages((cur) => cur.filter((_, i) => i !== idx))}
+                            style={{
+                              position: 'absolute',
+                              top: 2,
+                              right: 2,
+                              background: 'rgba(0,0,0,0.6)',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '50%',
+                              width: '1.5rem',
+                              height: '1.5rem',
+                              display: 'grid',
+                              placeItems: 'center',
+                              cursor: 'pointer',
+                              fontSize: '0.9rem',
+                              padding: 0,
+                            }}
+                            title={`Remove image ${idx + 1}`}
+                          >
+                            ✕
+                          </button>
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Action buttons - show when text or images exist */}
+                  {(postBody || postImages.length > 0) && (
+                    <div className={styles.composerActions}>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        {postImages.length > 0 && <small style={{ color: '#666' }}>{postImages.length} image(s)</small>}
+                      </div>
+                      <div>
+                        <button 
+                          type="button" 
+                          onClick={createPost} 
+                          disabled={posting || (!postBody && postImages.length === 0)}
+                          title={(!postBody && postImages.length === 0) ? 'Add text or images to post' : 'Share your post'}
+                        >
+                          {posting ? 'Posting…' : 'Post'}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </article>

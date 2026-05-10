@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { Suspense } from "react"
+import LoadingCanvas from "../components/LoadingCanvas"
 
 const DEFAULT_SIGNAL_URL = "ws://localhost:3001"
 const REACTIONS = ["👍", "❤️", "😂", "🙏", "😮"]
@@ -766,7 +767,7 @@ function ChatPageContent() {
 
 export default function ChatPage() {
   return (
-    <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center" }}>Loading chat...</div>}>
+    <Suspense fallback={<LoadingCanvas />}>
       <ChatPageContent />
     </Suspense>
   )

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { Suspense } from "react"
+import LoadingCanvas from "../components/LoadingCanvas"
 
 const DEFAULT_SIGNAL_URL = "ws://localhost:3001"
 const DEFAULT_ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }]
@@ -359,7 +360,7 @@ function CallPageContent() {
 
 export default function CallPage() {
   return (
-    <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center" }}>Loading call interface...</div>}>
+    <Suspense fallback={<LoadingCanvas />}>
       <CallPageContent />
     </Suspense>
   )

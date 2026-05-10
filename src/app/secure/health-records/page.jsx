@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import styles from "./page.module.css"
 import { useUpload } from "../../../lib/useUpload"
+import LoadingCanvas from "../components/LoadingCanvas"
 
 function getStoredAuth() {
   if (typeof window === "undefined") return null
@@ -358,7 +359,7 @@ export default function HealthRecordsPage() {
           ))}
         </div>
 
-        {loading ? <p className={styles.status}>Loading records…</p> : null}
+        {loading ? <LoadingCanvas fullScreen={false} /> : null}
         {error ? <p className={styles.error}>{error}</p> : null}
         {notice ? <p className={styles.notice}>{notice}</p> : null}
 

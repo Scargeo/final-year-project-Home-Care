@@ -67,9 +67,17 @@ export async function PATCH(request, { params }) {
   try {
     const { id } = await params
     const body = await request.json().catch(() => ({}))
+    const headers = { "Content-Type": "application/json" }
+    const auth = request.headers.get("authorization")
+    if (auth) headers["authorization"] = auth
+    const xUserId = request.headers.get("x-user-id")
+    if (xUserId) headers["x-user-id"] = xUserId
+    const xUserRole = request.headers.get("x-user-role")
+    if (xUserRole) headers["x-user-role"] = xUserRole
+
     const response = await fetchFromSOSBackend(`/api/sos/${id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(body),
     })
 

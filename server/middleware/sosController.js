@@ -45,6 +45,13 @@ function emitSosEvent(req, eventName, payload) {
   }
 }
 
+function emitRoomEvent(req, roomId, eventName, payload) {
+  const io = req?.app?.get('io');
+  if (!io || !roomId) return;
+
+  io.to(String(roomId)).emit(eventName, payload);
+}
+
 function toClientShape(document) {
   const json = document.toJSON ? document.toJSON() : document;
   return {
@@ -146,10 +153,11 @@ const updateSOSRequest = async (req, res) => {
       emergency.notes.push({ label: noteLabel, at: noteAt });
       emergency.timeline.push({ type: 'note', label: noteLabel, at: noteAt });
     } else if (action === 'chat') {
-      const chatNote = `Chat started by ${providerName || 'provider'}`;
       const noteAt = new Date();
+      const joinedBy = providerName || emergency.respondedBy || 'provider';
+      const chatNote = `${joinedBy} started chat`;
       emergency.notes.push({ label: chatNote, at: noteAt });
-      emergency.timeline.push({ type: 'note', label: chatNote, at: noteAt });
+      emergency.timeline.push({ type: 'chat-started', label: chatNote, at: noteAt });
     }
 
     await emergency.save();
@@ -157,6 +165,16 @@ const updateSOSRequest = async (req, res) => {
     emitSosEvent(req, 'sos-updated', {
       emergency: toClientShape(emergency),
     });
+
+    if (action === 'chat') {
+      const startedAt = new Date().toISOString();
+      emitRoomEvent(req, emergency.chatRoomId, 'provider-joined-chat', {
+        emergency: toClientShape(emergency),
+        chatRoomId: emergency.chatRoomId,
+        providerName: emergency.respondedBy || providerName || 'provider',
+        startedAt,
+      });
+    }
 
     return res.status(200).json({
       message: 'Emergency request updated',

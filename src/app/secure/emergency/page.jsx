@@ -2,10 +2,10 @@
 
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useSearchParams } from "next/navigation"
 import { Suspense } from "react"
 import { io } from "socket.io-client"
 import { getBackendBaseUrl } from "../../../lib/backend-url"
+import LoadingCanvas from "../components/LoadingCanvas"
 
 function formatTime(value) {
   try {
@@ -35,10 +35,8 @@ function statusCopy(request) {
 }
 
 function EmergencyDashboardContent() {
-  const searchParams = useSearchParams()
-  const role = (searchParams.get("role") || "patient").toLowerCase()
-
-  const isProvider = role === "provider"
+  const [userRole, setUserRole] = useState(null)
+  const isProvider = userRole === "doctor"
   const [providers, setProviders] = useState([])
   const [queue, setQueue] = useState([])
   const [activeRequest, setActiveRequest] = useState(null)
@@ -53,8 +51,28 @@ function EmergencyDashboardContent() {
   const [isResolvingLocation, setIsResolvingLocation] = useState(false)
   const [providerPopup, setProviderPopup] = useState(null)
   const [refreshTick, setRefreshTick] = useState(0)
+  const [providerJoinedChat, setProviderJoinedChat] = useState(false)
+  const [providerJoinInfo, setProviderJoinInfo] = useState(null)
   const seenProviderRequestIds = useRef(new Set())
   const socketRef = useRef(null)
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const doctorAuthStr = window.localStorage.getItem("doctorAuth")
+    if (doctorAuthStr) {
+      setUserRole("doctor")
+      return
+    }
+
+    const patientAuthStr = window.localStorage.getItem("patientAuth")
+    if (patientAuthStr) {
+      setUserRole("patient")
+      return
+    }
+
+    setUserRole("patient")
+  }, [])
 
   function loadPatientProfile() {
     if (typeof window === "undefined") return null
@@ -70,7 +88,7 @@ function EmergencyDashboardContent() {
   }
 
   useEffect(() => {
-    if (isProvider) return
+    if (userRole !== "patient") return
     const auth = loadPatientProfile()
     if (!auth) return
 
@@ -78,7 +96,7 @@ function EmergencyDashboardContent() {
     setPatientName((current) => current || nextPatientName || auth.patientFirstName || "")
     setPatientPhone((current) => current || auth.patientPhone || "")
     setAddress((current) => current || auth.patientAddress || "")
-  }, [isProvider])
+  }, [userRole])
 
   const title = isProvider ? "Provider Emergency Panel" : "Emergency Help Dashboard"
   const subtitle = isProvider
@@ -172,21 +190,25 @@ function EmergencyDashboardContent() {
   }, [activeRequest, isProvider])
 
   useEffect(() => {
-    if (!isProvider) return undefined
-
     const socketUrl =
       publicEnv.NEXT_PUBLIC_SOS_SOCKET_URL ||
       publicEnv.NEXT_PUBLIC_API_BASE_URL ||
       backendBaseUrl
 
-    // Sockets are used here so providers receive SOS alerts instantly instead of waiting for the poll loop.
+    // Sockets are used so providers and patients receive real-time updates
     const socket = io(socketUrl, {
       transports: ["websocket"],
       withCredentials: true,
     })
 
     socketRef.current = socket
-    socket.emit("join-provider")
+
+    if (isProvider) {
+      socket.emit("join-provider")
+    } else if (activeRequest?.chatRoomId) {
+      // Patient joins their emergency chat room
+      socket.emit("join-sos-room", activeRequest.chatRoomId)
+    }
 
     socket.on("sos-created", (payload) => {
       const emergency = payload?.emergency
@@ -214,13 +236,27 @@ function EmergencyDashboardContent() {
       setRefreshTick((value) => value + 1)
     })
 
+    socket.on("provider-joined-chat", (payload) => {
+      if (!isProvider) {
+        // Patient receives notification that provider joined and payload contains room info
+        setProviderJoinInfo(payload || null)
+        setProviderJoinedChat(true)
+        // Auto-dismiss notification after 5 seconds and clear saved join info
+        setTimeout(() => {
+          setProviderJoinedChat(false)
+          setProviderJoinInfo(null)
+        }, 5000)
+      }
+    })
+
     return () => {
       socket.off("sos-created")
       socket.off("sos-updated")
+      socket.off("provider-joined-chat")
       socket.disconnect()
       socketRef.current = null
     }
-  }, [isProvider, publicEnv.NEXT_PUBLIC_SOS_SOCKET_URL, publicEnv.NEXT_PUBLIC_API_BASE_URL, backendBaseUrl])
+  }, [isProvider, publicEnv.NEXT_PUBLIC_SOS_SOCKET_URL, publicEnv.NEXT_PUBLIC_API_BASE_URL, backendBaseUrl, activeRequest?.chatRoomId])
 
   function resolveDeviceLocation() {
     if (typeof window === "undefined" || !window.navigator?.geolocation) {
@@ -317,6 +353,10 @@ function EmergencyDashboardContent() {
       setActiveRequest(data.emergency)
       setStatusMessage("Emergency alert sent to available doctors and nurses.")
       setRefreshTick((value) => value + 1)
+      // Reset the form fields the patient filled (keep name/phone from profile)
+      setLocation("")
+      setAddress("")
+      setSymptoms("")
     } catch (error) {
       setStatusMessage(error.message || "Failed to send emergency alert.")
     } finally {
@@ -325,14 +365,38 @@ function EmergencyDashboardContent() {
   }
 
   async function acceptRequest(request) {
+    // Get doctor auth to forward token and doctor name
+    let doctorName = "Available provider"
+    let authHeader = undefined
+    if (typeof window !== "undefined") {
+      const doctorAuthStr = window.localStorage.getItem("doctorAuth")
+      if (doctorAuthStr) {
+        try {
+          const auth = JSON.parse(doctorAuthStr)
+          authHeader = auth.token ? `Bearer ${auth.token}` : undefined
+          const firstName = String(auth.doctorFirstName || "").trim()
+          const lastName = String(auth.doctorLastName || "").trim()
+          doctorName = [firstName, lastName].filter(Boolean).join(" ").trim() || "Available provider"
+        } catch {
+          // Ignore parse errors
+        }
+      }
+    }
+
+    const headers = { "Content-Type": "application/json" }
+    if (authHeader) headers["Authorization"] = authHeader
+
     const response = await fetch(`/api/emergency/${request.id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "accept", providerName: "Provider Desk" }),
+      headers,
+      body: JSON.stringify({ action: "accept", providerName: doctorName }),
     })
 
     const data = await response.json()
-    if (!response.ok) return
+    if (!response.ok) {
+      console.error("Accept request failed:", data?.message || "Unknown error")
+      return
+    }
 
     setStatusMessage(`Accepted request from ${request.patientName}.`)
     setActiveRequest(data.emergency)
@@ -340,7 +404,38 @@ function EmergencyDashboardContent() {
   }
 
   async function startChat(request) {
-    // The chat route already exists, so we reuse it as the immediate communication channel.
+    let doctorName = request.respondedBy || "Available provider"
+    let authHeader = undefined
+
+    if (typeof window !== "undefined") {
+      const doctorAuthStr = window.localStorage.getItem("doctorAuth")
+      if (doctorAuthStr) {
+        try {
+          const auth = JSON.parse(doctorAuthStr)
+          authHeader = auth.token ? `Bearer ${auth.token}` : undefined
+          const firstName = String(auth.doctorFirstName || "").trim()
+          const lastName = String(auth.doctorLastName || "").trim()
+          doctorName = [firstName, lastName].filter(Boolean).join(" ").trim() || doctorName
+        } catch {
+          // Ignore parse errors
+        }
+      }
+    }
+
+    const headers = { "Content-Type": "application/json" }
+    if (authHeader) headers["Authorization"] = authHeader
+
+    const response = await fetch(`/api/emergency/${request.id}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ action: "chat", providerName: doctorName }),
+    })
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      console.error("Start chat failed:", data?.message || "Unknown error")
+    }
+
     const chatUrl = `/secure/chat?roomId=${encodeURIComponent(`emergency-${request.id}`)}&name=${encodeURIComponent(request.patientName)}`
     window.location.href = chatUrl
   }
@@ -353,6 +448,10 @@ function EmergencyDashboardContent() {
 
   const requestTimeline = activeRequest?.timeline || []
   const pendingRequestCount = queue.filter((request) => request.status === "pending").length
+
+  if (!userRole) {
+    return <LoadingCanvas />
+  }
 
   return (
     <div className="hc-page emergency-page">
@@ -377,9 +476,9 @@ function EmergencyDashboardContent() {
             <Link href="/secure/home">Home</Link>
             <Link href="/secure/chat">Chat</Link>
             <Link href="/secure/call">Call</Link>
-            <Link href={isProvider ? "/secure/emergency?role=patient" : "/secure/emergency?role=provider"} className="hc-btn hc-btn--outline hc-btn--sm">
-              {isProvider ? "Patient view" : "Provider view"}
-            </Link>
+            <span className="hc-btn hc-btn--outline hc-btn--sm" aria-label="Current emergency view role">
+              {isProvider ? "Provider view" : "Patient view"}
+            </span>
           </nav>
         </div>
       </header>
@@ -399,6 +498,22 @@ function EmergencyDashboardContent() {
               <button className="hc-btn hc-btn--outline" type="button" onClick={() => setProviderPopup(null)}>
                 Dismiss
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {!isProvider && providerJoinedChat ? (
+        <div className="provider-sos-popup" role="status" aria-live="polite" style={{ backgroundColor: "#10b981" }}>
+          <div className="provider-sos-popup__card" style={{ textAlign: "center" }}>
+            <h3 style={{ color: "#fff", marginBottom: "0.5rem" }}>✓ {providerJoinInfo?.providerName || activeRequest?.respondedBy || "Doctor"} has joined the chat room!</h3>
+            <p style={{ color: "#f0fdf4", marginBottom: "1rem" }}>
+              {activeRequest?.respondedBy || providerJoinInfo?.providerName || "Your provider"} is now online and ready to assist.
+            </p>
+            <div style={{ marginTop: "0.5rem" }}>
+              <Link href={`/secure/chat?roomId=${encodeURIComponent(providerJoinInfo?.chatRoomId || activeRequest?.chatRoomId || (activeRequest ? `emergency-${activeRequest.id}` : ""))}&name=${encodeURIComponent(activeRequest?.patientName || patientName)}`} className="hc-btn hc-btn--primary">
+                Join chat
+              </Link>
             </div>
           </div>
         </div>
@@ -480,36 +595,54 @@ function EmergencyDashboardContent() {
 
             {!isProvider ? (
               <>
-                <div className="emergency-status-panel">
-                  <strong>{statusMessage}</strong>
-                  <p>{activeRequest?.patientName ? `Request from ${activeRequest.patientName}` : "No active request yet."}</p>
-                </div>
+                {activeRequest ? (
+                  <>
+                    <div className="emergency-status-panel">
+                      <strong>{statusMessage}</strong>
+                      <p>Your SOS alert status</p>
+                    </div>
 
-                <div className="emergency-response">
-                  <div>
-                    <p className="label">Accepted by</p>
-                    <strong>{activeRequest?.respondedBy || "Waiting for provider"}</strong>
+                    <div className="emergency-response">
+                      <div>
+                        <p className="label">🚨 Request Status</p>
+                        <strong style={{ textTransform: "capitalize", color: activeRequest.status === "accepted" ? "#10b981" : "#f97316" }}>
+                          {activeRequest.status}
+                        </strong>
+                      </div>
+                      <div>
+                        <p className="label">Accepting Provider</p>
+                        <strong>{activeRequest.respondedBy ? `✓ ${activeRequest.respondedBy}` : "⏳ Waiting for provider"}</strong>
+                      </div>
+                      <div>
+                        <p className="label">Request Time</p>
+                        <strong>{activeRequest.createdAt ? formatTime(activeRequest.createdAt) : "--:--"}</strong>
+                      </div>
+                      {activeRequest.acceptedAt ? (
+                        <div>
+                          <p className="label">Accepted At</p>
+                          <strong>{formatTime(activeRequest.acceptedAt)}</strong>
+                        </div>
+                      ) : null}
+                      <div>
+                        <p className="label">Chat Room</p>
+                        <strong className="emergency-chat-room-id">
+                          {activeRequest.chatRoomId ? `#${String(activeRequest.chatRoomId).split('-').pop()}` : "Not assigned"}
+                        </strong>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="emergency-status-panel">
+                    <strong>No active emergency request</strong>
+                    <p>Click the emergency button above to send a help alert to available doctors and nurses.</p>
                   </div>
-                  <div>
-                    <p className="label">Time</p>
-                    <strong>{activeRequest?.createdAt ? formatTime(activeRequest.createdAt) : "--:--"}</strong>
-                  </div>
-                  <div>
-                    <p className="label">Chat room</p>
-                    <strong className="emergency-chat-room-id">{activeRequest?.chatRoomId || "Not assigned"}</strong>
-                  </div>
-                </div>
+                )}
 
                 {activeRequest?.status === "accepted" ? (
                   <div className="emergency-actions">
-                    <Link href={`/secure/chat?roomId=${encodeURIComponent(activeRequest.chatRoomId)}&name=${encodeURIComponent(activeRequest.patientName)}`} className="hc-btn hc-btn--primary">
-                      Start chat immediately
+                    <Link href={`/secure/chat?roomId=${encodeURIComponent(activeRequest.chatRoomId)}&name=${encodeURIComponent(activeRequest.respondedBy || "Provider")}`} className="hc-btn hc-btn--primary">
+                      🗨️ Open chat with {activeRequest.respondedBy || "provider"}
                     </Link>
-                    {activeRequest.patientPhone ? (
-                      <a className="hc-btn hc-btn--outline" href={`tel:${String(activeRequest.patientPhone).replace(/\D/g, "")}`}>
-                        Contact patient
-                      </a>
-                    ) : null}
                   </div>
                 ) : null}
 
@@ -603,7 +736,7 @@ function EmergencyDashboardContent() {
 
 export default function EmergencyDashboardPage() {
   return (
-    <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center" }}>Loading emergency dashboard...</div>}>
+    <Suspense fallback={<LoadingCanvas />}>
       <EmergencyDashboardContent />
     </Suspense>
   )

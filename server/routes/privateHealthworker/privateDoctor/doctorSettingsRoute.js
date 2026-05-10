@@ -7,6 +7,49 @@ const { loadUser } = require('../../../middleware/loadUserMiddleware');
 router.use(loadUser);
 
 /**
+ * GET /api/doctors/:doctorId/settings
+ * Fetch doctor settings and profile information
+ */
+router.get('/', async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+    if (!doctorId) {
+      return res.status(400).json({ message: 'Missing doctor ID' });
+    }
+
+    const doctor = await Doctor.findOne({ doctorId }).select('-doctorPassword');
+
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
+    }
+
+    res.status(200).json({
+      doctor: {
+        doctorId: doctor.doctorId,
+        doctorFirstName: doctor.doctorFirstName,
+        doctorLastName: doctor.doctorLastName,
+        doctorEmail: doctor.doctorEmail,
+        doctorPhone: doctor.doctorPhone,
+        doctorAddress: doctor.doctorAddress,
+        licenseNumber: doctor.licenseNumber,
+        specialization: doctor.specialization,
+        yearsOfExperience: doctor.yearsOfExperience,
+        profileImage: doctor.profileImage,
+        notificationPrefs: doctor.notificationPrefs,
+        privacyPrefs: doctor.privacyPrefs,
+        personalizationPrefs: doctor.personalizationPrefs,
+        isVerified: doctor.isVerified,
+        role: doctor.role,
+        createdAt: doctor.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching doctor settings:', error);
+    res.status(500).json({ message: 'Failed to fetch doctor settings', error: error.message });
+  }
+});
+
+/**
  * PATCH /api/doctors/:doctorId/settings
  * Update doctor settings (account, notifications, privacy, personalization)
  */
@@ -32,13 +75,13 @@ router.patch('/', async (req, res) => {
 
     // Build update object with only provided fields
     const updateFields = {};
-    if (firstName) updateFields.firstName = firstName;
-    if (lastName) updateFields.lastName = lastName;
+    if (firstName) updateFields.doctorFirstName = firstName;
+    if (lastName) updateFields.doctorLastName = lastName;
     if (doctorEmail) updateFields.doctorEmail = doctorEmail;
     if (doctorPhone) updateFields.doctorPhone = doctorPhone;
     if (doctorAddress) updateFields.doctorAddress = doctorAddress;
     if (licenseNumber) updateFields.licenseNumber = licenseNumber;
-    if (specialty) updateFields.specialty = specialty;
+    if (specialty) updateFields.specialization = specialty;
     if (notificationPrefs) updateFields.notificationPrefs = notificationPrefs;
     if (privacyPrefs) updateFields.privacyPrefs = privacyPrefs;
     if (personalizationPrefs) updateFields.personalizationPrefs = personalizationPrefs;
@@ -58,13 +101,13 @@ router.patch('/', async (req, res) => {
       message: 'Doctor settings updated successfully',
       doctor: {
         doctorId: updated.doctorId,
-        firstName: updated.firstName,
-        lastName: updated.lastName,
+        doctorFirstName: updated.doctorFirstName,
+        doctorLastName: updated.doctorLastName,
         doctorEmail: updated.doctorEmail,
         doctorPhone: updated.doctorPhone,
         doctorAddress: updated.doctorAddress,
         licenseNumber: updated.licenseNumber,
-        specialty: updated.specialty,
+        specialization: updated.specialization,
         notificationPrefs: updated.notificationPrefs,
         privacyPrefs: updated.privacyPrefs,
         personalizationPrefs: updated.personalizationPrefs,

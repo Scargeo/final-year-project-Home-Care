@@ -4,6 +4,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { useEffect, useState, useMemo, useCallback, useRef } from "react"
 import styles from "./doctor.module.css"
+import LoadingCanvas from "../components/LoadingCanvas"
 
 function getDoctorIdentity() {
   if (typeof window === "undefined") return { doctorId: "doctor", doctorName: "Doctor", profileImage: null }
@@ -41,6 +42,8 @@ export default function DoctorDashboard() {
   const [doctorId, setDoctorId] = useState("doctor")
   const [doctorName, setDoctorName] = useState("Doctor")
   const [profileImage, setProfileImage] = useState(null)
+  const [specialization, setSpecialization] = useState("")
+  const [yearsOfExperience, setYearsOfExperience] = useState(0)
   const [dashboardData, setDashboardData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -302,6 +305,17 @@ export default function DoctorDashboard() {
         if (!active) return
 
         setDashboardData(data)
+        setDoctorId((currentDoctorId) => data?.doctor?.doctorId || currentDoctorId)
+        setDoctorName((currentDoctorName) => {
+          const nextDoctorName = [data?.doctor?.doctorFirstName, data?.doctor?.doctorLastName]
+            .filter(Boolean)
+            .join(" ")
+            .trim()
+          return nextDoctorName || currentDoctorName
+        })
+        setProfileImage((currentProfileImage) => data?.doctor?.profileImage || currentProfileImage)
+        setSpecialization(data?.doctor?.specialization || "")
+        setYearsOfExperience(Number(data?.doctor?.yearsOfExperience || 0))
         setNotificationCount(data?.stats?.unreadNotifications || 0)
       } catch (err) {
         if (active) {
@@ -329,7 +343,7 @@ export default function DoctorDashboard() {
   }, [])
 
   if (loading) {
-    return <main className={styles.page}><p className={styles.status}>Loading dashboard…</p></main>
+    return <LoadingCanvas />
   }
 
   return (
@@ -389,6 +403,11 @@ export default function DoctorDashboard() {
                 {timeGreeting}, <strong>{doctorName}</strong>.
               </h1>
               <p className={styles.heroBody}>
+                <strong>Doctor ID:</strong> {doctorId} | <strong>Specialty:</strong> {specialization || "Not specified"} | <strong>
+                  Experience:
+                </strong> {yearsOfExperience} year{yearsOfExperience === 1 ? "" : "s"}
+              </p>
+              <p className={styles.heroBody} style={{ marginTop: "0.5rem" }}>
                 Manage your appointments, patient queue, and stay updated with real-time notifications.
               </p>
             </div>

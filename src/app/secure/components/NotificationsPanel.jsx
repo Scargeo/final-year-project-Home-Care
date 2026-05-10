@@ -80,6 +80,30 @@ function buildEntryPreview(entry) {
   }
 }
 
+function canJoinChat(entry) {
+  const em = entry?.emergency || {}
+  const hasRoom = Boolean(String(em.chatRoomId || "").trim())
+  if (!hasRoom) return false
+
+  const timeline = Array.isArray(em.timeline) ? em.timeline : []
+  const hasChatStarted = timeline.some((item) => {
+    const label = String(item?.label || "").toLowerCase()
+    return item?.type === "chat-started" || label.includes("started chat")
+  })
+
+  return hasChatStarted
+}
+
+function buildChatUrl(entry) {
+  const em = entry?.emergency || {}
+  const roomId = String(em.chatRoomId || "").trim()
+  if (!roomId) return ""
+  const providerName = String(em.respondedBy || "").trim()
+  const patientName = String(em.patientName || "Your name").trim() || "Your name"
+  const nameToUse = providerName || patientName
+  return `/secure/chat?roomId=${encodeURIComponent(roomId)}&name=${encodeURIComponent(nameToUse)}`
+}
+
 function buildNotificationEntries(notifications, items) {
   const entries = [
     ...notifications.map((notification) => ({
@@ -115,6 +139,8 @@ function NotificationCard({ entry, isRead, isExpanded, onToggle, onMarkRead }) {
   const preview = buildEntryPreview(entry)
   const timeLabel = formatNotificationTime(entry.at)
   const badgeLabel = isRead ? "Read" : "New"
+  const joinChatUrl = buildChatUrl(entry)
+  const showJoinChat = canJoinChat(entry)
 
   return (
     <article
@@ -148,12 +174,21 @@ function NotificationCard({ entry, isRead, isExpanded, onToggle, onMarkRead }) {
 
       </button>
 
+      {/* join button moved into the message body below */}
+
       {isExpanded && (
         <div id={`notif-${entry.id}`} className={styles.notificationDetails}>
           <div className={styles.notificationDetailsTitle}>{preview.provider || "Provider"}</div>
           <div className={styles.notificationDetailsTime}>{timeLabel}</div>
           <div className={styles.notificationDetailsBody}>
             {preview.latestNote ? <p style={{ margin: 0 }}>{preview.latestNote}</p> : preview.latestTimeline ? <p style={{ margin: 0 }}>{preview.latestTimeline}</p> : <p style={{ margin: 0 }}>{entry.body}</p>}
+            {showJoinChat ? (
+              <div style={{ marginTop: 8 }}>
+                <Link href={joinChatUrl} className={styles.notificationSmallAction}>
+                  Join chat room
+                </Link>
+              </div>
+            ) : null}
           </div>
         </div>
       )}

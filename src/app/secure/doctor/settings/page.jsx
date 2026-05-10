@@ -15,6 +15,16 @@ function getStoredAuth() {
   }
 }
 
+function getStoredToken() {
+  if (typeof window === "undefined") return null
+  try {
+    const storedAuth = getStoredAuth()
+    return storedAuth?.token || storedAuth?.accessToken || null
+  } catch {
+    return null
+  }
+}
+
 export default function DoctorSettingsPage() {
   const [activeTab, setActiveTab] = useState("account")
   const [auth, setAuth] = useState(null)
@@ -54,14 +64,47 @@ export default function DoctorSettingsPage() {
     const storedAuth = getStoredAuth()
     if (storedAuth) {
       setAuth(storedAuth)
-      setFormData({
-        email: storedAuth.doctorEmail || "",
-        phone: storedAuth.doctorPhone || "",
-        firstName: storedAuth.firstName || storedAuth.doctorFirstName || "",
-        lastName: storedAuth.lastName || storedAuth.doctorLastName || "",
-        licenseNumber: storedAuth.licenseNumber || "",
-        specialty: storedAuth.specialty || "",
+
+      const doctorId = storedAuth.doctorId || storedAuth.id || storedAuth._id
+      if (!doctorId) return
+
+      const headers = {}
+      const token = getStoredToken()
+      if (token) headers.authorization = `Bearer ${token}`
+
+      fetch(`/api/doctors/${encodeURIComponent(doctorId)}/settings`, {
+        cache: "no-store",
+        headers,
       })
+        .then((response) => response.json().then((data) => ({ response, data })))
+        .then(({ response, data }) => {
+          if (!response.ok) {
+            throw new Error(data?.message || "Failed to load doctor settings")
+          }
+
+          const doctor = data?.doctor || data || {}
+          setAuth((current) => ({ ...(current || {}), ...doctor }))
+          setFormData({
+            email: doctor.doctorEmail || "",
+            phone: doctor.doctorPhone || "",
+            firstName: doctor.doctorFirstName || doctor.firstName || "",
+            lastName: doctor.doctorLastName || doctor.lastName || "",
+            licenseNumber: doctor.licenseNumber || "",
+            specialty: doctor.specialization || doctor.specialty || "",
+          })
+          window.localStorage.setItem("doctorAuth", JSON.stringify({ ...(storedAuth || {}), ...doctor }))
+        })
+        .catch((error) => {
+          console.error("Failed to load doctor settings:", error)
+          setFormData({
+            email: storedAuth.doctorEmail || "",
+            phone: storedAuth.doctorPhone || "",
+            firstName: storedAuth.doctorFirstName || storedAuth.firstName || "",
+            lastName: storedAuth.doctorLastName || storedAuth.lastName || "",
+            licenseNumber: storedAuth.licenseNumber || "",
+            specialty: storedAuth.specialization || storedAuth.specialty || "",
+          })
+        })
     }
   }, [])
 
@@ -108,7 +151,18 @@ export default function DoctorSettingsPage() {
       const data = await response.json()
       if (!response.ok) throw new Error(data?.message || "Failed to save settings")
 
-      const updated = { ...auth, ...formData, doctorEmail: formData.email, doctorPhone: formData.phone }
+      const updatedDoctor = data?.doctor || {}
+      const updated = {
+        ...(auth || {}),
+        ...updatedDoctor,
+        doctorId: updatedDoctor.doctorId || doctorId,
+        doctorFirstName: updatedDoctor.doctorFirstName || formData.firstName,
+        doctorLastName: updatedDoctor.doctorLastName || formData.lastName,
+        doctorEmail: updatedDoctor.doctorEmail || formData.email,
+        doctorPhone: updatedDoctor.doctorPhone || formData.phone,
+        licenseNumber: updatedDoctor.licenseNumber || formData.licenseNumber,
+        specialization: updatedDoctor.specialization || formData.specialty,
+      }
       window.localStorage.setItem("doctorAuth", JSON.stringify(updated))
       setAuth(updated)
       setMessage("Account settings saved successfully.")

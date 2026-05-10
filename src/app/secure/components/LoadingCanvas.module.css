@@ -1,0 +1,73 @@
+.canvas {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 24px;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+  color: #0f172a;
+}
+
+.fullScreen {
+  min-height: 100vh;
+  width: 100%;
+}
+
+.inline {
+  min-height: 320px;
+  width: 100%;
+}
+
+.glow {
+  display: none;
+}
+
+.card {
+  position: relative;
+  z-index: 1;
+  width: min(92vw, 22rem);
+  padding: 2rem 1.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  display: grid;
+  gap: 1rem;
+  justify-items: center;
+  text-align: center;
+}
+
+.spinner {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  position: relative;
+  border: 3px solid rgba(148, 163, 184, 0.28);
+  border-top-color: #0f172a;
+  animation: spin 0.9s linear infinite;
+}
+
+.copy {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.kicker {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #475569;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
