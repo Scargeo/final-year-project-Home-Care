@@ -66,25 +66,20 @@ const PROFESSIONAL_CHANNELS = [
 
 function getTimeBasedGreeting() {
   const hour = new Date().getHours()
-  if (hour < 12) {
-    return "Good morning"
-  } else if (hour < 18) {
-    return "Good afternoon"
-  } else {
-    return "Good evening"
-  }
+  if (hour < 12) return "Good morning"
+  if (hour < 18) return "Good afternoon"
+  return "Good evening"
 }
 
 function getWelcomeMessage(name) {
   const timeGreeting = getTimeBasedGreeting()
   const displayName = name && name !== "Patient" ? `, ${name}` : ""
   const openers = [
-    `I’m here if you want to talk through symptoms, medicines, or what to do next.`,
-    `Tell me what’s going on and we’ll figure it out together.`,
-    `If something feels off, just send it here and I’ll help you work through it.`,
+    "I can help you with symptoms, medicines, and next steps.",
+    "Tell me what is going on and I will guide you clearly.",
+    "Share your concern and I will suggest practical actions.",
   ]
   const opener = openers[new Date().getMinutes() % openers.length]
-
   return `${timeGreeting}${displayName}. ${opener}`
 }
 
@@ -152,45 +147,6 @@ export default function SecureHomePage() {
   }, [])
 
   useEffect(() => {
-    if (typeof window === "undefined") return
-
-    // Check for patient auth
-    const patientAuthStr = window.localStorage.getItem("patientAuth")
-    if (patientAuthStr) {
-      try {
-        const auth = JSON.parse(patientAuthStr)
-        setPatientId(auth.patientId || auth.id || auth._id || null)
-        setDoctorId(null)
-        setDoctorDetails(null)
-        setUserRole("patient")
-        if (auth.profileImage && auth.profileImage.url) {
-          setProfileImage(auth.profileImage)
-        }
-      } catch {
-        // ignore parse errors
-      }
-      return
-    }
-
-    // Check for doctor auth
-    const doctorAuthStr = window.localStorage.getItem("doctorAuth")
-    if (doctorAuthStr) {
-      try {
-        const auth = JSON.parse(doctorAuthStr)
-        setDoctorId(auth.doctorId || auth.id || auth._id || null)
-        setPatientId(null)
-        setUserRole("doctor")
-        if (auth.profileImage && auth.profileImage.url) {
-          setProfileImage(auth.profileImage)
-        }
-      } catch {
-        setDoctorId(null)
-        setUserRole("doctor")
-      }
-    }
-  }, [])
-
-  useEffect(() => {
     if (userRole !== "doctor" || !doctorId) return
 
     let active = true
@@ -244,6 +200,45 @@ export default function SecureHomePage() {
     return () => { active = false }
   }, [])
 
+  const router = useRouter()
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const patientAuthStr = window.localStorage.getItem("patientAuth")
+    if (patientAuthStr) {
+      try {
+        const auth = JSON.parse(patientAuthStr)
+        setPatientId(auth.patientId || auth.id || auth._id || null)
+        setDoctorId(null)
+        setDoctorDetails(null)
+        setUserRole("patient")
+        if (auth.profileImage && auth.profileImage.url) {
+          setProfileImage(auth.profileImage)
+        }
+      } catch {
+        // ignore parse errors
+      }
+      return
+    }
+
+    const doctorAuthStr = window.localStorage.getItem("doctorAuth")
+    if (doctorAuthStr) {
+      try {
+        const auth = JSON.parse(doctorAuthStr)
+        setDoctorId(auth.doctorId || auth.id || auth._id || null)
+        setPatientId(null)
+        setUserRole("doctor")
+        if (auth.profileImage && auth.profileImage.url) {
+          setProfileImage(auth.profileImage)
+        }
+      } catch {
+        setDoctorId(null)
+        setUserRole("doctor")
+      }
+    }
+  }, [])
+
   useEffect(() => {
     if (!aiOpen) {
       return
@@ -255,19 +250,6 @@ export default function SecureHomePage() {
 
     return () => window.clearTimeout(timer)
   }, [aiOpen])
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return
-    }
-
-    const url = new URL(window.location.href)
-    if (url.searchParams.get("assistant") === "open" || url.hash === "#secure-home-ai-panel") {
-      setAiOpen(true)
-    }
-  }, [])
-
-  const router = useRouter()
 
   function getStoredAuth() {
     if (typeof window === "undefined") return null
@@ -312,17 +294,6 @@ export default function SecureHomePage() {
     }
   }, [])
 
-  // Toggle aiActive when ai panel opens/closes (patients only)
-  useEffect(() => {
-    if (userRole !== "patient") return
-    
-    const auth = getStoredAuth()
-    if (!auth) return
-
-    // when aiOpen is true -> aiActive true, otherwise false
-    patchPatientStatus({ aiActive: Boolean(aiOpen) })
-  }, [aiOpen, patchPatientStatus, userRole])
-
   // Mark user as online while this page is mounted (patients only)
   useEffect(() => {
     if (userRole !== "patient") return
@@ -337,7 +308,13 @@ export default function SecureHomePage() {
     }
   }, [patchPatientStatus, userRole])
 
-  // Logout handler
+  useEffect(() => {
+    if (userRole !== "patient") return
+    const auth = getStoredAuth()
+    if (!auth) return
+    patchPatientStatus({ aiActive: Boolean(aiOpen) })
+  }, [aiOpen, patchPatientStatus, userRole])
+
   async function handleLogout() {
     const patientAuth = getStoredAuth()
     if (patientAuth) {
@@ -374,7 +351,6 @@ export default function SecureHomePage() {
         return "User"
       }
 
-      // Check patient auth first
       const patientAuth = window.localStorage.getItem("patientAuth")
       if (patientAuth) {
         try {
@@ -385,7 +361,6 @@ export default function SecureHomePage() {
         }
       }
 
-      // Check doctor auth
       const doctorAuth = window.localStorage.getItem("doctorAuth")
       if (doctorAuth) {
         try {
@@ -410,26 +385,24 @@ export default function SecureHomePage() {
     ? Number(doctorDetails.yearsOfExperience)
     : 0
 
-  // profile image updates are handled in the dashboard and doctor pages
-
   useEffect(() => {
-    if (aiOpen && aiMessages.length === 0) {
-      setAiMessages([
-        {
-          id: "initial",
-          role: "assistant",
-          content: getWelcomeMessage(userName),
-          timestamp: new Date(),
-        },
-      ])
-    }
+    if (!aiOpen) return
+    if (aiMessages.length > 0) return
+
+    setAiMessages([
+      {
+        id: "initial",
+        role: "assistant",
+        content: getWelcomeMessage(userName),
+        timestamp: new Date(),
+      },
+    ])
   }, [aiOpen, aiMessages.length, userName])
 
   useEffect(() => {
     if (!aiThreadRef.current) {
       return
     }
-
     aiThreadRef.current.scrollTop = aiThreadRef.current.scrollHeight
   }, [aiMessages, aiOpen])
 
@@ -447,21 +420,27 @@ export default function SecureHomePage() {
     setAiError("")
 
     try {
-      const storedAuth = typeof window !== "undefined" ? window.localStorage.getItem("patientAuth") : null
-      let userId = "patient"
-
-      if (storedAuth) {
-        try {
-          const auth = JSON.parse(storedAuth)
-          userId = auth?.patientEmail || auth?.id || [auth?.patientFirstName, auth?.patientLastName].filter(Boolean).join(" ").trim() || "patient"
-        } catch {
-          userId = "patient"
+      let userId = String(patientId || doctorId || userName || "user")
+      if (typeof window !== "undefined") {
+        const patientAuth = window.localStorage.getItem("patientAuth")
+        const doctorAuth = window.localStorage.getItem("doctorAuth")
+        const raw = patientAuth || doctorAuth
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw)
+            userId = String(
+              parsed?.patientEmail || parsed?.doctorEmail || parsed?.patientId || parsed?.doctorId || parsed?.id || parsed?._id || userId,
+            )
+          } catch {
+            // ignore parse errors
+          }
         }
       }
 
       const headers = { "Content-Type": "application/json" }
       const token = getStoredToken()
       if (token) headers.authorization = `Bearer ${token}`
+
       const response = await fetch("/api/ai/chat", {
         method: "POST",
         credentials: "include",
@@ -506,6 +485,117 @@ export default function SecureHomePage() {
       setAiLoading(false)
     }
   }
+
+  const renderAiPanel = () => (
+    <section className={`${styles.aiPanel} ${styles.aiPanelInline}`} id="secure-home-ai-panel" aria-label="AI Assistant chat">
+      <div className={styles.aiPanelHeader}>
+        <h3>HomeCare AI Assistant</h3>
+        <button type="button" className={styles.aiPanelClose} onClick={() => setAiOpen(false)} aria-label="Close chat">
+          x
+        </button>
+      </div>
+
+      <p className={styles.aiDisclaimer}>
+        This AI provides general health information and is not a substitute for professional medical advice.
+      </p>
+
+      <div className={styles.aiThread} ref={aiThreadRef} aria-live="polite" aria-relevant="additions text">
+        {aiMessages.map((message) => (
+          <div key={message.id} className={`${styles.aiMessageRow} ${message.role === "user" ? styles.aiMessageRowUser : styles.aiMessageRowAssistant}`}>
+            <div
+              className={`${styles.aiMessage} ${
+                message.role === "user" ? styles.aiMessageUser : message.tone === "error" ? styles.aiMessageError : styles.aiMessageAssistant
+              }`}
+            >
+              <div className={styles.aiMessageMarkdown}>
+                {message.role === "assistant" ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                ) : (
+                  <p className={styles.aiMessageText}>{message.content}</p>
+                )}
+              </div>
+              <div className={styles.aiMessageMeta}>
+                <span className={styles.aiMessageLabel}>{message.role === "user" ? "You" : "HomeCare AI"}</span>
+                {message.timestamp ? (
+                  <span className={styles.aiMessageTime}>{new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                ) : null}
+              </div>
+              {Array.isArray(message.sources) && message.sources.length > 0 ? (
+                <details className={styles.aiMessageSources}>
+                  <summary>View sources ({message.sources.length})</summary>
+                  <div className={styles.aiSourcesList}>
+                    {message.sources.map((source, index) => (
+                      <div key={`${message.id}-source-${index}`} className={styles.aiSourceItem}>
+                        <small>{String(source)}</small>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              ) : null}
+            </div>
+          </div>
+        ))}
+
+        {aiLoading && (
+          <div className={styles.aiMessageRow}>
+            <div className={`${styles.aiMessage} ${styles.aiMessageAssistant}`}>
+              <div className={styles.aiTypingIndicator} aria-label="HomeCare AI is typing">
+                <span />
+                <span />
+                <span />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {aiError ? <p className={styles.aiError}>{aiError}</p> : null}
+
+      <form
+        className={styles.aiComposer}
+        onSubmit={(event) => {
+          event.preventDefault()
+          submitAiQuery()
+        }}
+      >
+        <input
+          ref={aiInputRef}
+          className={styles.aiInput}
+          value={aiQuery}
+          onChange={(event) => setAiQuery(event.target.value)}
+          placeholder="Message HomeCare AI..."
+          type="text"
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault()
+              submitAiQuery()
+            }
+          }}
+        />
+        <div className={styles.aiActions}>
+          <button type="submit" className={styles.aiButton} disabled={aiLoading}>
+            {aiLoading ? "Thinking..." : "Send"}
+          </button>
+          <button
+            type="button"
+            className={styles.aiGhostButton}
+            onClick={() => {
+              setAiMessages([])
+              setAiConversationId("")
+              setAiError("")
+              setAiQuery("")
+              if (aiInputRef.current) {
+                aiInputRef.current.value = ""
+              }
+            }}
+            disabled={aiLoading && aiMessages.length === 0}
+          >
+            Clear chat
+          </button>
+        </div>
+      </form>
+    </section>
+  )
 
   // Handle attaching images for a post (uploads to /api/uploads)
   async function handlePostImageSelect(event) {
@@ -707,6 +797,7 @@ export default function SecureHomePage() {
   }
 
   return (
+    <>
     <main className={styles.page}>
       <header className={styles.topBar} ref={headerRef}>
         <Link href="/secure/home" className={styles.brand}>
@@ -1185,117 +1276,7 @@ export default function SecureHomePage() {
         </section>
 
             <aside className={styles.rightRail}>
-              {aiOpen && (
-                <section className={styles.aiPanel} id="secure-home-ai-panel" aria-label="AI Assistant chat">
-                  <div className={styles.aiPanelHeader}>
-                    <h3>HomeCare AI Assistant</h3>
-                    <button type="button" className={styles.aiPanelClose} onClick={() => setAiOpen(false)} aria-label="Close chat">
-                      ×
-                    </button>
-                  </div>
-
-                  <p className={styles.aiDisclaimer}>
-                    ⚠️ This AI provides general health information and is not a substitute for professional medical advice.
-                  </p>
-
-                  <div className={styles.aiThread} ref={aiThreadRef} aria-live="polite" aria-relevant="additions text">
-                    {aiMessages.map((message) => (
-                      <div key={message.id} className={`${styles.aiMessageRow} ${message.role === "user" ? styles.aiMessageRowUser : styles.aiMessageRowAssistant}`}>
-                        <div
-                          className={`${styles.aiMessage} ${
-                            message.role === "user" ? styles.aiMessageUser : message.tone === "error" ? styles.aiMessageError : styles.aiMessageAssistant
-                          }`}
-                        >
-                          <div className={styles.aiMessageMarkdown}>
-                            {message.role === "assistant" ? (
-                              <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
-                            ) : (
-                              <p className={styles.aiMessageText}>{message.content}</p>
-                            )}
-                          </div>
-                          <div className={styles.aiMessageMeta}>
-                            <span className={styles.aiMessageLabel}>{message.role === "user" ? "You" : "HomeCare AI"}</span>
-                            {message.timestamp ? (
-                              <span className={styles.aiMessageTime}>{new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                            ) : null}
-                          </div>
-                          {Array.isArray(message.sources) && message.sources.length > 0 ? (
-                            <details className={styles.aiMessageSources}>
-                              <summary>View sources ({message.sources.length})</summary>
-                              <div className={styles.aiSourcesList}>
-                                {message.sources.map((source, index) => (
-                                  <div key={`${message.id}-source-${index}`} className={styles.aiSourceItem}>
-                                    <small>{String(source)}</small>
-                                  </div>
-                                ))}
-                              </div>
-                            </details>
-                          ) : null}
-                        </div>
-                      </div>
-                    ))}
-
-                    {aiLoading && (
-                      <div className={styles.aiMessageRow}>
-                        <div className={`${styles.aiMessage} ${styles.aiMessageAssistant}`}>
-                          <div className={styles.aiTypingIndicator} aria-label="HomeCare AI is typing">
-                            <span />
-                            <span />
-                            <span />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {aiError ? <p className={styles.aiError}>{aiError}</p> : null}
-
-                  <form
-                    className={styles.aiComposer}
-                    onSubmit={(event) => {
-                      event.preventDefault()
-                      submitAiQuery()
-                    }}
-                  >
-                    <input
-                      ref={aiInputRef}
-                      className={styles.aiInput}
-                      value={aiQuery}
-                      onChange={(event) => setAiQuery(event.target.value)}
-                      placeholder="Message HomeCare AI..."
-                      type="text"
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" && !event.shiftKey) {
-                          event.preventDefault()
-                          submitAiQuery()
-                        }
-                      }}
-                    />
-                    <div className={styles.aiActions}>
-                      <button type="submit" className={styles.aiButton} disabled={aiLoading}>
-                        {aiLoading ? "Thinking..." : "Send"}
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.aiGhostButton}
-                        onClick={() => {
-                          setAiMessages([])
-                          setAiConversationId("")
-                          setAiError("")
-                          setAiQuery("")
-                          if (aiInputRef.current) {
-                            aiInputRef.current.value = ""
-                          }
-                        }}
-                        disabled={aiLoading && aiMessages.length === 0}
-                      >
-                        Clear chat
-                      </button>
-                    </div>
-                  </form>
-                </section>
-              )}
-
+              {aiOpen ? renderAiPanel() : null}
               <section className={styles.sideCard}>
                 <div className={styles.sideHeader}>
                   <h3>Trending Health Tips</h3>
@@ -1741,117 +1722,7 @@ export default function SecureHomePage() {
             </section>
 
             <aside className={styles.rightRail}>
-              {aiOpen && (
-                <section className={styles.aiPanel} id="secure-home-ai-panel" aria-label="AI Assistant chat">
-                  <div className={styles.aiPanelHeader}>
-                    <h3>HomeCare AI Assistant</h3>
-                    <button type="button" className={styles.aiPanelClose} onClick={() => setAiOpen(false)} aria-label="Close chat">
-                      ×
-                    </button>
-                  </div>
-
-                  <p className={styles.aiDisclaimer}>
-                    ⚠️ This AI provides general health information and is not a substitute for professional medical advice.
-                  </p>
-
-                  <div className={styles.aiThread} ref={aiThreadRef} aria-live="polite" aria-relevant="additions text">
-                    {aiMessages.map((message) => (
-                      <div key={message.id} className={`${styles.aiMessageRow} ${message.role === "user" ? styles.aiMessageRowUser : styles.aiMessageRowAssistant}`}>
-                        <div
-                          className={`${styles.aiMessage} ${
-                            message.role === "user" ? styles.aiMessageUser : message.tone === "error" ? styles.aiMessageError : styles.aiMessageAssistant
-                          }`}
-                        >
-                          <div className={styles.aiMessageMarkdown}>
-                            {message.role === "assistant" ? (
-                              <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
-                            ) : (
-                              <p className={styles.aiMessageText}>{message.content}</p>
-                            )}
-                          </div>
-                          <div className={styles.aiMessageMeta}>
-                            <span className={styles.aiMessageLabel}>{message.role === "user" ? "You" : "HomeCare AI"}</span>
-                            {message.timestamp ? (
-                              <span className={styles.aiMessageTime}>{new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                            ) : null}
-                          </div>
-                          {Array.isArray(message.sources) && message.sources.length > 0 ? (
-                            <details className={styles.aiMessageSources}>
-                              <summary>View sources ({message.sources.length})</summary>
-                              <div className={styles.aiSourcesList}>
-                                {message.sources.map((source, index) => (
-                                  <div key={`${message.id}-source-${index}`} className={styles.aiSourceItem}>
-                                    <small>{String(source)}</small>
-                                  </div>
-                                ))}
-                              </div>
-                            </details>
-                          ) : null}
-                        </div>
-                      </div>
-                    ))}
-
-                    {aiLoading && (
-                      <div className={styles.aiMessageRow}>
-                        <div className={`${styles.aiMessage} ${styles.aiMessageAssistant}`}>
-                          <div className={styles.aiTypingIndicator} aria-label="HomeCare AI is typing">
-                            <span />
-                            <span />
-                            <span />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {aiError ? <p className={styles.aiError}>{aiError}</p> : null}
-
-                  <form
-                    className={styles.aiComposer}
-                    onSubmit={(event) => {
-                      event.preventDefault()
-                      submitAiQuery()
-                    }}
-                  >
-                    <input
-                      ref={aiInputRef}
-                      className={styles.aiInput}
-                      value={aiQuery}
-                      onChange={(event) => setAiQuery(event.target.value)}
-                      placeholder="Message HomeCare AI..."
-                      type="text"
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" && !event.shiftKey) {
-                          event.preventDefault()
-                          submitAiQuery()
-                        }
-                      }}
-                    />
-                    <div className={styles.aiActions}>
-                      <button type="submit" className={styles.aiButton} disabled={aiLoading}>
-                        {aiLoading ? "Thinking..." : "Send"}
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.aiGhostButton}
-                        onClick={() => {
-                          setAiMessages([])
-                          setAiConversationId("")
-                          setAiError("")
-                          setAiQuery("")
-                          if (aiInputRef.current) {
-                            aiInputRef.current.value = ""
-                          }
-                        }}
-                        disabled={aiLoading && aiMessages.length === 0}
-                      >
-                        Clear chat
-                      </button>
-                    </div>
-                  </form>
-                </section>
-              )}
-
+              {aiOpen ? renderAiPanel() : null}
               <section className={styles.sideCard}>
                 <div className={styles.sideHeader}>
                   <h3>Trending Health Tips</h3>
@@ -1899,5 +1770,7 @@ export default function SecureHomePage() {
         )}
       </div>
     </main>
+
+    </>
   )
 }

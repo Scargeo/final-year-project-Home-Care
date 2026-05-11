@@ -5,6 +5,7 @@ import Link from "next/link"
 import styles from "../home/home.module.css"
 
 const READ_STORAGE_KEY = "patientNotificationReadIds"
+const DOCTOR_READ_STORAGE_KEY = "doctorNotificationReadIds"
 
 function loadPatientProfile() {
   if (typeof window === "undefined") return null
@@ -18,9 +19,32 @@ function loadPatientProfile() {
   }
 }
 
+function loadDoctorProfile() {
+  if (typeof window === "undefined") return null
+  const stored = window.localStorage.getItem("doctorAuth")
+  if (!stored) return null
+
+  try {
+    return JSON.parse(stored)
+  } catch {
+    return null
+  }
+}
+
+function getUserType() {
+  if (typeof window === "undefined") return null
+  const patientAuth = window.localStorage.getItem("patientAuth")
+  const doctorAuth = window.localStorage.getItem("doctorAuth")
+  if (doctorAuth) return "doctor"
+  if (patientAuth) return "patient"
+  return null
+}
+
 function loadReadIds() {
   if (typeof window === "undefined") return new Set()
-  const stored = window.localStorage.getItem(READ_STORAGE_KEY)
+  const userType = getUserType()
+  const storageKey = userType === "doctor" ? DOCTOR_READ_STORAGE_KEY : READ_STORAGE_KEY
+  const stored = window.localStorage.getItem(storageKey)
   if (!stored) return new Set()
 
   try {
@@ -33,9 +57,11 @@ function loadReadIds() {
 
 function saveReadIds(nextIds) {
   if (typeof window === "undefined") return
+  const userType = getUserType()
+  const storageKey = userType === "doctor" ? DOCTOR_READ_STORAGE_KEY : READ_STORAGE_KEY
 
   try {
-    window.localStorage.setItem(READ_STORAGE_KEY, JSON.stringify(Array.from(nextIds)))
+    window.localStorage.setItem(storageKey, JSON.stringify(Array.from(nextIds)))
   } catch {
     // ignore storage failures
   }
@@ -259,9 +285,10 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
 
   useEffect(() => {
     let mounted = true
-    const auth = loadPatientProfile() || {}
-    const patientPhone = String(auth.patientPhone || "").trim()
-    const patientName = [auth.patientFirstName, auth.patientLastName].filter(Boolean).join(" ").trim()
+    const userType = getUserType()
+    const auth = userType === "doctor" ? loadDoctorProfile() : loadPatientProfile() || {}
+    const patientPhone = userType === "patient" ? String(auth.patientPhone || "").trim() : ""
+    const patientName = userType === "patient" ? [auth.patientFirstName, auth.patientLastName].filter(Boolean).join(" ").trim() : ""
 
     async function load() {
       try {
@@ -280,8 +307,17 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
 
         const data = await res.json()
         const requests = Array.isArray(data.requests) ? data.requests : []
+        
+        // Filter requests based on user type
         const matching = requests.filter((request) => {
           if (!request) return false
+          
+          // For doctors: show all pending requests (not yet accepted by anyone)
+          if (userType === "doctor") {
+            return String(request.status || "").toLowerCase() === "pending"
+          }
+          
+          // For patients: show requests matching their phone or name
           if (patientPhone && String(request.patientPhone || "").trim() === patientPhone) return true
           if (patientName && String(request.patientName || "").trim() === patientName) return true
           return false
@@ -298,25 +334,44 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
           const nextStatus = String(request.status || "pending")
           const previousStatus = previous.get(requestId) || null
 
-          if (previousStatus && previousStatus !== nextStatus && (nextStatus === "accepted" || nextStatus === "resolved")) {
-            const liveId = buildEntryId("live", requestId, nextStatus)
-            freshNotifications.push({
-              id: liveId,
-              title: nextStatus === "accepted" ? "Emergency accepted" : "Emergency updated",
-              body:
-                nextStatus === "accepted"
-                  ? `${request.respondedBy || "A provider"} accepted your request. They'll contact you shortly.`
-                  : `Your emergency status is now ${nextStatus}.`,
-              at: new Date().toISOString(),
-              emergency: request,
-              source: "live",
-              important: true,
-            })
+          // For doctors: only show new notifications when requests transition from pending to accepted
+          // For patients: show notifications when requests transition to accepted or resolved
+          if (previousStatus && previousStatus !== nextStatus) {
+            if (userType === "doctor" && nextStatus === "accepted") {
+              const liveId = buildEntryId("live", requestId, nextStatus)
+              freshNotifications.push({
+                id: liveId,
+                title: "Emergency accepted",
+                body: `${request.respondedBy || "A provider"} accepted the request from ${request.patientName || "patient"}.`,
+                at: new Date().toISOString(),
+                emergency: request,
+                source: "live",
+                important: true,
+              })
+            } else if (userType === "patient" && (nextStatus === "accepted" || nextStatus === "resolved")) {
+              const liveId = buildEntryId("live", requestId, nextStatus)
+              freshNotifications.push({
+                id: liveId,
+                title: nextStatus === "accepted" ? "Emergency accepted" : "Emergency updated",
+                body:
+                  nextStatus === "accepted"
+                    ? `${request.respondedBy || "A provider"} accepted your request. They'll contact you shortly.`
+                    : `Your emergency status is now ${nextStatus}.`,
+                at: new Date().toISOString(),
+                emergency: request,
+                source: "live",
+                important: true,
+              })
+            }
 
             if (typeof window !== "undefined" && "Notification" in window && window.Notification.permission === "granted") {
               try {
-                new window.Notification("HomeCare: Emergency update", {
-                  body: nextStatus === "accepted" ? `${request.respondedBy || "A provider"} accepted your request.` : `Status: ${nextStatus}`,
+                const notificationTitle = userType === "doctor" ? "HomeCare: New Emergency" : "HomeCare: Emergency update"
+                const notificationBody = userType === "doctor" 
+                  ? `New emergency request from ${request.patientName || "patient"}`
+                  : (nextStatus === "accepted" ? `${request.respondedBy || "A provider"} accepted your request.` : `Status: ${nextStatus}`)
+                new window.Notification(notificationTitle, {
+                  body: notificationBody,
                 })
               } catch {
                 // ignore
@@ -357,6 +412,7 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
   const unreadEntries = entries.filter((entry) => !readIds.has(entry.id))
   const unreadCount = unreadEntries.length
   const latestEntry = entries[0] || null
+  const userType = getUserType()
 
   if (variant === "header") {
     return (
@@ -414,9 +470,13 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
     )
   }
 
-  const sidebarSummary = latestEntry
+  const sidebarSummary = userType === "doctor"
+    ? (latestEntry 
+      ? `${latestEntry.emergency?.patientName || "Patient"} — ${buildEntryPreview(latestEntry).summaryText}`
+      : `${unreadCount} pending emergency request${unreadCount !== 1 ? 's' : ''} waiting for response.`)
+    : (latestEntry
     ? buildEntryPreview(latestEntry).summaryText
-    : "You’ll see live updates here when a provider accepts or updates your request."
+    : "You'll see live updates here when a provider accepts or updates your request.")
 
   return (
     <aside className={styles.notificationSidebar}>
