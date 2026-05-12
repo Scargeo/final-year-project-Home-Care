@@ -8,7 +8,11 @@ import { io } from "socket.io-client"
 import styles from "./doctor.module.css"
 import homeStyles from "../home/home.module.css"
 import LoadingCanvas from "../components/LoadingCanvas"
+import VerifiedDoctorBadge from "../components/VerifiedDoctorBadge"
 import { getBackendBaseUrl } from "../../../lib/backend-url"
+
+const MISSED_GRACE_MINUTES = 10
+const REBOOK_VISIBLE_WINDOW_MINUTES = 20
 
 function getDoctorIdentity() {
   if (typeof window === "undefined") return { doctorId: "doctor", doctorName: "Doctor", profileImage: null }
@@ -88,10 +92,25 @@ function getEffectiveAppointmentStatus(appointment, now = new Date()) {
 
   const sameDay = appointmentDateTime.toDateString() === now.toDateString()
   const minutesLate = (now.getTime() - appointmentDateTime.getTime()) / (60 * 1000)
-  const withinGrace = sameDay && minutesLate >= 0 && minutesLate <= 10
+  const withinGrace = sameDay && minutesLate >= 0 && minutesLate <= MISSED_GRACE_MINUTES
 
   if (appointmentDateTime < now && !withinGrace) return "no-show"
   return baseStatus || "scheduled"
+}
+
+function getRebookExpiryDateTime(appointment) {
+  const appointmentDateTime = buildAppointmentDateTime(appointment?.appointmentDate, appointment?.appointmentTime)
+  if (!appointmentDateTime) return null
+
+  return new Date(
+    appointmentDateTime.getTime() + (MISSED_GRACE_MINUTES + REBOOK_VISIBLE_WINDOW_MINUTES) * 60 * 1000,
+  )
+}
+
+function isRebookWindowExpired(appointment, now = new Date()) {
+  const expiry = getRebookExpiryDateTime(appointment)
+  if (!expiry) return false
+  return now.getTime() >= expiry.getTime()
 }
 
 export default function DoctorDashboard() {
@@ -533,6 +552,11 @@ export default function DoctorDashboard() {
     if (!appointment) return
     if (!doctorId || doctorId === "doctor") return
 
+    if (isRebookWindowExpired(appointment)) {
+      setError("Rebook window has expired for this missed appointment.")
+      return
+    }
+
     const appointmentId = appointment.appointmentId || appointment._id
     if (!appointmentId) return
 
@@ -946,7 +970,8 @@ export default function DoctorDashboard() {
             <div>
               <p className={styles.heroKicker}>Doctor Dashboard</p>
               <h1 className={styles.heroTitle}>
-                {timeGreeting}, <strong>{doctorName}</strong>.
+                {timeGreeting}, <strong>{doctorName}</strong>
+                <VerifiedDoctorBadge doctor={dashboardData?.doctor} style={{ marginLeft: '0.55rem', verticalAlign: 'middle' }} />
               </h1>
               <p className={styles.heroBody}>
                 <strong>Doctor ID:</strong> {doctorId} | <strong>Specialty:</strong> {specialization || "Not specified"} | <strong>
@@ -1220,6 +1245,7 @@ export default function DoctorDashboard() {
                 dashboardData.todaysAppointments.map((apt) => {
                   const isAccepted = String(apt.status || "").toLowerCase() === "accepted"
                   const isMissed = String(apt.status || "").toLowerCase() === "no-show"
+                  const isRebookExpired = isMissed && isRebookWindowExpired(apt)
                   const consentStatus = appointmentConsentStatus[String(apt.appointmentId || apt._id || "")]
                   const consentStatusDisplay = consentStatus?.status || String(apt?.consentStatus || "")
 
@@ -1259,6 +1285,10 @@ export default function DoctorDashboard() {
                             ) : rebookedMap[String(apt.appointmentId || apt._id || '')] ? (
                               <button type="button" className={styles.primaryButton} disabled>
                                 Rebooked
+                              </button>
+                            ) : isRebookExpired ? (
+                              <button type="button" className={styles.primaryButton} disabled>
+                                Rebook expired
                               </button>
                             ) : (
                               <button

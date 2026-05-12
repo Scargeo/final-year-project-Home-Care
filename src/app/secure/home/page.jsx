@@ -9,6 +9,7 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import styles from "./home.module.css"
 import NotificationsPanel from "../components/NotificationsPanel"
+import VerifiedDoctorBadge from "../components/VerifiedDoctorBadge"
 
 const HEALTH_TIPS = [
   {
@@ -81,6 +82,33 @@ function getWelcomeMessage(name) {
   ]
   const opener = openers[new Date().getMinutes() % openers.length]
   return `${timeGreeting}${displayName}. ${opener}`
+}
+
+function getPostAgeLabel(createdAt) {
+  const created = new Date(createdAt)
+  if (Number.isNaN(created.getTime())) return ""
+
+  const elapsedMs = Date.now() - created.getTime()
+  if (elapsedMs < 0) return ""
+
+  const elapsedMinutes = Math.floor(elapsedMs / (60 * 1000))
+  if (elapsedMinutes < 1) return "now"
+  if (elapsedMinutes < 60) return `${elapsedMinutes}m`
+
+  const elapsedHours = Math.floor(elapsedMinutes / 60)
+  if (elapsedHours < 24) return `${elapsedHours}h`
+
+  const elapsedDays = Math.floor(elapsedHours / 24)
+  if (elapsedDays < 7) return `${elapsedDays}d`
+
+  const elapsedWeeks = Math.floor(elapsedDays / 7)
+  if (elapsedWeeks < 4) return `${elapsedWeeks}w`
+
+  const elapsedMonths = Math.floor(elapsedDays / 30)
+  if (elapsedMonths < 12) return `${elapsedMonths}mo`
+
+  const elapsedYears = Math.floor(elapsedDays / 365)
+  return `${elapsedYears}y`
 }
 
 export default function SecureHomePage() {
@@ -1061,6 +1089,7 @@ export default function SecureHomePage() {
               const userLiked = post.likes?.userIds?.includes(currentUserId) || false
               const canDeletePost = post.author?.id === currentUserId
               const postLabel = post.label || 'Post'
+              const postAgeLabel = getPostAgeLabel(post.createdAt)
               return (
                 <article key={post.postId || post._id} className={styles.feedCard}>
                   {/* Header with profile info and label */}
@@ -1073,10 +1102,20 @@ export default function SecureHomePage() {
                       )}
                     </div>
                     <div style={{ flex: 1 }}>
-                      <h3 style={{ margin: '0 0 0.2rem 0', fontSize: '1rem', fontWeight: 600 }}>{post.author?.name}</h3>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>{post.author?.name}</h3>
+                        <VerifiedDoctorBadge doctor={post.author} style={{ fontSize: '0.72rem' }} />
+                      </div>
                       <p style={{ margin: 0, fontSize: '0.875rem', color: '#666' }}>{post.author?.role}</p>
                     </div>
-                    <span style={{ color: '#0a66c2', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{postLabel}</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.15rem' }}>
+                      <span style={{ color: '#0a66c2', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{postLabel}</span>
+                      {postAgeLabel ? (
+                        <span style={{ color: '#64748b', fontSize: '0.76rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          {postAgeLabel}
+                        </span>
+                      ) : null}
+                    </div>
                     {canDeletePost ? (
                       <button
                         type="button"
@@ -1349,7 +1388,9 @@ export default function SecureHomePage() {
                     userName.slice(0, 1).toUpperCase()
                   )}
                 </div>
-                <h1>{doctorDisplayName}</h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <h1>{doctorDisplayName}</h1>
+                </div>
                 <p>Doctor profile</p>
               </section>
 
@@ -1360,7 +1401,10 @@ export default function SecureHomePage() {
                 <div style={{ display: "grid", gap: "0.5rem" }}>
                   <div>
                     <p style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 0.25rem" }}>Name</p>
-                    <p style={{ margin: 0, fontWeight: "600" }}>{doctorDisplayName}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                      <p style={{ margin: 0, fontWeight: "600" }}>{doctorDisplayName}</p>
+                      <VerifiedDoctorBadge doctor={doctorDetails} style={{ fontSize: '0.7rem' }} />
+                    </div>
                   </div>
                   <div>
                     <p style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 0.25rem" }}>Email</p>
@@ -1509,6 +1553,7 @@ export default function SecureHomePage() {
                   const userLiked = post.likes?.userIds?.includes(currentUserId) || false
                   const canDeletePost = post.author?.id === currentUserId
                   const postLabel = post.label || 'Post'
+                  const postAgeLabel = getPostAgeLabel(post.createdAt)
                   return (
                     <article key={post.postId || post._id} className={styles.feedCard}>
                       {/* Header with profile info and label */}
@@ -1521,10 +1566,20 @@ export default function SecureHomePage() {
                           )}
                         </div>
                         <div style={{ flex: 1 }}>
-                          <h3 style={{ margin: '0 0 0.2rem 0', fontSize: '1rem', fontWeight: 600 }}>{post.author?.name}</h3>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>{post.author?.name}</h3>
+                            <VerifiedDoctorBadge doctor={post.author} style={{ fontSize: '0.72rem' }} />
+                          </div>
                           <p style={{ margin: 0, fontSize: '0.875rem', color: '#666' }}>{post.author?.role}</p>
                         </div>
-                        <span style={{ color: '#0a66c2', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{postLabel}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.15rem' }}>
+                          <span style={{ color: '#0a66c2', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{postLabel}</span>
+                          {postAgeLabel ? (
+                            <span style={{ color: '#64748b', fontSize: '0.76rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                              {postAgeLabel}
+                            </span>
+                          ) : null}
+                        </div>
                         {canDeletePost ? (
                           <button
                             type="button"

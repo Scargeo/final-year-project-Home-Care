@@ -13,6 +13,7 @@ const postSchema = new mongoose.Schema(
       id: { type: String, required: true },
       name: { type: String, required: true },
       role: { type: String, default: 'doctor' },
+      isVerified: { type: Boolean, default: false },
       profileImage: {
         url: String,
         publicId: String,
@@ -40,6 +41,7 @@ const postSchema = new mongoose.Schema(
             id: String,
             name: String,
             role: { type: String, default: 'doctor' },
+            isVerified: { type: Boolean, default: false },
             profileImage: {
               url: String,
               publicId: String,

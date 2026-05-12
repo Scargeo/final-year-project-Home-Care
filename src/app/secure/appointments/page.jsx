@@ -4,7 +4,11 @@ import Link from "next/link"
 import { useEffect, useMemo, useState, useRef } from "react"
 import { io } from "socket.io-client"
 import styles from "../dashboard/dashboard.module.css"
+import VerifiedDoctorBadge from "../components/VerifiedDoctorBadge"
 import { getBackendBaseUrl } from "../../../lib/backend-url"
+
+const MISSED_GRACE_MINUTES = 10
+const REBOOK_VISIBLE_WINDOW_MINUTES = 20
 
 const APPOINTMENT_TYPES = [
   { value: "messaging", label: "Messaging" },
@@ -88,10 +92,25 @@ function getEffectiveAppointmentStatus(appointment, now = new Date()) {
 
   const sameDay = appointmentDateTime.toDateString() === now.toDateString()
   const minutesLate = (now.getTime() - appointmentDateTime.getTime()) / (60 * 1000)
-  const withinGrace = sameDay && minutesLate >= 0 && minutesLate <= 10
+  const withinGrace = sameDay && minutesLate >= 0 && minutesLate <= MISSED_GRACE_MINUTES
 
   if (appointmentDateTime < now && !withinGrace) return "no-show"
   return baseStatus || "scheduled"
+}
+
+function getRebookExpiryDateTime(appointment) {
+  const appointmentDateTime = buildAppointmentDateTime(appointment?.appointmentDate, appointment?.appointmentTime)
+  if (!appointmentDateTime) return null
+
+  return new Date(
+    appointmentDateTime.getTime() + (MISSED_GRACE_MINUTES + REBOOK_VISIBLE_WINDOW_MINUTES) * 60 * 1000,
+  )
+}
+
+function isRebookWindowExpired(appointment, now = new Date()) {
+  const expiry = getRebookExpiryDateTime(appointment)
+  if (!expiry) return false
+  return now.getTime() >= expiry.getTime()
 }
 
 function compareAppointmentsAsc(a, b) {
@@ -232,6 +251,11 @@ export default function AppointmentsPage() {
 
   async function rebookAppointment(appointment) {
     if (!appointment) return
+    if (isRebookWindowExpired(appointment)) {
+      setError('Rebook window has expired for this missed appointment')
+      return
+    }
+
     const appointmentId = appointment.appointmentId || appointment._id
     const doctorId = appointment?.doctor?.doctorId || appointment?.doctorId
     if (!appointmentId || !doctorId) {
@@ -604,7 +628,7 @@ export default function AppointmentsPage() {
         <section className={styles.hero}>
           <div>
             <p className={styles.heroKicker}>Appointments</p>
-            <h1 className={styles.heroTitle}>Book a doctor visit</h1>
+            <h1 className={styles.heroTitle}>Book an Appointment</h1>
             <p className={styles.heroBody}>Describe your symptoms and choose a time. The system reasons about your condition, picks a suitable specialty, and assigns an available doctor automatically.</p>
             <div className={styles.heroActions}>
               <Link href="/secure/home" className={`${styles.actionButton} ${styles.actionSecondary}`}>Home</Link>
@@ -721,7 +745,10 @@ export default function AppointmentsPage() {
                     <article key={a.appointmentId || a._id} className={styles.appointmentItem}>
                       <div className={styles.appointmentItemHeader}>
                         <div className={styles.doctorHeader}>
-                          <strong className={styles.doctorName}>{a.doctor ? getDoctorName(a.doctor) : 'Doctor'}</strong>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                            <strong className={styles.doctorName}>{a.doctor ? getDoctorName(a.doctor) : 'Doctor'}</strong>
+                            <VerifiedDoctorBadge doctor={a.doctor} style={{ fontSize: '0.7rem' }} />
+                          </div>
                           <div className={styles.doctorSpecialty}>Speciality: {a.doctor?.specialization || 'General care'}</div>
                         </div>
                         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
@@ -742,6 +769,8 @@ export default function AppointmentsPage() {
                         <div style={{ marginTop: 8 }}>
                           {rebookedByDoctorMap[String(a.appointmentId || a._id || '')] ? (
                             <button type="button" className={styles.actionButton} disabled>Rebooked</button>
+                          ) : isRebookWindowExpired(a) ? (
+                            <button type="button" className={styles.actionButton} disabled>Rebook expired</button>
                           ) : (
                             <button
                               type="button"

@@ -11,6 +11,8 @@ const { registerDoctor, loginDoctor } = require('../../../middleware/doctorContr
 const doctorSettingsRoute = require('./doctorSettingsRoute')
 
 const GENERAL_PRACTICE_MATCHER = /(general\s*practice|general\s*medicine|family\s*medicine|gp)/i
+const MISSED_GRACE_MINUTES = 10
+const REBOOK_VISIBLE_WINDOW_MINUTES = 20
 
 function buildAppointmentDateTime(appointmentDate, appointmentTime) {
   const parsedDate = new Date(appointmentDate)
@@ -41,10 +43,19 @@ function getEffectiveAppointmentStatus(appointment, now = new Date()) {
 
   const sameDay = appointmentDateTime.toDateString() === now.toDateString()
   const minutesLate = (now.getTime() - appointmentDateTime.getTime()) / (60 * 1000)
-  const withinGrace = sameDay && minutesLate >= 0 && minutesLate <= 10
+  const withinGrace = sameDay && minutesLate >= 0 && minutesLate <= MISSED_GRACE_MINUTES
 
   if (appointmentDateTime < now && !withinGrace) return 'no-show'
   return baseStatus || 'scheduled'
+}
+
+function getRebookExpiryDateTime(appointment) {
+  const appointmentDateTime = buildAppointmentDateTime(appointment?.appointmentDate, appointment?.appointmentTime)
+  if (!appointmentDateTime) return null
+
+  return new Date(
+    appointmentDateTime.getTime() + (MISSED_GRACE_MINUTES + REBOOK_VISIBLE_WINDOW_MINUTES) * 60 * 1000,
+  )
 }
 
 function compareByDateTimeAsc(a, b) {
@@ -1036,6 +1047,11 @@ router.post('/:doctorId/appointments/:appointmentId/rebook', async (req, res) =>
     const currentStatus = getEffectiveAppointmentStatus(existingAppointment)
     if (currentStatus !== 'no-show') {
       return res.status(400).json({ message: 'Only missed appointments can be rebooked' })
+    }
+
+    const rebookExpiry = getRebookExpiryDateTime(existingAppointment)
+    if (rebookExpiry && Date.now() >= rebookExpiry.getTime()) {
+      return res.status(400).json({ message: 'Rebook window has expired for this missed appointment' })
     }
 
     const oldDate = new Date(existingAppointment.appointmentDate)

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import VerifiedDoctorBadge from "../../../components/VerifiedDoctorBadge"
 import styles from "../../doctor.module.css"
 
 function getStoredToken() {
@@ -83,7 +84,10 @@ export default function AppointmentDetailPage({ params }) {
         <section style={{ marginTop: 12 }}>
           <h3 style={{ margin: '0 0 8px' }}>Doctor</h3>
           <div style={{ padding: 12, borderRadius: 12, background: '#f8fbff', border: '1px solid rgba(8,145,178,0.08)' }}>
-            <div style={{ fontWeight: 800 }}>{appointment.doctor?.doctorName || `${appointment.doctor?.doctorFirstName || ''} ${appointment.doctor?.doctorLastName || ''}`}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+              <div style={{ fontWeight: 800 }}>{appointment.doctor?.doctorName || `${appointment.doctor?.doctorFirstName || ''} ${appointment.doctor?.doctorLastName || ''}`}</div>
+              <VerifiedDoctorBadge doctor={appointment.doctor} style={{ fontSize: '0.7rem' }} />
+            </div>
             <div style={{ color: '#475569' }}>{appointment.doctor?.specialization || 'General care'}</div>
           </div>
         </section>

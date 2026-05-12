@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import VerifiedDoctorBadge from "../secure/components/VerifiedDoctorBadge"
 import styles from "./page.module.css"
 
 const resourceOptions = [
@@ -667,9 +668,12 @@ export default function AdminPage() {
             {doctors.map((doctor) => (
               <div key={doctor.doctorId} className={styles.rowCard}>
                 <div>
-                  <strong>{formatName(doctor.doctorFirstName, doctor.doctorLastName, doctor.doctorId)}</strong>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                    <strong>{formatName(doctor.doctorFirstName, doctor.doctorLastName, doctor.doctorId)}</strong>
+                    <VerifiedDoctorBadge doctor={doctor} style={{ fontSize: '0.7rem' }} />
+                  </div>
                   <p>{doctor.doctorEmail}</p>
-                  <p>{doctor.specialization || 'Unspecified'} · {doctor.isVerified ? 'Verified' : 'Unverified'} · {doctor.isAvailable ? 'Available' : 'Unavailable'}</p>
+                  <p>{doctor.specialization || 'Unspecified'} · {doctor.isAvailable ? 'Available' : 'Unavailable'}</p>
                 </div>
                 <div className={styles.rowActions}>
                   <button className={styles.actionButton} type="button" onClick={() => approveDoctor(doctor.doctorId, !doctor.isVerified)} disabled={busy}>

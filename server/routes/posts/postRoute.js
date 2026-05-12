@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const Post = require('../../models/posts/post')
+const Doctor = require('../../models/privateHealthWorker/doctor/doctorRegistration')
 const { loadUser } = require('../../middleware/loadUserMiddleware')
 
 function getUserIdentity(user = {}) {
@@ -18,6 +19,7 @@ function getUserIdentity(user = {}) {
       record.name ||
       'Unknown',
     role: user?.role || record.role || 'doctor',
+    isVerified: Boolean(user?.isVerified ?? record?.isVerified),
     profileImage: user?.profileImage || record.profileImage || null,
   }
 }
@@ -59,7 +61,41 @@ router.get('/', async (req, res) => {
       .limit(limit)
       .lean()
 
-    return res.status(200).json({ posts })
+    const doctorAuthorIds = [...new Set(
+      posts
+        .filter((post) => String(post?.author?.role || '').toLowerCase() === 'doctor')
+        .map((post) => String(post?.author?.id || ''))
+        .filter(Boolean),
+    )]
+
+    const doctorVerificationMap = new Map()
+    if (doctorAuthorIds.length > 0) {
+      const doctors = await Doctor.find({ doctorId: { $in: doctorAuthorIds } })
+        .select('doctorId isVerified')
+        .lean()
+
+      for (const doctor of doctors) {
+        doctorVerificationMap.set(String(doctor.doctorId), Boolean(doctor.isVerified))
+      }
+    }
+
+    const normalizedPosts = posts.map((post) => {
+      if (!post?.author) return post
+
+      const authorId = String(post.author.id || '')
+      const authorRole = String(post.author.role || '').toLowerCase()
+      const fallbackVerified = authorRole === 'doctor' ? Boolean(doctorVerificationMap.get(authorId)) : false
+
+      return {
+        ...post,
+        author: {
+          ...post.author,
+          isVerified: Boolean(post.author.isVerified ?? fallbackVerified),
+        },
+      }
+    })
+
+    return res.status(200).json({ posts: normalizedPosts })
   } catch (error) {
     console.error('Failed to fetch posts:', error)
     return res.status(500).json({ message: 'Failed to fetch posts', error: error.message })
