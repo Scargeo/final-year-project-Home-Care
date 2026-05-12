@@ -921,6 +921,52 @@ router.patch('/:doctorId/appointments/:appointmentId', async (req, res) => {
       }
     }
 
+    // If this cancellation is for a rebooked appointment created from an original missed appointment,
+    // find the original appointment id from the stored field first and mark the original appointment as cancelled.
+    try {
+      const originalAppointmentId = String(appointment?.rebookedFromAppointmentId || '') || (() => {
+        const normalizedNotes = String(appointment?.notes || '')
+        const m = normalizedNotes.match(/Rebooked after missed appointment\s+(APT-[A-Z0-9-_]+)/i)
+        return m && m[1] ? String(m[1]) : ''
+      })()
+
+      console.log('[PATCH cancel] Checking rebook: cancelledAppointmentId=%s, rebookedFromAppointmentId=%s, originalFromField=%s', String(appointment?.appointmentId || ''), String(appointment?.rebookedFromAppointmentId || 'N/A'), originalAppointmentId)
+
+      if (originalAppointmentId) {
+
+        try {
+          console.log('[PATCH cancel] Found original appointment %s, marking as cancelled...', originalAppointmentId)
+          const updatedOriginal = await Appointment.findOneAndUpdate(
+            { appointmentId: originalAppointmentId },
+            { status: 'cancelled', notes: `Cancelled after rebook ${String(appointment?.appointmentId || '')}`, updatedAt: new Date() },
+            { new: true },
+          ).lean()
+          
+          console.log('[PATCH cancel] Updated original appointment %s: %s', originalAppointmentId, updatedOriginal ? 'SUCCESS' : 'NOT FOUND')
+
+          // clear rebooked marker if present (best-effort)
+          await Appointment.updateOne({ appointmentId: originalAppointmentId }, { $unset: { rebooked: "" } }).catch(() => {})
+
+          const io = req?.app?.get('io')
+          if (io && updatedOriginal) {
+            io.to(`appointments-doctor-${String(doctorId)}`).emit('appointment-updated', { appointment: updatedOriginal })
+            io.to(`appointments-patient-${String(updatedOriginal.patientId)}`).emit('appointment-updated', { appointment: updatedOriginal })
+
+            // also emit a rebook-cancelled signal for UI handling
+            io.to(`appointments-doctor-${String(doctorId)}`).emit('rebook-cancelled', { originalAppointmentId, cancelledAppointmentId: String(appointment?.appointmentId || '') })
+            if (appointment?.patientId) {
+              io.to(`appointments-patient-${String(appointment.patientId)}`).emit('rebook-cancelled', { originalAppointmentId, cancelledAppointmentId: String(appointment?.appointmentId || '') })
+            }
+          }
+        } catch (innerErr) {
+          // best-effort; log and continue
+          console.error('Failed to mark original appointment cancelled after rebook cancellation:', innerErr && innerErr.stack ? innerErr.stack : innerErr)
+        }
+      }
+    } catch {
+      // best-effort; ignore errors
+    }
+
     const io = req?.app?.get('io')
     if (io) {
       io.to(`appointments-doctor-${String(doctorId)}`).emit('appointment-updated', { appointment })
@@ -1011,6 +1057,7 @@ router.post('/:doctorId/appointments/:appointmentId/rebook', async (req, res) =>
         appointmentTime: existingAppointment.appointmentTime,
         duration: existingAppointment.duration,
         status: 'scheduled',
+        rebookedFromAppointmentId: String(existingAppointment.appointmentId || ''),
         reason: existingAppointment.reason,
         consultationType: existingAppointment.consultationType,
         triageCategory: existingAppointment.triageCategory,

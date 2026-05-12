@@ -723,6 +723,21 @@ export default function DoctorDashboard() {
       setDoctorPendingRebookMap((m) => ({ ...m, [appointmentId]: true }))
     })
 
+    socket.on('rebook-cancelled', (payload) => {
+      const originalAppointmentId = String(payload?.originalAppointmentId || '')
+      if (!originalAppointmentId) return
+      setRebookedMap((m) => {
+        const copy = { ...m }
+        delete copy[originalAppointmentId]
+        return copy
+      })
+      setDoctorPendingRebookMap((m) => {
+        const copy = { ...m }
+        delete copy[originalAppointmentId]
+        return copy
+      })
+    })
+
     socket.emit("join-appointments-doctor", doctorId)
 
     const upsertAppointment = (incomingAppointment) => {

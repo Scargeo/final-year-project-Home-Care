@@ -422,6 +422,22 @@ export default function AppointmentsPage() {
       setRebookingMap((s) => ({ ...s, [appointmentId]: true }))
     })
 
+    socket.on('rebook-cancelled', (payload) => {
+      const originalAppointmentId = String(payload?.originalAppointmentId || '')
+      if (!originalAppointmentId) return
+      // clear any marked rebooked/pending flags so the Rebook button is re-enabled
+      setRebookedByDoctorMap((s) => {
+        const copy = { ...s }
+        delete copy[originalAppointmentId]
+        return copy
+      })
+      setRebookingMap((s) => {
+        const copy = { ...s }
+        delete copy[originalAppointmentId]
+        return copy
+      })
+    })
+
     socket.on("appointment-updated", (payload) => {
       upsertAppointment(payload?.appointment)
     })

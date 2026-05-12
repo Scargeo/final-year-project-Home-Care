@@ -78,6 +78,11 @@ const appointmentSchema = new mongoose.Schema(
       trim: true,
       maxlength: 2000,
     },
+    rebookedFromAppointmentId: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     consultationType: {
       type: String,
       enum: ['messaging', 'video', 'phone'],
