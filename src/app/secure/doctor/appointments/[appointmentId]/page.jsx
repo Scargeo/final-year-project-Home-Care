@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import styles from "../../doctor/doctor.module.css"
+import styles from "../../doctor.module.css"
 
 function getStoredToken() {
   if (typeof window === 'undefined') return null
