@@ -1,7 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useCallback, useEffect, useState } from "react"
 import styles from "./page.module.css"
 
 const resourceOptions = [
@@ -91,7 +90,6 @@ function safeJsonParse(value) {
 }
 
 export default function AdminPage() {
-  const router = useRouter()
   const [admin, setAdmin] = useState(null)
   const [token, setToken] = useState("")
   const [loading, setLoading] = useState(true)
@@ -111,37 +109,7 @@ export default function AdminPage() {
   const [updateId, setUpdateId] = useState("")
   const [updateJson, setUpdateJson] = useState(JSON.stringify(defaultUpdatePayloads.doctor, null, 2))
 
-  useEffect(() => {
-    const stored = readStoredAdmin()
-    if (stored?.token) {
-      // Validate token with backend
-      validateAdminSession(stored.token)
-        .then((isValid) => {
-          if (isValid) {
-            setAdmin(stored)
-            setToken(stored.token)
-            loadDashboard(stored.token)
-          } else {
-            // Token is invalid, clear storage and show login
-            if (typeof window !== "undefined") {
-              window.localStorage.removeItem("adminAuth")
-            }
-            setLoading(false)
-          }
-        })
-        .catch(() => {
-          // Validation failed, show login
-          if (typeof window !== "undefined") {
-            window.localStorage.removeItem("adminAuth")
-          }
-          setLoading(false)
-        })
-    } else {
-      setLoading(false)
-    }
-  }, [])
-
-  async function validateAdminSession(activeToken) {
+  const validateAdminSession = useCallback(async (activeToken) => {
     try {
       const response = await fetch(`/api/admin/me`, {
         method: "GET",
@@ -154,7 +122,7 @@ export default function AdminPage() {
     } catch {
       return false
     }
-  }
+  }, [])
 
   useEffect(() => {
     setCreateJson(JSON.stringify(defaultCreatePayloads[createResource], null, 2))
@@ -164,7 +132,7 @@ export default function AdminPage() {
     setUpdateJson(JSON.stringify(defaultUpdatePayloads[updateResource], null, 2))
   }, [updateResource])
 
-  async function apiFetch(path, options = {}, activeToken = token) {
+  const apiFetch = useCallback(async (path, options = {}, activeToken = token) => {
     const headers = { ...(options.headers || {}) }
     if (activeToken) headers.authorization = `Bearer ${activeToken}`
     if (options.body && !headers["Content-Type"] && !headers["content-type"] && !(options.body instanceof FormData)) {
@@ -209,7 +177,7 @@ export default function AdminPage() {
           setToken('')
           setError('Your session has expired. Please log in again.')
         }
-      } catch (err) {
+      } catch {
         if (typeof window !== 'undefined') window.localStorage.removeItem('adminAuth')
         setAdmin(null)
         setToken('')
@@ -218,9 +186,9 @@ export default function AdminPage() {
     }
 
     return response
-  }
+  }, [token])
 
-  async function loadDashboard(activeToken = token) {
+  const loadDashboard = useCallback(async (activeToken = token) => {
     try {
       setBusy(true)
       setError("")
@@ -257,7 +225,34 @@ export default function AdminPage() {
       setBusy(false)
       setLoading(false)
     }
-  }
+  }, [apiFetch, token])
+
+  useEffect(() => {
+    const stored = readStoredAdmin()
+    if (stored?.token) {
+      validateAdminSession(stored.token)
+        .then((isValid) => {
+          if (isValid) {
+            setAdmin(stored)
+            setToken(stored.token)
+            loadDashboard(stored.token)
+          } else {
+            if (typeof window !== "undefined") {
+              window.localStorage.removeItem("adminAuth")
+            }
+            setLoading(false)
+          }
+        })
+        .catch(() => {
+          if (typeof window !== "undefined") {
+            window.localStorage.removeItem("adminAuth")
+          }
+          setLoading(false)
+        })
+    } else {
+      setLoading(false)
+    }
+  }, [loadDashboard, validateAdminSession])
 
   function storeAdminSession(payload) {
     const nextAuth = { ...(payload?.user || {}), token: payload?.token, refreshToken: payload?.refreshToken }
@@ -290,8 +285,8 @@ export default function AdminPage() {
       setMessage("Admin login successful.")
       setLoginForm({ adminEmail: "", adminPassword: "" })
       await loadDashboard(data.token)
-    } catch (err) {
-      setError(err?.message || "Login failed")
+    } catch (error) {
+      setError(error?.message || "Login failed")
     } finally {
       setBusy(false)
       setLoading(false)
@@ -323,8 +318,8 @@ export default function AdminPage() {
       setMessage("First admin created successfully.")
       setBootstrapForm({ adminName: "", adminEmail: "", adminPassword: "" })
       await loadDashboard(data.token)
-    } catch (err) {
-      setError(err?.message || "Bootstrap failed")
+    } catch (error) {
+      setError(error?.message || "Bootstrap failed")
     } finally {
       setBusy(false)
       setLoading(false)

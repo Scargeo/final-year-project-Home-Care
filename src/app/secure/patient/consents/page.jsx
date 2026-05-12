@@ -17,10 +17,6 @@ export default function ConsentsPage() {
 
   const patientId = typeof window !== "undefined" ? localStorage.getItem("patientAuth")?.split(",")[0] : ""
 
-  useEffect(() => {
-    loadConsentRequests()
-  }, [patientId])
-
   const loadConsentRequests = useCallback(async () => {
     if (!patientId) {
       setError("Not authenticated")
@@ -53,6 +49,10 @@ export default function ConsentsPage() {
       setLoading(false)
     }
   }, [patientId])
+
+  useEffect(() => {
+    loadConsentRequests()
+  }, [loadConsentRequests])
 
   const handleSelectRequest = useCallback(async (request) => {
     try {

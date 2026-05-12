@@ -45,7 +45,7 @@ function verifyToken(token) {
     if (!token) return null
     const trimmed = String(token).replace(/^Bearer\s+/i, '').trim()
     return jwt.verify(trimmed, JWT_SECRET)
-  } catch (err) {
+  } catch {
     return null
   }
 }
@@ -57,7 +57,7 @@ async function verifyRefreshToken(token) {
     if (!doc) return null
     if (new Date(doc.expiresAt) < new Date()) return null
     return { userId: doc.userId, role: doc.role }
-  } catch (err) {
+  } catch {
     return null
   }
 }
@@ -65,7 +65,7 @@ async function verifyRefreshToken(token) {
 async function revokeRefreshToken(token) {
   try {
     await RefreshToken.deleteOne({ token })
-  } catch (err) {
+  } catch {
     // ignore
   }
 }
