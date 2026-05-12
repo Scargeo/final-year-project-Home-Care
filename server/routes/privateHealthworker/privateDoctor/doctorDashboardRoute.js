@@ -25,6 +25,13 @@ function buildAppointmentDateTime(appointmentDate, appointmentTime) {
   return dateTime
 }
 
+function getMinimumBookableDateTime(now = new Date()) {
+  const minimum = new Date(now)
+  minimum.setMinutes(minimum.getMinutes() + 5)
+  minimum.setSeconds(0, 0)
+  return minimum
+}
+
 function getEffectiveAppointmentStatus(appointment, now = new Date()) {
   const baseStatus = String(appointment?.status || '').toLowerCase()
   if (['completed', 'no-show', 'cancelled'].includes(baseStatus)) return baseStatus
@@ -165,6 +172,21 @@ async function resolveAssignmentPlan({ appointmentDate, patientReason, excludeDo
     candidateDoctors = generalPracticeDoctors
     assignmentPool = 'general-practice'
     usedGeneralPracticeFallback = true
+  }
+
+  // Final fallback: if no specialty or GP doctor matches, assign to any verified available doctor.
+  if (!candidateDoctors.length) {
+    const anyAvailableDoctors = await Doctor.find({
+      role: 'doctor',
+      isVerified: true,
+      isAvailable: { $ne: false },
+      ...doctorFilter,
+    })
+      .select('doctorId doctorFirstName doctorLastName specialization yearsOfExperience isAvailable')
+      .lean()
+
+    candidateDoctors = anyAvailableDoctors
+    assignmentPool = 'any-available'
   }
 
   if (!candidateDoctors.length) {
@@ -638,6 +660,15 @@ router.post('/appointments/auto-assign', async (req, res) => {
       ? String(consultationType)
       : 'messaging'
 
+    const requestedDateTime = buildAppointmentDateTime(appointmentDate, appointmentTime)
+    if (!requestedDateTime) {
+      return res.status(400).json({ message: 'Invalid appointment time' })
+    }
+
+    if (requestedDateTime < getMinimumBookableDateTime()) {
+      return res.status(400).json({ message: 'Please choose a time at least 5 minutes from now' })
+    }
+
     const plan = await resolveAssignmentPlan({
       appointmentDate,
       appointmentTime,
@@ -659,19 +690,13 @@ router.post('/appointments/auto-assign', async (req, res) => {
     }
 
     const selectedDoctor = plan.selectedDoctor
-    // Guard against race conditions: doctor could switch to unavailable after selection but before insert.
-    const latestDoctorState = await Doctor.findOne({
-      doctorId: selectedDoctor.doctorId,
-      role: 'doctor',
-      isVerified: true,
-      isAvailable: { $ne: false },
-    })
-      .select('doctorId')
+    const latestDoctorState = await Doctor.findOne({ doctorId: selectedDoctor.doctorId })
+      .select('doctorId role isVerified isAvailable')
       .lean()
 
     if (!latestDoctorState) {
       return res.status(409).json({
-        message: 'Selected doctor is currently unavailable. Please try booking again.',
+        message: 'Selected doctor could not be found. Please try booking again.',
       })
     }
 
@@ -784,6 +809,15 @@ router.post('/:doctorId/appointments', async (req, res) => {
     const parsedAppointmentDate = new Date(appointmentDate)
     if (Number.isNaN(parsedAppointmentDate.getTime())) {
       return res.status(400).json({ message: 'Invalid appointment date' })
+    }
+
+    const requestedDateTime = buildAppointmentDateTime(parsedAppointmentDate, appointmentTime)
+    if (!requestedDateTime) {
+      return res.status(400).json({ message: 'Invalid appointment time' })
+    }
+
+    if (requestedDateTime < getMinimumBookableDateTime()) {
+      return res.status(400).json({ message: 'Please choose a time at least 5 minutes from now' })
     }
 
     const appointment = await Appointment.create({

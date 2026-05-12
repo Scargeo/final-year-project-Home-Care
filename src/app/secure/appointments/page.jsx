@@ -72,6 +72,13 @@ function buildAppointmentDateTime(appointmentDate, appointmentTime) {
   return dateTime
 }
 
+function getMinimumBookableDateTime(now = new Date()) {
+  const minimum = new Date(now)
+  minimum.setMinutes(minimum.getMinutes() + 5)
+  minimum.setSeconds(0, 0)
+  return minimum
+}
+
 function getEffectiveAppointmentStatus(appointment, now = new Date()) {
   const baseStatus = String(appointment?.status || "").toLowerCase()
   if (["completed", "no-show", "cancelled"].includes(baseStatus)) return baseStatus
@@ -526,6 +533,19 @@ export default function AppointmentsPage() {
 
     setSubmitting(true)
     try {
+      const selectedDateTime = buildAppointmentDateTime(form.date, form.time)
+      const minimumDateTime = getMinimumBookableDateTime()
+
+      if (!selectedDateTime || Number.isNaN(selectedDateTime.getTime())) {
+        setError("Please choose a valid appointment date and time")
+        return
+      }
+
+      if (selectedDateTime < minimumDateTime) {
+        setError("Please choose a time at least 5 minutes from now")
+        return
+      }
+
       const headers = { "Content-Type": "application/json" }
       const token = getStoredToken()
       if (token) headers.authorization = `Bearer ${token}`
@@ -621,7 +641,13 @@ export default function AppointmentsPage() {
 
                   <label className={styles.appointmentField}>
                     <span>Time</span>
-                    <input type="time" value={form.time} onChange={(e) => setForm((c) => ({ ...c, time: e.target.value }))} required />
+                    <input
+                      type="time"
+                      value={form.time}
+                      min={form.date === new Date().toISOString().slice(0, 10) ? getMinimumBookableDateTime().toTimeString().slice(0, 5) : undefined}
+                      onChange={(e) => setForm((c) => ({ ...c, time: e.target.value }))}
+                      required
+                    />
                   </label>
 
                   <label className={styles.appointmentField}>

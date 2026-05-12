@@ -1238,7 +1238,7 @@ export default function DoctorDashboard() {
                           <span
                             className={`${styles.badge} ${consentStatusDisplay === "pending" ? styles.consentPending : consentStatusDisplay === "accepted" ? styles.consentAccepted : styles.consentRejected}`}
                           >
-                            {consentStatusDisplay === "pending" ? "📋 Pending" : consentStatusDisplay === "accepted" ? "✅ Approved sharing" : "❌ Rejected sharing"}
+                            {consentStatusDisplay === "pending" ? "📋 Pending" : consentStatusDisplay === "accepted" ? "✅ Approved sharing" : "❌ Sharing halted"}
                           </span>
                         )}
                         <div className={styles.appointmentActionButtons}>
