@@ -339,7 +339,7 @@
   }
 
   .shell {
-    width: min(100% - 1rem, 1360px);
+    width: min(calc(100% - 1rem), 1360px);
   }
 
   .summaryGrid,

@@ -111,6 +111,8 @@ export default function SecureHomePage() {
   const [submittingComment, setSubmittingComment] = useState(false)
   const [postComments, setPostComments] = useState({})
   const [loadingComments, setLoadingComments] = useState({})
+  // Doctor AI lab interpretation state
+  // Doctor AI lab interpretation state (moved to doctor dashboard)
   const headerRef = useRef(null)
   const profileCardRef = useRef(null)
   const commentPanelRef = useRef(null)
@@ -784,6 +786,8 @@ export default function SecureHomePage() {
     }
   }
 
+  // Lab interpretation moved to doctor dashboard
+
   function toggleComments(postId) {
     if (commentingPostId === postId) {
       setCommentingPostId(null)
@@ -880,7 +884,7 @@ export default function SecureHomePage() {
               <span>💬</span>
               <span>Chats</span>
             </Link>
-            <Link href="/secure/appointments" className={styles.dropdownItem}>
+            <Link href="/secure/dashboard#appointments" className={styles.dropdownItem}>
               <span>📅</span>
               <span>Appointments</span>
             </Link>
@@ -888,6 +892,12 @@ export default function SecureHomePage() {
               <span>📋</span>
               <span>Records</span>
             </Link>
+            {userRole !== "doctor" && (
+              <Link href="/secure/patient/consents" className={styles.dropdownItem}>
+                <span>✅</span>
+                <span>Consent Requests</span>
+              </Link>
+            )}
             <Link href="/secure/settings" className={styles.dropdownItem}>
               <span>⚙️</span>
               <span>Settings</span>
@@ -917,7 +927,7 @@ export default function SecureHomePage() {
           <span>💬</span>
           <span>Chats</span>
         </Link>
-        <Link href="/secure/appointments" className={styles.menuButton}>
+        <Link href="/secure/dashboard#appointments" className={styles.menuButton}>
           <span>📅</span>
           <span>Appointments</span>
         </Link>
@@ -925,6 +935,12 @@ export default function SecureHomePage() {
           <span>📋</span>
           <span>Records</span>
         </Link>
+        {userRole !== "doctor" && (
+          <Link href="/secure/patient/consents" className={styles.menuButton}>
+            <span>✅</span>
+            <span>Consents</span>
+          </Link>
+        )}
         <Link href="/secure/settings" className={styles.menuButton}>
           <span>⚙️</span>
           <span>Settings</span>
@@ -1390,6 +1406,8 @@ export default function SecureHomePage() {
                   </div>
                 </div>
               </article>
+
+              {/* Lab interpretation UI moved to the Doctor dashboard */}
 
               {/* Post composer (doctors) */}
               <section className={styles.composerSection}>

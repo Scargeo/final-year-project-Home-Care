@@ -20,6 +20,167 @@
   backdrop-filter: blur(12px);
 }
 
+/* Doctor lab interpretation panel styles */
+.labCard {
+  background: white;
+  border: 1px solid #dbe5ee;
+  border-radius: 1rem;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.04);
+  padding: 1rem 1.1rem;
+}
+
+.labSubtitle {
+  margin: 0.4rem 0 0.8rem;
+  color: #475569;
+  font-size: 0.92rem;
+}
+
+.labForm {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.labFileRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.labHiddenFileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.labAttachmentButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  border: 1px dashed #9bb7cf;
+  background: #f8fbff;
+  color: #0f172a;
+  border-radius: 0.7rem;
+  padding: 0.85rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.labAttachmentButton:hover {
+  background: #eef6ff;
+  border-color: #0a66c2;
+}
+
+.labAttachmentIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: rgba(10, 102, 194, 0.12);
+  color: #0a66c2;
+  flex-shrink: 0;
+}
+
+.labGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.labInput,
+.labFileInput {
+  width: 100%;
+  border: 1px solid #cdd9e3;
+  background: #f8fafc;
+  color: #0f172a;
+  border-radius: 0.7rem;
+  padding: 0.7rem 0.85rem;
+  font: inherit;
+  outline: none;
+}
+
+.labInput:focus,
+.labFileInput:focus {
+  background: white;
+  border-color: #0a66c2;
+  box-shadow: 0 0 0 3px rgba(10, 102, 194, 0.12);
+}
+
+.labActions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.labActions button {
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  border: 1px solid #0a66c2;
+  background: #0a66c2;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.labActions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.labError {
+  margin: 0.5rem 0 0;
+  color: #b42318;
+  font-size: 0.88rem;
+}
+
+.labSuccess {
+  margin: 0.5rem 0 0;
+  color: #067647;
+  font-size: 0.88rem;
+}
+
+.labInsightCard {
+  margin-top: 0.9rem;
+  border: 1px solid #dbe5ee;
+  border-radius: 0.85rem;
+  background: #f8fbff;
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.labInsightCard h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: #030711;
+}
+
+.labInsightCard p {
+  margin: 0;
+  color: #1f2937;
+  line-height: 1.45;
+}
+
+.labInsightCard ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+  color: #334155;
+}
+
+.labInsightCard li {
+  margin: 0.2rem 0;
+}
+
 .brand {
   display: inline-flex;
   align-items: center;
@@ -413,13 +574,6 @@
   transform: scale(1.15);
 }
 
-.profileCard h1,
-.profileImage {
-  object-fit: cover !important;
-  object-position: center !important;
-  transform: scale(1.15);
-}
-
 .profileAvatarButton {
   background: none;
   border: none;
@@ -577,6 +731,11 @@
   padding: 1rem 1.1rem;
 }
 
+.composerSection {
+  display: grid;
+  gap: 1rem;
+}
+
 .composerTop {
   display: flex;
   gap: 0.75rem;
@@ -673,6 +832,13 @@
 .feedList {
   display: grid;
   gap: 1rem;
+}
+
+.status {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.92rem;
+  font-weight: 600;
 }
 
 .feedCard {
@@ -1525,6 +1691,11 @@
     gap: 0.45rem;
   }
 
+
+  .labGrid {
+    grid-template-columns: 1fr;
+  }
+
   .desktopOnlyAction {
     display: none;
   }
@@ -1679,4 +1850,400 @@
     max-height: min(54rem, calc(100vh - 10rem));
   }
 
+}
+
+/* Lab Interpretation Scrolling Modal Interface */
+.viewResultsContainer {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.viewResultsButton {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid #0a66c2;
+  background: linear-gradient(135deg, #0a66c2 0%, #0855a3 100%);
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 150ms ease;
+  box-shadow: 0 4px 12px rgba(10, 102, 194, 0.2);
+}
+
+.viewResultsButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(10, 102, 194, 0.3);
+}
+
+.viewResultsButton:active {
+  transform: translateY(0);
+}
+
+/* Modal overlay */
+.labModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  animation: fadeIn 200ms ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Scrollable modal container */
+.labScrollModal {
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-radius: 1.25rem;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.15);
+  width: min(100%, 720px);
+  max-height: 85vh;
+  animation: slideUp 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.labModalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-bottom: 2px solid #f0f4f8;
+  flex-shrink: 0;
+}
+
+.labModalHeader h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  color: #0f172a;
+}
+
+.labModalSubheader {
+  margin: 0.35rem 0 0;
+  color: #64748b;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.labModalClose {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: none;
+  border-radius: 0.75rem;
+  background: #f0f4f8;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 1.25rem;
+  transition: all 150ms ease;
+  flex-shrink: 0;
+}
+
+.labModalClose:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* Tab navigation */
+.labTabs {
+  display: flex;
+  gap: 0;
+  padding: 0 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  flex-shrink: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.labTabs::-webkit-scrollbar {
+  height: 3px;
+}
+
+.labTabs::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.labTabs::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.labTab {
+  padding: 1rem 1.25rem;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 3px solid transparent;
+  transition: all 150ms ease;
+  font-size: 0.95rem;
+}
+
+.labTab:hover {
+  color: #0a66c2;
+}
+
+.labTab.active {
+  color: #0a66c2;
+  border-bottom-color: #0a66c2;
+}
+
+/* Scrollable content area */
+.labScrollContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.labScrollContent::-webkit-scrollbar {
+  width: 6px;
+}
+
+.labScrollContent::-webkit-scrollbar-track {
+  background: #f0f4f8;
+  border-radius: 3px;
+}
+
+.labScrollContent::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.labScrollContent::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Tab pane content */
+.tabPane {
+  animation: fadeIn 200ms ease;
+}
+
+.tabPane h3 {
+  margin: 0 0 1rem;
+  font-size: 1.25rem;
+  color: #0f172a;
+}
+
+.summaryText {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: #334155;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin: 0;
+}
+
+.findingsList,
+.recommendationsList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.findingItem,
+.recommendationItem {
+  padding: 0.85rem;
+  background: #f8fbff;
+  border-left: 4px solid #0a66c2;
+  border-radius: 0.5rem;
+  color: #334155;
+  line-height: 1.6;
+}
+
+.valuesList {
+  display: grid;
+  gap: 1rem;
+}
+
+.valueItem {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.85rem;
+  padding: 1rem;
+  background: #fafbfc;
+  transition: all 150ms ease;
+}
+
+.valueItem:hover {
+  border-color: #cbd5e1;
+  background: #f8fbff;
+  box-shadow: 0 2px 8px rgba(10, 102, 194, 0.08);
+}
+
+.valueHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.valueHeader strong {
+  font-size: 1.05rem;
+  color: #0f172a;
+}
+
+.statusNormal,
+.statusAbnormal {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.statusNormal {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.statusAbnormal {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.statusAbnormal.status-high {
+  background: #fef08a;
+  color: #a16207;
+}
+
+.statusAbnormal.status-low {
+  background: #bfdbfe;
+  color: #1e40af;
+}
+
+.statusAbnormal.status-critical {
+  background: #fee2e2;
+  color: #991b1b;
+  font-weight: 800;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.valueDetails {
+  margin: 0.5rem 0 0;
+  color: #475569;
+  font-family: 'Courier New', monospace;
+  font-size: 0.95rem;
+  padding: 0.5rem;
+  background: white;
+  border-radius: 0.4rem;
+  border: 1px solid #e2e8f0;
+}
+
+.interpretation {
+  margin: 0.5rem 0 0;
+  color: #64748b;
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+/* Responsive adjustments for lab modal */
+@media (max-width: 900px) {
+  .labScrollModal {
+    width: min(100%, 85vw);
+    max-height: 90vh;
+  }
+
+  .labModalHeader {
+    padding: 1.25rem;
+  }
+
+  .labScrollContent {
+    padding: 1.25rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .labModalOverlay {
+    padding: 0.5rem;
+  }
+
+  .labScrollModal {
+    width: 100%;
+    max-height: calc(100vh - 1rem);
+    border-radius: 1rem;
+  }
+
+  .labModalHeader {
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+
+  .labModalHeader h2 {
+    font-size: 1.15rem;
+  }
+
+  .labModalClose {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .labTabs {
+    padding: 0 1rem;
+  }
+
+  .labTab {
+    padding: 0.8rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .labScrollContent {
+    padding: 1rem;
+  }
+
+  .tabPane h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .valueHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .summaryText {
+    font-size: 0.95rem;
+  }
 }

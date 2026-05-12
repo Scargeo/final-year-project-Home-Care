@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { useRouter } from 'next/navigation'
 import Link from "next/link"
 import styles from "../home/home.module.css"
 
@@ -161,12 +162,85 @@ function buildNotificationEntries(notifications, items) {
   return entries
 }
 
-function NotificationCard({ entry, isRead, isExpanded, onToggle, onMarkRead }) {
+function buildAppointmentEntries(appointments) {
+  return appointments
+    .filter((appointment) => String(appointment?.status || "").toLowerCase() === "cancelled")
+    .map((appointment) => ({
+      id: buildEntryId("appointment", appointment.appointmentId || appointment._id, appointment.status),
+      title: "Appointment cancelled",
+      body: `${appointment.doctor?.doctorName || "Your doctor"} cancelled your appointment for ${formatNotificationTime(appointment.appointmentDate)}.`,
+      at: appointment.updatedAt || appointment.createdAt || new Date().toISOString(),
+      emergency: {
+        appointmentId: appointment.appointmentId || appointment._id,
+        patientId: appointment.patientId,
+        patientName: appointment.patientName,
+        patientPhone: appointment.patientPhone,
+        appointmentDate: appointment.appointmentDate,
+        appointmentTime: appointment.appointmentTime,
+        duration: appointment.duration,
+        reason: appointment.reason,
+        consultationType: appointment.consultationType,
+      },
+      source: "appointment-cancelled",
+      important: true,
+    }))
+}
+
+function NotificationCard({ entry, isRead, isExpanded, onToggle, onMarkRead, userType, onRebooked }) {
   const preview = buildEntryPreview(entry)
   const timeLabel = formatNotificationTime(entry.at)
   const badgeLabel = isRead ? "Read" : "New"
   const joinChatUrl = buildChatUrl(entry)
   const showJoinChat = canJoinChat(entry)
+  const router = useRouter()
+
+  async function handleRebookClick() {
+    const appointment = entry?.emergency
+    if (!appointment?.patientId) return
+
+    try {
+      const headers = { "Content-Type": "application/json" }
+      const token = typeof window !== "undefined" ? window.localStorage.getItem("patientAuth") : null
+      if (token) {
+        try {
+          const parsed = JSON.parse(token)
+          if (parsed?.token || parsed?.accessToken) headers.authorization = `Bearer ${parsed.token || parsed.accessToken}`
+        } catch {
+          // ignore malformed auth cache
+        }
+      }
+
+      const response = await fetch(`/api/doctors/auto-assign`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          appointmentId: appointment.appointmentId,
+          patientId: appointment.patientId,
+          patientName: appointment.patientName,
+          patientPhone: appointment.patientPhone || "",
+          appointmentDate: appointment.appointmentDate,
+          appointmentTime: appointment.appointmentTime,
+          duration: appointment.duration || 30,
+          reason: appointment.reason || "Rebooked after doctor cancellation.",
+          consultationType: appointment.consultationType || "messaging",
+        }),
+      })
+
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(data?.message || "Could not rebook appointment")
+      }
+
+      if (data?.appointmentId || data?._id) {
+        onRebooked?.(data)
+      }
+
+      onMarkRead(entry.id)
+      onToggle(entry.id)
+    } catch {
+      // keep the notification open if rebook fails
+    }
+  }
 
   return (
     <article
@@ -178,6 +252,19 @@ function NotificationCard({ entry, isRead, isExpanded, onToggle, onMarkRead }) {
         type="button"
         className={styles.notificationButton}
         onClick={() => {
+          // If doctor clicked and this entry references an appointment, open doctor dashboard and load it
+          try {
+            if (userType === 'doctor' && entry?.emergency) {
+              const apptId = String(entry.emergency.appointmentId || entry.emergency.id || '')
+              if (apptId) {
+                try { router.push(`/secure/doctor/appointments/${encodeURIComponent(apptId)}`) } catch { router.push('/secure/doctor') }
+                return
+              }
+            }
+          } catch {
+            // ignore navigation fallback errors
+          }
+
           onMarkRead(entry.id)
           onToggle(entry.id)
         }}
@@ -208,6 +295,13 @@ function NotificationCard({ entry, isRead, isExpanded, onToggle, onMarkRead }) {
           <div className={styles.notificationDetailsTime}>{timeLabel}</div>
           <div className={styles.notificationDetailsBody}>
             {preview.latestNote ? <p style={{ margin: 0 }}>{preview.latestNote}</p> : preview.latestTimeline ? <p style={{ margin: 0 }}>{preview.latestTimeline}</p> : <p style={{ margin: 0 }}>{entry.body}</p>}
+            {entry.source === "appointment-cancelled" ? (
+              <div style={{ marginTop: 10 }}>
+                <button type="button" className={styles.notificationSmallAction} onClick={handleRebookClick}>
+                  Rebook
+                </button>
+              </div>
+            ) : null}
             {showJoinChat ? (
               <div style={{ marginTop: 8 }}>
                 <Link href={joinChatUrl} className={styles.notificationSmallAction}>
@@ -225,6 +319,7 @@ function NotificationCard({ entry, isRead, isExpanded, onToggle, onMarkRead }) {
 export default function NotificationsPanel({ variant = "sidebar" }) {
   const [notifications, setNotifications] = useState([])
   const [items, setItems] = useState([])
+  const [appointments, setAppointments] = useState([])
   const [readIds, setReadIds] = useState(() => loadReadIds())
   const [expanded, setExpanded] = useState(() => new Set())
   const prevStatusRef = useRef(new Map())
@@ -268,6 +363,25 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
     })
   }
 
+  function upsertAppointment(nextAppointment) {
+    if (!nextAppointment) return
+
+    setAppointments((current) => {
+      const incomingId = String(nextAppointment?.appointmentId || nextAppointment?._id || "")
+      if (!incomingId) return current
+
+      const existingIndex = current.findIndex((item) => String(item?.appointmentId || item?._id || "") === incomingId)
+
+      if (existingIndex >= 0) {
+        const next = [...current]
+        next[existingIndex] = { ...next[existingIndex], ...nextAppointment }
+        return next
+      }
+
+      return [nextAppointment, ...current]
+    })
+  }
+
   useEffect(() => {
     function handleOutsideClick(event) {
       if (event.target.closest('[data-notification-item="true"]')) return
@@ -289,6 +403,7 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
     const auth = userType === "doctor" ? loadDoctorProfile() : loadPatientProfile() || {}
     const patientPhone = userType === "patient" ? String(auth.patientPhone || "").trim() : ""
     const patientName = userType === "patient" ? [auth.patientFirstName, auth.patientLastName].filter(Boolean).join(" ").trim() : ""
+    const patientId = userType === "patient" ? String(auth.patientId || "").trim() : ""
 
     async function load() {
       try {
@@ -385,6 +500,22 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
         if (freshNotifications.length > 0) {
           setNotifications((current) => [...freshNotifications, ...current].slice(0, 20))
         }
+
+        if (userType === "patient" && patientId) {
+          try {
+            const appointmentsResponse = await fetch(`/api/patients/${encodeURIComponent(patientId)}/appointments`, {
+              cache: "no-store",
+              headers,
+            })
+            const appointmentsData = await appointmentsResponse.json().catch(() => ({}))
+            if (appointmentsResponse.ok) {
+              const nextAppointments = Array.isArray(appointmentsData?.appointments) ? appointmentsData.appointments : []
+              setAppointments(nextAppointments)
+            }
+          } catch {
+            // ignore appointment load failures here
+          }
+        }
       } catch {
         // ignore
       }
@@ -407,7 +538,7 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
     }
   }, [])
 
-  const entries = buildNotificationEntries(notifications, items)
+  const entries = buildNotificationEntries(notifications, items).concat(buildAppointmentEntries(appointments))
   // Count any unread entry (live updates or request entries, including pending requests)
   const unreadEntries = entries.filter((entry) => !readIds.has(entry.id))
   const unreadCount = unreadEntries.length
@@ -461,6 +592,8 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
                   isExpanded={isExpanded}
                   onToggle={toggleExpanded}
                   onMarkRead={markAsRead}
+                  userType={userType}
+                  onRebooked={upsertAppointment}
                 />
               )
             })

@@ -20,9 +20,12 @@ const loginUnified = async (req, res) => {
       if (match) {
         const payload = { id: patient.patientId, role: 'patient', patientId: patient.patientId }
         const token = signToken(payload)
+        const { signRefreshToken } = require('./jwtAuth')
+        const refreshToken = await signRefreshToken(payload)
         return res.status(200).json({
           message: 'Login successful',
           token,
+          refreshToken,
           user: {
             patientId: patient.patientId,
             patientFirstName: patient.patientFirstName,
@@ -43,9 +46,12 @@ const loginUnified = async (req, res) => {
       if (match) {
         const payload = { id: doctor.doctorId, role: 'doctor', doctorId: doctor.doctorId }
         const token = signToken(payload)
+        const { signRefreshToken } = require('./jwtAuth')
+        const refreshToken = await signRefreshToken(payload)
         return res.status(200).json({
           message: 'Login successful',
           token,
+          refreshToken,
           user: {
             doctorId: doctor.doctorId,
             doctorFirstName: doctor.doctorFirstName,

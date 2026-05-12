@@ -33,6 +33,12 @@ const QUICK_ACTIONS = [
     icon: "🔔",
   },
   {
+    href: "/secure/appointments",
+    title: "Appointments",
+    text: "Book a visit and view upcoming appointments.",
+    icon: "📅",
+  },
+  {
     href: "/secure/chat",
     title: "Messages",
     text: "Continue conversations with your care team and follow-ups.",
@@ -140,7 +146,6 @@ export default function DashboardPage() {
       // ignore parse errors
     }
   }, [])
- 
 
   function getStoredAuth() {
     if (typeof window === "undefined") return null
@@ -201,10 +206,18 @@ export default function DashboardPage() {
         if (uploaded) {
           setProfileImage(uploaded)
           try {
-            const stored = window.localStorage.getItem('patientAuth') || '{}'
-            const auth = JSON.parse(stored)
-            auth.profileImage = { url: uploaded.url, publicId: uploaded.publicId }
-            window.localStorage.setItem('patientAuth', JSON.stringify(auth))
+            try {
+              const stored = window.localStorage.getItem('patientAuth') || '{}'
+              const auth = JSON.parse(stored)
+              auth.profileImage = { url: uploaded.url, publicId: uploaded.publicId }
+              const prev = auth || {}
+              window.localStorage.setItem('patientAuth', JSON.stringify({ ...prev, ...auth }))
+            } catch {
+              const stored = window.localStorage.getItem('patientAuth') || '{}'
+              const auth = JSON.parse(stored)
+              auth.profileImage = { url: uploaded.url, publicId: uploaded.publicId }
+              window.localStorage.setItem('patientAuth', JSON.stringify(auth))
+            }
           } catch (e) {
             console.error('Failed to save profile image to localStorage', e)
           }
@@ -501,6 +514,8 @@ export default function DashboardPage() {
                 )}
               </div>
             </article>
+
+            {/* Appointments moved to dedicated page: /secure/appointments */}
 
             <article className={styles.card}>
               <div className={styles.cardHeader}>

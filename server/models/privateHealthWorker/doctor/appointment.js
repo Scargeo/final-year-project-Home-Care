@@ -54,6 +54,25 @@ const appointmentSchema = new mongoose.Schema(
       trim: true,
       maxlength: 500,
     },
+    triageCategory: {
+      type: String,
+      trim: true,
+      maxlength: 120,
+    },
+    triageConfidence: {
+      type: Number,
+      min: 0,
+      max: 1,
+    },
+    triageSummary: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+    },
+    triageMatchedTerms: {
+      type: [String],
+      default: [],
+    },
     notes: {
       type: String,
       trim: true,

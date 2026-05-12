@@ -52,8 +52,8 @@ export default function LoginPage() {
       }
 
       if (typeof window !== 'undefined' && data?.user) {
-        // store token alongside user data for future requests
-        const payload = { ...data.user, token: data.token }
+        // store token and refreshToken alongside user data for future requests
+        const payload = { ...data.user, token: data.token, refreshToken: data.refreshToken }
         if (data.user.role === 'doctor') {
           localStorage.setItem('doctorAuth', JSON.stringify(payload))
         } else {

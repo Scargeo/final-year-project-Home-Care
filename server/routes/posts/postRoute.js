@@ -10,8 +10,10 @@ function getUserIdentity(user = {}) {
     name:
       record.patientFirstName ||
       record.doctorFirstName ||
+      record.adminName ||
       user?.patientFirstName ||
       user?.doctorFirstName ||
+      user?.adminName ||
       user?.name ||
       record.name ||
       'Unknown',
@@ -170,7 +172,7 @@ router.delete('/:postId/comments/:commentId', async (req, res) => {
       return res.status(404).json({ message: 'Comment not found' })
     }
 
-    if (comment.author?.id !== userIdentity.id) {
+    if (userIdentity.role !== 'admin' && comment.author?.id !== userIdentity.id) {
       return res.status(403).json({ message: 'You can only delete your own comments' })
     }
 
@@ -201,7 +203,7 @@ router.delete('/:postId', async (req, res) => {
       return res.status(404).json({ message: 'Post not found' })
     }
 
-    if (post.author?.id !== userIdentity.id) {
+    if (userIdentity.role !== 'admin' && post.author?.id !== userIdentity.id) {
       return res.status(403).json({ message: 'Only the post owner can delete this post' })
     }
 

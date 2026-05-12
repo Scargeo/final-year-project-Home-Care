@@ -1,0 +1,338 @@
+.shell {
+  min-height: 100vh;
+  padding: 2rem;
+  background:
+    radial-gradient(circle at top left, rgba(31, 41, 55, 0.14), transparent 35%),
+    radial-gradient(circle at top right, rgba(56, 189, 248, 0.12), transparent 28%),
+    linear-gradient(180deg, #f7fafc 0%, #eef2ff 100%);
+  color: #0f172a;
+}
+
+.loading {
+  display: grid;
+  place-items: center;
+  min-height: 70vh;
+  font-size: 1.1rem;
+  color: rgba(15, 23, 42, 0.72);
+}
+
+.hero,
+.heroCompact,
+.panel,
+.bootstrapCard {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 24px;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.08);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.9fr);
+  gap: 1.5rem;
+  padding: 2rem;
+  align-items: start;
+}
+
+.heroCompact {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem 2rem;
+  align-items: center;
+}
+
+.heroCopy h1,
+.heroCompact h1,
+.panel h2,
+.bootstrapCard h2 {
+  margin: 0;
+  font-size: clamp(1.6rem, 2.2vw, 2.5rem);
+  line-height: 1.05;
+}
+
+.kicker,
+.panelLabel {
+  margin: 0 0 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.lead {
+  margin: 0.85rem 0 0;
+  max-width: 60ch;
+  color: rgba(15, 23, 42, 0.72);
+  line-height: 1.65;
+}
+
+.heroCard,
+.bootstrapCard,
+.panel,
+.statCard {
+  padding: 1.25rem;
+}
+
+.heroCard h2,
+.bootstrapCard h2,
+.panel h2 {
+  font-size: 1.2rem;
+}
+
+.form,
+.formGrid {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.formGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.form label,
+.formGrid label,
+.heroCard label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.form span,
+.formGrid span,
+.heroCard span {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: rgba(15, 23, 42, 0.78);
+}
+
+.form input,
+.form textarea,
+.form select,
+.heroCard input,
+.heroCard select {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  padding: 0.85rem 1rem;
+  font: inherit;
+  background: #fff;
+  color: #0f172a;
+}
+
+.form textarea {
+  font-family: "Cascadia Code", Consolas, monospace;
+  min-height: 160px;
+  resize: vertical;
+}
+
+.actionButton {
+  border: 0;
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.actionButton:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.heroActions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.statsGrid,
+.panelGrid,
+.tableGrid {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.statsGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.statCard {
+  background: rgba(15, 23, 42, 0.96);
+  color: #fff;
+  border-radius: 22px;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.statCard span {
+  opacity: 0.72;
+  font-size: 0.9rem;
+}
+
+.statCard strong {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.panelGrid,
+.tableGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+}
+
+.list,
+.tableList {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.listItem,
+.rowCard {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+  padding: 1rem;
+  border-radius: 18px;
+  background: rgba(248, 250, 252, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.listItem p,
+.rowCard p {
+  margin: 0.2rem 0 0;
+  color: rgba(15, 23, 42, 0.68);
+  line-height: 1.5;
+}
+
+.rowActions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.danger {
+  background: linear-gradient(135deg, #991b1b, #dc2626);
+}
+
+.empty,
+.message,
+.error {
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  font-weight: 600;
+}
+
+.empty {
+  background: rgba(226, 232, 240, 0.7);
+  color: rgba(15, 23, 42, 0.72);
+}
+
+.message {
+  margin-top: 1rem;
+  background: rgba(34, 197, 94, 0.12);
+  color: #166534;
+}
+
+.error {
+  margin-top: 1rem;
+  background: rgba(239, 68, 68, 0.12);
+  color: #991b1b;
+}
+
+@media (max-width: 1080px) {
+  .shell {
+    padding: 1.25rem;
+  }
+
+  .hero {
+    gap: 1rem;
+    padding: 1.25rem;
+  }
+
+  .heroCompact {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1.25rem;
+  }
+
+  .statsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .panelGrid,
+  .tableGrid,
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .shell {
+    padding: 1rem;
+  }
+
+  .hero,
+  .heroCompact {
+    padding: 1rem;
+  }
+
+  .heroCopy h1,
+  .heroCompact h1,
+  .panel h2,
+  .bootstrapCard h2 {
+    font-size: 1.45rem;
+  }
+
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .statCard strong {
+    font-size: 1.65rem;
+  }
+
+  .heroActions,
+  .rowActions {
+    width: 100%;
+  }
+
+  .heroActions button,
+  .rowActions button,
+  .form button,
+  .heroCard button,
+  .bootstrapCard button {
+    width: 100%;
+  }
+
+  .listItem,
+  .rowCard {
+    flex-direction: column;
+  }
+
+  .listItem,
+  .rowCard,
+  .panel,
+  .bootstrapCard,
+  .heroCard {
+    padding: 1rem;
+  }
+}

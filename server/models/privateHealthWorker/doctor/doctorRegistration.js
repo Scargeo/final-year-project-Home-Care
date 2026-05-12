@@ -89,6 +89,11 @@ const doctorSchema = new mongoose.Schema(
       showPatientAlerts: { type: Boolean, default: true },
       compactView: { type: Boolean, default: false },
     },
+    // Indicates whether the doctor is currently accepting new appointments
+    isAvailable: {
+      type: Boolean,
+      default: true,
+    },
   },
   { timestamps: true }
 );

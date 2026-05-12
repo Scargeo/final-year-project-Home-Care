@@ -53,6 +53,7 @@ export async function PATCH(req, context) {
       notificationPrefs,
       privacyPrefs,
       personalizationPrefs,
+      isAvailable,
     } = body
 
     // Build update object with only provided fields
@@ -67,6 +68,7 @@ export async function PATCH(req, context) {
     if (notificationPrefs) updateFields.notificationPrefs = notificationPrefs
     if (privacyPrefs) updateFields.privacyPrefs = privacyPrefs
     if (personalizationPrefs) updateFields.personalizationPrefs = personalizationPrefs
+    if (typeof isAvailable !== 'undefined') updateFields.isAvailable = Boolean(isAvailable)
 
     // Call backend server to update doctor
     const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || ''

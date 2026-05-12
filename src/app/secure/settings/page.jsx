@@ -90,7 +90,12 @@ export default function PatientSettingsPage() {
       if (!response.ok) throw new Error(data?.message || "Failed to save settings")
 
       const updated = { ...auth, ...formData, patientEmail: formData.email, patientPhone: formData.phone, patientFirstName: formData.firstName, patientLastName: formData.lastName }
-      window.localStorage.setItem("patientAuth", JSON.stringify(updated))
+      try {
+        const prev = getStoredAuth() || {}
+        window.localStorage.setItem("patientAuth", JSON.stringify({ ...prev, ...updated }))
+      } catch {
+        window.localStorage.setItem("patientAuth", JSON.stringify(updated))
+      }
       setAuth(updated)
       setMessage("Account settings saved successfully.")
       setTimeout(() => setMessage(""), 3000)
@@ -125,7 +130,12 @@ export default function PatientSettingsPage() {
       if (!response.ok) throw new Error(data?.message || "Failed to save preferences")
 
       const updated = { ...auth, notificationPrefs }
-      window.localStorage.setItem("patientAuth", JSON.stringify(updated))
+      try {
+        const prev = getStoredAuth() || {}
+        window.localStorage.setItem("patientAuth", JSON.stringify({ ...prev, ...updated }))
+      } catch {
+        window.localStorage.setItem("patientAuth", JSON.stringify(updated))
+      }
       setMessage("Notification preferences saved successfully.")
       setTimeout(() => setMessage(""), 3000)
     } catch (err) {
@@ -159,7 +169,12 @@ export default function PatientSettingsPage() {
       if (!response.ok) throw new Error(data?.message || "Failed to save settings")
 
       const updated = { ...auth, privacyPrefs }
-      window.localStorage.setItem("patientAuth", JSON.stringify(updated))
+      try {
+        const prev = getStoredAuth() || {}
+        window.localStorage.setItem("patientAuth", JSON.stringify({ ...prev, ...updated }))
+      } catch {
+        window.localStorage.setItem("patientAuth", JSON.stringify(updated))
+      }
       setMessage("Privacy & security settings saved successfully.")
       setTimeout(() => setMessage(""), 3000)
     } catch (err) {

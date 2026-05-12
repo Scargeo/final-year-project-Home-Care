@@ -5,6 +5,8 @@
  */
 export function getRoleRedirect(role) {
   switch (role) {
+    case 'admin':
+      return '/admin';
     case 'doctor':
       return '/secure/doctor';
     case 'patient':
@@ -22,6 +24,16 @@ export function getCurrentUserRole() {
 
   const patientAuth = localStorage.getItem('patientAuth');
   const doctorAuth = localStorage.getItem('doctorAuth');
+  const adminAuth = localStorage.getItem('adminAuth');
+
+  if (adminAuth) {
+    try {
+      const user = JSON.parse(adminAuth);
+      return user.role || 'admin';
+    } catch {
+      return 'admin';
+    }
+  }
 
   if (patientAuth) {
     try {

@@ -58,6 +58,23 @@ const resolveConversation = async ({ conversationId, userId, firstPrompt }) => {
   })
 }
 
+const loadConversationHistory = async (conversationId) => {
+  if (!conversationId) return []
+
+  const recentMessages = await AIMessage.find({ conversationId })
+    .sort({ createdAt: -1 })
+    .limit(12)
+    .lean()
+
+  return recentMessages
+    .reverse()
+    .map((message) => ({
+      role: message.role,
+      content: String(message.content || '').trim(),
+    }))
+    .filter((message) => message.content.length > 0)
+}
+
 // Validate required environment variables
 if (!PINECONE_API_KEY || !OPENROUTER_API_KEY) {
   console.error('Missing PINECONE_API_KEY or OPENROUTER_API_KEY in environment variables')
@@ -99,6 +116,14 @@ router.post('/chat', async (req, res) => {
 
     const normalizedUserId =
       typeof userId === 'string' && userId.trim().length > 0 ? userId.trim() : 'anonymous'
+
+    const conversation = await resolveConversation({
+      conversationId,
+      userId: normalizedUserId,
+      firstPrompt: sanitizedQuery,
+    })
+
+    const conversationHistory = await loadConversationHistory(conversation._id)
 
     // Step 1: Generate embedding for query using OpenRouter
     console.log(`[AI Chat] Processing query: "${sanitizedQuery}"`)
@@ -161,17 +186,20 @@ router.post('/chat', async (req, res) => {
     // Step 4: Generate response using LLM with context
     let llmResponse
     try {
-      const systemPrompt = `You are a friendly medical and care support assistant for HomeCare Hospital.
+      const systemPrompt = `You are a patient decision-support assistant for HomeCare Hospital.
+    Your role is to help the patient understand their symptoms, weigh safe next steps, and decide when to self-care, monitor, book care, or seek urgent help.
     Speak naturally, warmly, and in plain language.
-    Answer the user's question directly, but do not sound rigid or overly formal.
-    It is okay to give a brief, helpful explanation, clarification, or example when that makes the answer easier to understand.
-    If the question is basic or general, answer it normally instead of forcing a narrow medical-only response.
-    If the information is missing or uncertain, say so clearly and suggest the safest next step.
-    If a question could affect someone's health or safety, include a brief caution to contact a healthcare professional.`
+    Be interactive: when a critical detail is missing, ask ONE focused follow-up question to clarify.
+    Wait for the patient's answer before asking the next question.
+    Prioritize symptoms, duration, severity, age, fever, breathing, pain location, bleeding, pregnancy, and existing conditions when they matter.
+    Do not diagnose with certainty or replace a clinician.
+    If the situation may be urgent or dangerous, say that clearly and tell the patient to contact emergency services or a healthcare professional right away.
+    If the situation is not urgent, give practical next steps and invite the patient to reply with the missing detail so you can narrow the guidance.`
 
       const formattingPrompt = `Format the answer in GitHub-flavored Markdown.
     Keep the tone friendly and easy to read.
     Use short sentences when helpful, but do not make the answer feel clipped.
+    If missing a critical detail, ask just ONE follow-up question instead of multiple.
     If the user asks for first aid, emergency care, or a how-to guide, structure the answer like a guide with a short title, a brief opening line, and numbered steps.
     Add a short "When to get urgent help" note when that improves safety.
     Use numbered steps only when giving instructions.
@@ -182,9 +210,18 @@ router.post('/chat', async (req, res) => {
     Do not use tables.
     Keep the answer concise, but allow a little more detail when it helps the user.`
 
-      const baseUserPrompt = context
-        ? `Based on the following medical information:\n\n${context}\n\nPlease answer this question: ${sanitizedQuery}`
-        : `Please answer this medical question: ${sanitizedQuery}`
+      const conversationContext = conversationHistory.length > 0
+        ? `Conversation so far:\n${conversationHistory.map((message) => `${message.role.toUpperCase()}: ${message.content}`).join('\n')}`
+        : ''
+
+      const baseUserPrompt = [
+        conversationContext,
+        context ? `Based on the following medical information:\n\n${context}` : '',
+        `Please help the patient with this request: ${sanitizedQuery}`,
+        'If a critical detail is missing, ask just ONE follow-up question to clarify before giving your full response.',
+      ]
+        .filter(Boolean)
+        .join('\n\n')
 
       const userPrompt = shouldUseStructuredFormatting(sanitizedQuery)
         ? `${formattingPrompt}\n\n${baseUserPrompt}`
@@ -236,12 +273,6 @@ router.post('/chat', async (req, res) => {
     let persistedConversationId = null
 
     try {
-      const conversation = await resolveConversation({
-        conversationId,
-        userId: normalizedUserId,
-        firstPrompt: sanitizedQuery,
-      })
-
       persistedConversationId = String(conversation._id)
 
       await AIMessage.insertMany([

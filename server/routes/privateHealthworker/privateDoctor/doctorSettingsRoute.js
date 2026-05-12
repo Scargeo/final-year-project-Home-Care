@@ -33,6 +33,8 @@ router.get('/', async (req, res) => {
         doctorAddress: doctor.doctorAddress,
         licenseNumber: doctor.licenseNumber,
         specialization: doctor.specialization,
+        // Legacy records may not have this field yet; treat missing as available.
+        isAvailable: doctor.isAvailable !== false,
         yearsOfExperience: doctor.yearsOfExperience,
         profileImage: doctor.profileImage,
         notificationPrefs: doctor.notificationPrefs,
@@ -71,6 +73,7 @@ router.patch('/', async (req, res) => {
       notificationPrefs,
       privacyPrefs,
       personalizationPrefs,
+      isAvailable,
     } = req.body;
 
     // Build update object with only provided fields
@@ -85,6 +88,7 @@ router.patch('/', async (req, res) => {
     if (notificationPrefs) updateFields.notificationPrefs = notificationPrefs;
     if (privacyPrefs) updateFields.privacyPrefs = privacyPrefs;
     if (personalizationPrefs) updateFields.personalizationPrefs = personalizationPrefs;
+    if (typeof isAvailable !== 'undefined') updateFields.isAvailable = Boolean(isAvailable);
 
     // Update doctor in database
     const updated = await Doctor.findOneAndUpdate(
@@ -108,6 +112,7 @@ router.patch('/', async (req, res) => {
         doctorAddress: updated.doctorAddress,
         licenseNumber: updated.licenseNumber,
         specialization: updated.specialization,
+            isAvailable: updated.isAvailable !== false,
         notificationPrefs: updated.notificationPrefs,
         privacyPrefs: updated.privacyPrefs,
         personalizationPrefs: updated.personalizationPrefs,

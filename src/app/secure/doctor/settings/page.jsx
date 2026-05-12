@@ -35,6 +35,7 @@ export default function DoctorSettingsPage() {
     lastName: "",
     licenseNumber: "",
     specialty: "",
+    isAvailable: true,
   })
   const [notificationPrefs, setNotificationPrefs] = useState({
     appointmentAlerts: true,
@@ -91,6 +92,7 @@ export default function DoctorSettingsPage() {
             lastName: doctor.doctorLastName || doctor.lastName || "",
             licenseNumber: doctor.licenseNumber || "",
             specialty: doctor.specialization || doctor.specialty || "",
+            isAvailable: typeof doctor.isAvailable === "boolean" ? doctor.isAvailable : true,
           })
           window.localStorage.setItem("doctorAuth", JSON.stringify({ ...(storedAuth || {}), ...doctor }))
         })
@@ -103,6 +105,7 @@ export default function DoctorSettingsPage() {
             lastName: storedAuth.doctorLastName || storedAuth.lastName || "",
             licenseNumber: storedAuth.licenseNumber || "",
             specialty: storedAuth.specialization || storedAuth.specialty || "",
+            isAvailable: typeof storedAuth.isAvailable === "boolean" ? storedAuth.isAvailable : true,
           })
         })
     }
@@ -145,6 +148,7 @@ export default function DoctorSettingsPage() {
           doctorPhone: formData.phone,
           licenseNumber: formData.licenseNumber,
           specialty: formData.specialty,
+          isAvailable: formData.isAvailable,
         }),
       })
 
@@ -162,8 +166,14 @@ export default function DoctorSettingsPage() {
         doctorPhone: updatedDoctor.doctorPhone || formData.phone,
         licenseNumber: updatedDoctor.licenseNumber || formData.licenseNumber,
         specialization: updatedDoctor.specialization || formData.specialty,
+        isAvailable: typeof updatedDoctor.isAvailable === "boolean" ? updatedDoctor.isAvailable : formData.isAvailable,
       }
-      window.localStorage.setItem("doctorAuth", JSON.stringify(updated))
+      try {
+        const prev = getStoredAuth() || {}
+        window.localStorage.setItem("doctorAuth", JSON.stringify({ ...prev, ...updated }))
+      } catch {
+        window.localStorage.setItem("doctorAuth", JSON.stringify(updated))
+      }
       setAuth(updated)
       setMessage("Account settings saved successfully.")
       setTimeout(() => setMessage(""), 3000)
@@ -198,7 +208,12 @@ export default function DoctorSettingsPage() {
       if (!response.ok) throw new Error(data?.message || "Failed to save preferences")
 
       const updated = { ...auth, notificationPrefs }
-      window.localStorage.setItem("doctorAuth", JSON.stringify(updated))
+      try {
+        const prev = getStoredAuth() || {}
+        window.localStorage.setItem("doctorAuth", JSON.stringify({ ...prev, ...updated }))
+      } catch {
+        window.localStorage.setItem("doctorAuth", JSON.stringify(updated))
+      }
       setMessage("Notification preferences saved successfully.")
       setTimeout(() => setMessage(""), 3000)
     } catch (err) {
@@ -232,7 +247,12 @@ export default function DoctorSettingsPage() {
       if (!response.ok) throw new Error(data?.message || "Failed to save settings")
 
       const updated = { ...auth, privacyPrefs }
-      window.localStorage.setItem("doctorAuth", JSON.stringify(updated))
+      try {
+        const prev = getStoredAuth() || {}
+        window.localStorage.setItem("doctorAuth", JSON.stringify({ ...prev, ...updated }))
+      } catch {
+        window.localStorage.setItem("doctorAuth", JSON.stringify(updated))
+      }
       setMessage("Privacy & security settings saved successfully.")
       setTimeout(() => setMessage(""), 3000)
     } catch (err) {
@@ -266,7 +286,12 @@ export default function DoctorSettingsPage() {
       if (!response.ok) throw new Error(data?.message || "Failed to save preferences")
 
       const updated = { ...auth, personalizationPrefs }
-      window.localStorage.setItem("doctorAuth", JSON.stringify(updated))
+      try {
+        const prev = getStoredAuth() || {}
+        window.localStorage.setItem("doctorAuth", JSON.stringify({ ...prev, ...updated }))
+      } catch {
+        window.localStorage.setItem("doctorAuth", JSON.stringify(updated))
+      }
       setMessage("Personalization preferences saved successfully.")
       setTimeout(() => setMessage(""), 3000)
     } catch (err) {
@@ -397,6 +422,17 @@ export default function DoctorSettingsPage() {
                 <option value="other">Other</option>
               </select>
             </label>
+
+            <div className={styles.checkboxField}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={formData.isAvailable}
+                  onChange={(e) => handleFormChange("isAvailable", e.target.checked)}
+                />
+                Available for new appointments
+              </label>
+            </div>
 
             <div className={styles.actionsRow}>
               <button className={styles.primaryButton} onClick={saveAccountSettings} disabled={saving}>

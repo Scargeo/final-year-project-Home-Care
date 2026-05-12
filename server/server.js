@@ -60,6 +60,30 @@ io.on('connection', (socket) => {
     if (!roomId) return;
     socket.join(String(roomId));
   });
+
+  // Real-time consent tracking: doctor receives updates on their consent requests
+  socket.on('join-consent-doctor', (doctorId) => {
+    if (!doctorId) return;
+    socket.join(`consent-doctor-${String(doctorId)}`);
+  });
+
+  // Real-time consent tracking: patient receives consent requests and updates
+  socket.on('join-consent-patient', (patientId) => {
+    if (!patientId) return;
+    socket.join(`consent-patient-${String(patientId)}`);
+  });
+
+  // Real-time appointment tracking: doctor receives appointment create/update events
+  socket.on('join-appointments-doctor', (doctorId) => {
+    if (!doctorId) return;
+    socket.join(`appointments-doctor-${String(doctorId)}`);
+  });
+
+  // Real-time appointment tracking: patient receives appointment create/update events
+  socket.on('join-appointments-patient', (patientId) => {
+    if (!patientId) return;
+    socket.join(`appointments-patient-${String(patientId)}`);
+  });
 });
 
 
@@ -68,10 +92,13 @@ app.use('/api/nurses', require('./routes/privateHealthworker/privateNurse/nurseR
 app.use('/api/doctors', require('./routes/privateHealthworker/privateDoctor/doctorDashboardRoute'));
 // Unified auth (tries patient then doctor)
 app.use('/api/auth', require('./routes/auth/authRoute'));
+app.use('/api/admin', require('./routes/admin/adminRoute'));
 // SOS routes persist alerts in MongoDB for live provider and patient tracking.
 app.use('/api/sos', require('./routes/sos/sosRoute'));
 // AI Chat routes for RAG chatbot
 app.use('/api/ai', require('./routes/ai/chatRoute'));
+// AI lab interpretation routes for doctor-uploaded lab files
+app.use('/api/ai', require('./routes/ai/labResultRoute'));
 // Uploads (images, pdfs) to Cloudinary
 app.use('/api/uploads', require('./routes/uploadsRoute'));
 // Public posts (doctors can post thoughts/images; visible to all users)

@@ -1,5 +1,6 @@
 const Patient = require('../models/patient/patientRegistration')
 const Doctor = require('../models/privateHealthWorker/doctor/doctorRegistration')
+const Admin = require('../models/admin/adminUser')
 const { verifyToken } = require('./jwtAuth')
 
 // Loads the full user object into req.user when possible.
@@ -12,6 +13,10 @@ module.exports.loadUser = async function (req, res, next) {
     const authHeader = String(req.get('authorization') || req.get('Authorization') || '').trim()
     if (authHeader) {
       const payload = verifyToken(authHeader)
+      if (!payload) {
+        // token present but invalid/expired
+        return res.status(401).json({ message: 'Invalid or expired token' })
+      }
       if (payload && payload.id && payload.role) {
         try {
           if (payload.role === 'patient') {
@@ -20,6 +25,9 @@ module.exports.loadUser = async function (req, res, next) {
           } else if (payload.role === 'doctor') {
             const doctor = await Doctor.findOne({ doctorId: payload.id })
             if (doctor) req.user = { id: payload.id, role: 'doctor', record: doctor }
+          } else if (payload.role === 'admin') {
+            const admin = await Admin.findOne({ adminId: payload.id })
+            if (admin) req.user = { id: payload.id, role: 'admin', record: admin }
           }
         } catch (e) {
           console.warn('Failed to load user from token payload', e.message)
@@ -51,6 +59,15 @@ module.exports.loadUser = async function (req, res, next) {
         }
       } catch (e) {
         console.warn('Failed to load doctor record in loadUser middleware', e.message)
+      }
+    } else if (userRole === 'admin') {
+      try {
+        const admin = await Admin.findOne({ adminId: userId })
+        if (admin) {
+          req.user = { id: userId, role: 'admin', record: admin }
+        }
+      } catch (e) {
+        console.warn('Failed to load admin record in loadUser middleware', e.message)
       }
     }
 

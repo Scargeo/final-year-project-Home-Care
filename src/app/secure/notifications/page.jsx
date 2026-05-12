@@ -6,7 +6,7 @@ import NotificationsPanel from "../components/NotificationsPanel"
 
 export default function NotificationsPage() {
   return (
-    <main className={styles.page}>
+    <main className={styles.page} style={{ overflowY: "auto", overflowX: "hidden" }}>
       <header className={styles.topBar}>
         <Link href="/secure/home" className={styles.brand}>
           <span className={styles.brandMark}>
