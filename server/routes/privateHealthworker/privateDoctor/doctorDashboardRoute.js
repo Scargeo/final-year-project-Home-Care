@@ -341,6 +341,30 @@ router.get('/:doctorId/dashboard', async (req, res) => {
       }
     }).filter((appointment) => !['cancelled', 'completed'].includes(String(appointment?.status || '').toLowerCase()))
 
+    const upcomingAppointmentsRaw = await Appointment.find({
+      doctorId,
+      appointmentDate: {
+        $gte: today,
+      },
+      status: { $nin: ['cancelled', 'completed'] },
+    })
+      .sort({ appointmentDate: 1, appointmentTime: 1 })
+      .limit(50)
+      .lean()
+
+    const upcomingAppointments = upcomingAppointmentsRaw.map((appointment) => {
+      const appointmentKey = String(appointment?.appointmentId || '')
+      const consent = consentByAppointmentId.get(appointmentKey)
+      return {
+        ...appointment,
+        status: getEffectiveAppointmentStatus(appointment, now),
+        consentStatus: consent ? String(consent.status || '') : '',
+        consentRequestId: consent ? String(consent.requestId || '') : '',
+        consentMessage: consent ? String(consent.message || '') : '',
+        consentRespondedAt: consent?.respondedAt || null,
+      }
+    }).filter((appointment) => !['cancelled', 'completed'].includes(String(appointment?.status || '').toLowerCase()))
+
     // Sort to show accepted appointments first, missed later, then by time
     todaysAppointments.sort((a, b) => {
       const statusA = String(a?.status || '').toLowerCase()
@@ -406,6 +430,7 @@ router.get('/:doctorId/dashboard', async (req, res) => {
     res.status(200).json({
       stats,
       todaysAppointments,
+      upcomingAppointments,
       patientQueue,
       notifications,
       recentActivity,

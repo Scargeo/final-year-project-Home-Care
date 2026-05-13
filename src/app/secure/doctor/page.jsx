@@ -70,6 +70,15 @@ function isTodayLocal(dateValue) {
   return date.toDateString() === now.toDateString()
 }
 
+function isOnOrAfterTodayLocal(dateValue) {
+  if (!dateValue) return false
+  const date = new Date(dateValue)
+  if (Number.isNaN(date.getTime())) return false
+  const startOfToday = new Date()
+  startOfToday.setHours(0, 0, 0, 0)
+  return date.getTime() >= startOfToday.getTime()
+}
+
 function buildAppointmentDateTime(appointmentDate, appointmentTime) {
   const parsedDate = new Date(appointmentDate)
   if (Number.isNaN(parsedDate.getTime())) return null
@@ -81,6 +90,31 @@ function buildAppointmentDateTime(appointmentDate, appointmentTime) {
   const dateTime = new Date(parsedDate)
   dateTime.setHours(Number.isFinite(hours) ? hours : 0, Number.isFinite(minutes) ? minutes : 0, 0, 0)
   return dateTime
+}
+
+function formatAppointmentDateLabel(appointmentDate) {
+  if (!appointmentDate) return "Date pending"
+
+  const date = new Date(appointmentDate)
+  if (Number.isNaN(date.getTime())) return "Date pending"
+
+  return date.toLocaleDateString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
+}
+
+function formatAppointmentTimeLabel(appointmentDate, appointmentTime) {
+  const dateTime = buildAppointmentDateTime(appointmentDate, appointmentTime)
+  if (!dateTime) return appointmentTime || "Time pending"
+
+  return dateTime.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  })
 }
 
 function getEffectiveAppointmentStatus(appointment, now = new Date()) {
@@ -138,6 +172,7 @@ export default function DoctorDashboard() {
   const [doctorAvailability, setDoctorAvailability] = useState(true)
   const [appointmentConsentStatus, setAppointmentConsentStatus] = useState({}) // { appointmentId: { status, requestId } }
   const [appointmentHistoryFilter, setAppointmentHistoryFilter] = useState("all") // all, past, pending
+  const [appointmentView, setAppointmentView] = useState("today") // today, upcoming
   const [appointmentHistory, setAppointmentHistory] = useState([])
   const [appointmentHistoryLoading, setAppointmentHistoryLoading] = useState(false)
   const selectedAppointmentRef = useRef(null)
@@ -774,7 +809,11 @@ export default function DoctorDashboard() {
         if (!incomingId) return current
 
         const nextAppointments = [...(current.todaysAppointments || [])]
+        const nextUpcomingAppointments = [...(current.upcomingAppointments || [])]
         const existingIndex = nextAppointments.findIndex(
+          (item) => String(item?.appointmentId || item?._id || "") === incomingId,
+        )
+        const upcomingIndex = nextUpcomingAppointments.findIndex(
           (item) => String(item?.appointmentId || item?._id || "") === incomingId,
         )
 
@@ -782,6 +821,7 @@ export default function DoctorDashboard() {
 
         // Remove cancelled/completed from today's list; keep missed (no-show) visible but disabled in UI.
         const isTerminal = incomingStatus === 'cancelled' || incomingStatus === 'completed'
+        const shouldShowUpcoming = isOnOrAfterTodayLocal(incomingAppointment?.appointmentDate) && !isTerminal
 
         if (isTodayLocal(incomingAppointment?.appointmentDate) && !isTerminal) {
           const normalizedIncomingAppointment = { ...incomingAppointment, status: incomingStatus }
@@ -793,6 +833,26 @@ export default function DoctorDashboard() {
         } else {
           // remove from todaysAppointments if present
           if (existingIndex >= 0) nextAppointments.splice(existingIndex, 1)
+        }
+
+        if (shouldShowUpcoming) {
+          const normalizedIncomingAppointment = { ...incomingAppointment, status: incomingStatus }
+          if (upcomingIndex >= 0) {
+            nextUpcomingAppointments[upcomingIndex] = { ...nextUpcomingAppointments[upcomingIndex], ...normalizedIncomingAppointment }
+          } else {
+            nextUpcomingAppointments.push(normalizedIncomingAppointment)
+          }
+
+          nextUpcomingAppointments.sort((a, b) => {
+            const dateA = new Date(a?.appointmentDate || 0)
+            const dateB = new Date(b?.appointmentDate || 0)
+            if (dateA.getTime() !== dateB.getTime()) return dateA - dateB
+            const timeA = String(a?.appointmentTime || "")
+            const timeB = String(b?.appointmentTime || "")
+            return timeA.localeCompare(timeB)
+          })
+        } else if (upcomingIndex >= 0) {
+          nextUpcomingAppointments.splice(upcomingIndex, 1)
         }
 
         nextAppointments.sort((a, b) => {
@@ -828,6 +888,7 @@ export default function DoctorDashboard() {
         return {
           ...current,
           todaysAppointments: nextAppointments,
+          upcomingAppointments: nextUpcomingAppointments,
           recentActivity: nextRecent,
           stats: {
             ...(current.stats || {}),
@@ -915,6 +976,101 @@ export default function DoctorDashboard() {
   const visibleAttachments = consentAccepted
     ? selectedPatientAttachments.filter((attachment) => allowedAttachmentIds.includes(String(attachment?._id || attachment?.id || "")))
     : []
+  const liveAppointments = Array.isArray(dashboardData?.upcomingAppointments) ? dashboardData.upcomingAppointments : []
+  const todaysLiveAppointments = liveAppointments
+    .filter((appointment) => isTodayLocal(appointment?.appointmentDate))
+    .sort((a, b) => {
+      const statusA = String(a?.status || "").toLowerCase()
+      const statusB = String(b?.status || "").toLowerCase()
+      const isMissedA = statusA === "no-show"
+      const isMissedB = statusB === "no-show"
+      if (isMissedA && !isMissedB) return 1
+      if (!isMissedA && isMissedB) return -1
+
+      const timeA = buildAppointmentDateTime(a?.appointmentDate, a?.appointmentTime)?.getTime() || 0
+      const timeB = buildAppointmentDateTime(b?.appointmentDate, b?.appointmentTime)?.getTime() || 0
+
+      if (isMissedA && isMissedB) {
+        return timeB - timeA
+      }
+
+      return timeA - timeB
+    })
+  const upcomingLiveAppointments = liveAppointments.filter((appointment) => !isTodayLocal(appointment?.appointmentDate))
+
+  const renderAppointmentItem = (apt) => {
+    const isAccepted = String(apt.status || "").toLowerCase() === "accepted"
+    const isMissed = String(apt.status || "").toLowerCase() === "no-show"
+    const isRebookExpired = isMissed && isRebookWindowExpired(apt)
+    const consentStatus = appointmentConsentStatus[String(apt.appointmentId || apt._id || "")]
+    const consentStatusDisplay = consentStatus?.status || String(apt?.consentStatus || "")
+
+    return (
+      <div key={apt.appointmentId || apt._id} className={styles.appointmentDetailItem}>
+        <div className={styles.appointmentDetail}>
+          <strong>{formatAppointmentTimeLabel(apt.appointmentDate, apt.appointmentTime)} - {apt.patientName}</strong>
+          <span>{apt.reason || "General checkup"}</span>
+          <small>Date: {formatAppointmentDateLabel(apt.appointmentDate)} | Type: {apt.consultationType} | Duration: {apt.duration} min</small>
+        </div>
+        <div className={styles.appointmentActions}>
+          <span className={`${styles.badge} ${styles[getAppointmentStatusClass(apt.status)]}`}>
+            {getAppointmentTrackingLabel(apt.status)}
+          </span>
+          {consentStatusDisplay && (
+            <span
+              className={`${styles.badge} ${consentStatusDisplay === "pending" ? styles.consentPending : consentStatusDisplay === "accepted" ? styles.consentAccepted : styles.consentRejected}`}
+            >
+              {consentStatusDisplay === "pending" ? "📋 Pending" : consentStatusDisplay === "accepted" ? "✅ Approved sharing" : "❌ Sharing halted"}
+            </span>
+          )}
+          <div className={styles.appointmentActionButtons}>
+            <button
+              type="button"
+              className={`${styles.secondaryButton} ${String(apt.status || "").toLowerCase() !== "accepted" ? styles.actionFaded : ""}`}
+              onClick={() => loadPatientRecordAndAttachments(apt)}
+              disabled={appointmentActionBusy || String(apt.status || "").toLowerCase() !== "accepted" || isMissed}
+              title={String(apt.status || "").toLowerCase() !== "accepted" ? "Review is available only after appointment acceptance." : "Review patient records"}
+            >
+              Review records
+            </button>
+            {isMissed ? (
+              doctorPendingRebookMap[String(apt.appointmentId || apt._id || '')] ? (
+                <button type="button" className={styles.primaryButton} disabled>
+                  Rebooking...
+                </button>
+              ) : rebookedMap[String(apt.appointmentId || apt._id || '')] ? (
+                <button type="button" className={styles.primaryButton} disabled>
+                  Rebooked
+                </button>
+              ) : isRebookExpired ? (
+                <button type="button" className={styles.primaryButton} disabled>
+                  Rebook expired
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={styles.primaryButton}
+                  onClick={() => rebookMissedAppointment(apt)}
+                  disabled={appointmentActionBusy}
+                >
+                  {appointmentActionBusy ? "Rebooking..." : "Rebook"}
+                </button>
+              )
+            ) : (
+              <button
+                type="button"
+                className={`${isAccepted ? styles.secondaryButton : styles.primaryButton} ${String(apt.status || "").toLowerCase() === 'cancelled' ? styles.actionFaded : ''}`}
+                onClick={() => (isAccepted ? cancelAppointment(apt) : acceptAppointment(apt))}
+                disabled={appointmentActionBusy || String(apt.status || "").toLowerCase() === "cancelled"}
+              >
+                {isAccepted ? "Cancel appointment" : "Accept appointment"}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <main className={styles.page}>
@@ -928,8 +1084,20 @@ export default function DoctorDashboard() {
           </span>
           <span className={styles.brandText}>Home Care+</span>
         </Link>
-
         <div className={styles.topActions}>
+          <button
+            type="button"
+            className={`${styles.actionButton} ${doctorAvailability ? styles.availabilityActive : styles.availabilityInactive}`}
+            onClick={toggleDoctorAvailability}
+            disabled={availabilityBusy}
+            aria-pressed={doctorAvailability}
+          >
+            {availabilityBusy
+              ? "Updating..."
+              : doctorAvailability
+                ? "Available"
+                : "Unavailable"}
+          </button>
           <Link href="/secure/home" className={`${styles.actionButton} ${styles.actionSecondary}`}>
             Home
           </Link>
@@ -967,7 +1135,7 @@ export default function DoctorDashboard() {
               />
             </div>
 
-            <div>
+            <div style={{ flex: 1 }}>
               <p className={styles.heroKicker}>Doctor Dashboard</p>
               <h1 className={styles.heroTitle}>
                 {timeGreeting}, <strong>{doctorName}</strong>
@@ -1044,34 +1212,54 @@ export default function DoctorDashboard() {
             <section className={styles.card}>
               <div className={styles.cardHeader}>
                 <div>
-                  <h2>Today's Appointments</h2>
+                  <h2>Incoming Appointments</h2>
                   <p>Scheduled consultations for today</p>
                 </div>
+                <span className={styles.countBadge}>
+                  {(dashboardData?.todaysAppointments || []).filter((apt) => {
+                    const status = String(apt?.status || "").toLowerCase()
+                    if (status === 'no-show' && isRebookWindowExpired(apt)) return false
+                    return true
+                  }).length}
+                </span>
               </div>
 
               <div className={styles.appointmentsList}>
-                {(dashboardData?.todaysAppointments || []).length === 0 ? (
-                  <p className={styles.emptyState}>No appointments scheduled for today.</p>
-                ) : null}
+                {(() => {
+                  const filteredAppointments = (dashboardData?.todaysAppointments || []).filter((apt) => {
+                    const status = String(apt?.status || "").toLowerCase()
+                    if (status === 'no-show' && isRebookWindowExpired(apt)) return false
+                    return true
+                  })
+                  return filteredAppointments.length === 0 ? (
+                    <p className={styles.emptyState}>No appointments scheduled for today.</p>
+                  ) : null
+                })()}
 
-                {(dashboardData?.todaysAppointments || []).map((apt) => (
-                  <div key={apt._id} className={styles.appointmentItem}>
-                    <div className={styles.appointmentTime}>
-                      <strong>{apt.appointmentTime}</strong>
-                      <small>{apt.duration} min</small>
+                {(() => {
+                  const filteredAppointments = (dashboardData?.todaysAppointments || []).filter((apt) => {
+                    const status = String(apt?.status || "").toLowerCase()
+                    if (status === 'no-show' && isRebookWindowExpired(apt)) return false
+                    return true
+                  })
+                  return filteredAppointments.map((apt) => (
+                    <div key={apt._id} className={styles.appointmentItem}>
+                      <div className={styles.appointmentTime}>
+                        <strong>{formatAppointmentTimeLabel(apt.appointmentDate, apt.appointmentTime)}</strong>
+                      </div>
+                      <div className={styles.appointmentInfo}>
+                        <strong>{apt.patientName}</strong>
+                        <span>{apt.reason || "Regular checkup"}</span>
+                        <small>Date: {formatAppointmentDateLabel(apt.appointmentDate)} | Type: {apt.consultationType} | Duration: {apt.duration} min</small>
+                      </div>
+                      <div className={styles.appointmentStatus}>
+                        <span className={`${styles.badge} ${styles[getAppointmentStatusClass(apt.status)]}`}>
+                          {getAppointmentTrackingLabel(apt.status)}
+                        </span>
+                      </div>
                     </div>
-                    <div className={styles.appointmentInfo}>
-                      <strong>{apt.patientName}</strong>
-                      <span>{apt.reason || "Regular checkup"}</span>
-                      <small>{apt.consultationType}</small>
-                    </div>
-                    <div className={styles.appointmentStatus}>
-                      <span className={`${styles.badge} ${styles[getAppointmentStatusClass(apt.status)]}`}>
-                        {getAppointmentTrackingLabel(apt.status)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                })()}
               </div>
             </section>
 
@@ -1210,18 +1398,6 @@ export default function DoctorDashboard() {
               </div>
 
               <div className={styles.quickActions}>
-                <button
-                  type="button"
-                  className={`${styles.actionButton} ${doctorAvailability ? styles.actionPrimary : styles.actionSecondary}`}
-                  onClick={toggleDoctorAvailability}
-                  disabled={availabilityBusy}
-                >
-                  {availabilityBusy
-                    ? "Updating..."
-                    : doctorAvailability
-                      ? "Set Unavailable"
-                      : "Set Available"}
-                </button>
                 <Link href="/secure/doctor/patient-records" className={`${styles.actionButton} ${styles.actionSecondary}`}>
                   View Records
                 </Link>
@@ -1236,86 +1412,42 @@ export default function DoctorDashboard() {
         {selectedTab === "appointments" && (
           <section className={styles.card}>
             <div className={styles.cardHeader}>
-              <h2>All Appointments Today</h2>
+              <div>
+                <h2>Appointments</h2>
+                <p>Use the switch to view today or upcoming appointments</p>
+              </div>
             </div>
-            <div className={styles.appointmentsList}>
-              {(dashboardData?.todaysAppointments || []).length === 0 ? (
-                <p className={styles.emptyState}>No appointments scheduled.</p>
-              ) : (
-                dashboardData.todaysAppointments.map((apt) => {
-                  const isAccepted = String(apt.status || "").toLowerCase() === "accepted"
-                  const isMissed = String(apt.status || "").toLowerCase() === "no-show"
-                  const isRebookExpired = isMissed && isRebookWindowExpired(apt)
-                  const consentStatus = appointmentConsentStatus[String(apt.appointmentId || apt._id || "")]
-                  const consentStatusDisplay = consentStatus?.status || String(apt?.consentStatus || "")
+            <div style={{ display: 'flex', gap: '0.75rem', padding: '0 1.5rem 1rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => setAppointmentView("today")}
+                className={`${styles.tabButton} ${appointmentView === "today" ? styles.active : ""}`}
+                style={{ padding: '0.6rem 1rem', border: '1px solid rgba(8, 145, 178, 0.16)', borderRadius: '999px', background: appointmentView === "today" ? '#0a3a66' : '#fff', color: appointmentView === "today" ? '#fff' : '#0a3a66', cursor: 'pointer' }}
+              >
+                Today ({todaysLiveAppointments.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setAppointmentView("upcoming")}
+                className={`${styles.tabButton} ${appointmentView === "upcoming" ? styles.active : ""}`}
+                style={{ padding: '0.6rem 1rem', border: '1px solid rgba(8, 145, 178, 0.16)', borderRadius: '999px', background: appointmentView === "upcoming" ? '#0a3a66' : '#fff', color: appointmentView === "upcoming" ? '#fff' : '#0a3a66', cursor: 'pointer' }}
+              >
+                Upcoming ({upcomingLiveAppointments.length})
+              </button>
+            </div>
 
-                  return (
-                    <div key={apt._id} className={styles.appointmentDetailItem}>
-                      <div className={styles.appointmentDetail}>
-                        <strong>{apt.appointmentTime} - {apt.patientName}</strong>
-                        <span>{apt.reason || "General checkup"}</span>
-                        <small>Type: {apt.consultationType} | Duration: {apt.duration} min</small>
-                      </div>
-                      <div className={styles.appointmentActions}>
-                        <span className={`${styles.badge} ${styles[getAppointmentStatusClass(apt.status)]}`}>
-                          {getAppointmentTrackingLabel(apt.status)}
-                        </span>
-                        {consentStatusDisplay && (
-                          <span
-                            className={`${styles.badge} ${consentStatusDisplay === "pending" ? styles.consentPending : consentStatusDisplay === "accepted" ? styles.consentAccepted : styles.consentRejected}`}
-                          >
-                            {consentStatusDisplay === "pending" ? "📋 Pending" : consentStatusDisplay === "accepted" ? "✅ Approved sharing" : "❌ Sharing halted"}
-                          </span>
-                        )}
-                        <div className={styles.appointmentActionButtons}>
-                          <button
-                            type="button"
-                            className={`${styles.secondaryButton} ${String(apt.status || "").toLowerCase() !== "accepted" ? styles.actionFaded : ""}`}
-                            onClick={() => loadPatientRecordAndAttachments(apt)}
-                            disabled={appointmentActionBusy || String(apt.status || "").toLowerCase() !== "accepted" || isMissed}
-                            title={String(apt.status || "").toLowerCase() !== "accepted" ? "Review is available only after appointment acceptance." : "Review patient records"}
-                          >
-                            Review records
-                          </button>
-                          {isMissed ? (
-                            doctorPendingRebookMap[String(apt.appointmentId || apt._id || '')] ? (
-                              <button type="button" className={styles.primaryButton} disabled>
-                                Rebooking...
-                              </button>
-                            ) : rebookedMap[String(apt.appointmentId || apt._id || '')] ? (
-                              <button type="button" className={styles.primaryButton} disabled>
-                                Rebooked
-                              </button>
-                            ) : isRebookExpired ? (
-                              <button type="button" className={styles.primaryButton} disabled>
-                                Rebook expired
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                className={styles.primaryButton}
-                                onClick={() => rebookMissedAppointment(apt)}
-                                disabled={appointmentActionBusy}
-                              >
-                                {appointmentActionBusy ? "Rebooking..." : "Rebook"}
-                              </button>
-                            )
-                          ) : (
-                            <button
-                              type="button"
-                              className={`${isAccepted ? styles.secondaryButton : styles.primaryButton} ${String(apt.status || "").toLowerCase() === 'cancelled' ? styles.actionFaded : ''}`}
-                              onClick={() => (isAccepted ? cancelAppointment(apt) : acceptAppointment(apt))}
-                              disabled={appointmentActionBusy || String(apt.status || "").toLowerCase() === "cancelled"}
-                            >
-                              {isAccepted ? "Cancel appointment" : "Accept appointment"}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })
-              )}
+            <div className={styles.appointmentsList}>
+              {appointmentView === "today"
+                ? (todaysLiveAppointments.length === 0 ? (
+                    <p className={styles.emptyState}>No appointments scheduled for today.</p>
+                  ) : (
+                    todaysLiveAppointments.map(renderAppointmentItem)
+                  ))
+                : (upcomingLiveAppointments.length === 0 ? (
+                    <p className={styles.emptyState}>No upcoming appointments.</p>
+                  ) : (
+                    upcomingLiveAppointments.map(renderAppointmentItem)
+                  ))}
             </div>
           </section>
         )}

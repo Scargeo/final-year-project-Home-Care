@@ -139,6 +139,29 @@ export default function AppointmentsPage() {
   const [form, setForm] = useState({ date: "", time: "09:00", consultationType: "messaging", duration: "30", reason: "" })
   const [submitting, setSubmitting] = useState(false)
 
+  const upsertAppointment = useMemo(() => {
+    return (incomingAppointment) => {
+      if (!incomingAppointment) return
+
+      setAppointments((current) => {
+        const incomingId = String(incomingAppointment?.appointmentId || incomingAppointment?._id || "")
+        if (!incomingId) return current
+
+        const existingIndex = current.findIndex(
+          (item) => String(item?.appointmentId || item?._id || "") === incomingId,
+        )
+
+        if (existingIndex >= 0) {
+          const next = [...current]
+          next[existingIndex] = { ...next[existingIndex], ...incomingAppointment }
+          return next
+        }
+
+        return [incomingAppointment, ...current]
+      })
+    }
+  }, [])
+
   useEffect(() => {
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
@@ -177,9 +200,6 @@ export default function AppointmentsPage() {
       active = false
     }
   }, [])
-
-  // sorted appointments helper (not directly used when filters applied)
-  useMemo(() => [...appointments].sort((a, b) => new Date(a.appointmentDate || 0) - new Date(b.appointmentDate || 0)), [appointments])
 
   const displayedAppointments = useMemo(() => {
     try {
@@ -402,27 +422,6 @@ export default function AppointmentsPage() {
 
     socket.emit("join-appointments-patient", auth.patientId)
 
-    const upsertAppointment = (incomingAppointment) => {
-      if (!incomingAppointment) return
-
-      setAppointments((current) => {
-        const incomingId = String(incomingAppointment?.appointmentId || incomingAppointment?._id || "")
-        if (!incomingId) return current
-
-        const existingIndex = current.findIndex(
-          (item) => String(item?.appointmentId || item?._id || "") === incomingId,
-        )
-
-        if (existingIndex >= 0) {
-          const next = [...current]
-          next[existingIndex] = { ...next[existingIndex], ...incomingAppointment }
-          return next
-        }
-
-        return [incomingAppointment, ...current]
-      })
-    }
-
     socket.on("appointment-created", (payload) => {
       const newApt = payload?.appointment
       upsertAppointment(newApt)
@@ -489,7 +488,7 @@ export default function AppointmentsPage() {
       socket.off("appointment-reassigned")
       socket.disconnect()
     }
-  }, [])
+  }, [upsertAppointment])
 
   async function respondToConsentRequest(request, status) {
     if (!request?.requestId) return
@@ -590,7 +589,7 @@ export default function AppointmentsPage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data?.message || "Could not create appointment")
-      setAppointments((c) => [data, ...c])
+      upsertAppointment(data)
       setAssignmentInsight(data?.assignment || null)
       const assignedDoctorName = getDoctorName(data?.doctor)
       setSuccess(`Appointment booked. ${assignedDoctorName} has been assigned to your case.`)
@@ -732,7 +731,7 @@ export default function AppointmentsPage() {
               {loadingAppointments ? <div className={styles.appointmentEmpty}>Loading appointments...</div> : null}
               {!loadingAppointments && displayedAppointments.length === 0 ? <div className={styles.appointmentEmpty}>You have no appointments for this view.</div> : null}
               <div ref={appointmentListRef} className={`${styles.appointmentList} ${styles.appointmentListScroll}`}>
-                {displayedAppointments.map((a) => {
+                {displayedAppointments.map((a, index) => {
                   const appointmentKey = String(a.appointmentId || a._id || "")
                   const appointmentConsent = consentRequests.find(
                     (request) => String(request?.appointmentId || "") === appointmentKey,
@@ -742,7 +741,7 @@ export default function AppointmentsPage() {
                   const sharingRejected = appointmentConsent && String(appointmentConsent?.status || "") === "rejected"
 
                   return (
-                    <article key={a.appointmentId || a._id} className={styles.appointmentItem}>
+                    <article key={`${appointmentKey || 'appointment'}-${index}`} className={styles.appointmentItem}>
                       <div className={styles.appointmentItemHeader}>
                         <div className={styles.doctorHeader}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>

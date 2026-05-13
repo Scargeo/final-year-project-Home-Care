@@ -90,6 +90,28 @@
   background: rgba(8, 145, 178, 0.12);
 }
 
+.availabilityActive {
+  color: #ffffff;
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.28);
+}
+
+.availabilityActive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(22, 163, 74, 0.36);
+}
+
+.availabilityInactive {
+  color: #ffffff;
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  box-shadow: 0 4px 12px rgba(75, 85, 99, 0.24);
+}
+
+.availabilityInactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(75, 85, 99, 0.32);
+}
+
 .shell {
   width: min(1320px, calc(100% - 1.5rem));
   margin-inline: auto;
@@ -220,6 +242,20 @@
   justify-content: space-between;
 }
 
+.countBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 0.5rem;
+  background: linear-gradient(135deg, #0891b2 0%, #0369a1 100%);
+  color: white;
+  font-weight: 700;
+  font-size: 0.875rem;
+  border-radius: 0.5rem;
+}
+
 .cardHeader h2 {
   font-size: 1.25rem;
   font-weight: 600;
@@ -234,7 +270,20 @@
 }
 
 .appointmentsList {
-  padding: 1.5rem;
+  padding: 1.5rem 0.5rem 1.5rem 1.5rem;
+  max-height: 220px; /* show ~2 items, then scroll */
+  overflow-y: auto;
+}
+
+.appointmentsList::-webkit-scrollbar {
+  width: 8px;
+}
+.appointmentsList::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.12);
+  border-radius: 8px;
+}
+.appointmentsList::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .appointmentItem {

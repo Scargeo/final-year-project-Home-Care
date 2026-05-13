@@ -103,12 +103,14 @@ export default function AdminPage() {
   const [patients, setPatients] = useState([])
   const [posts, setPosts] = useState([])
   const [loginForm, setLoginForm] = useState({ adminEmail: "", adminPassword: "" })
-  const [bootstrapForm, setBootstrapForm] = useState({ adminName: "", adminEmail: "", adminPassword: "" })
   const [createResource, setCreateResource] = useState("doctor")
   const [createJson, setCreateJson] = useState(JSON.stringify(defaultCreatePayloads.doctor, null, 2))
   const [updateResource, setUpdateResource] = useState("doctor")
   const [updateId, setUpdateId] = useState("")
   const [updateJson, setUpdateJson] = useState(JSON.stringify(defaultUpdatePayloads.doctor, null, 2))
+  const [showAddAdmin, setShowAddAdmin] = useState(false)
+  const [newAdminForm, setNewAdminForm] = useState({ adminName: "", adminEmail: "", adminPassword: "" })
+  const [selectedTab, setSelectedTab] = useState("overview")
 
   const validateAdminSession = useCallback(async (activeToken) => {
     try {
@@ -294,38 +296,7 @@ export default function AdminPage() {
     }
   }
 
-  async function handleBootstrap(event) {
-    event.preventDefault()
-    setBusy(true)
-    setError("")
-    setMessage("")
 
-    try {
-      const response = await apiFetch("/bootstrap", {
-        method: "POST",
-        body: JSON.stringify({
-          adminName: bootstrapForm.adminName.trim(),
-          adminEmail: bootstrapForm.adminEmail.trim().toLowerCase(),
-          adminPassword: bootstrapForm.adminPassword,
-        }),
-      }, "")
-
-      const data = await response.json().catch(() => ({}))
-      if (!response.ok) {
-        throw new Error(data?.message || "Could not bootstrap admin account")
-      }
-
-      storeAdminSession(data)
-      setMessage("First admin created successfully.")
-      setBootstrapForm({ adminName: "", adminEmail: "", adminPassword: "" })
-      await loadDashboard(data.token)
-    } catch (error) {
-      setError(error?.message || "Bootstrap failed")
-    } finally {
-      setBusy(false)
-      setLoading(false)
-    }
-  }
 
   async function refreshDashboard() {
     await loadDashboard(token)
@@ -474,6 +445,44 @@ export default function AdminPage() {
     }
   }
 
+  async function handleCreateAdmin(event) {
+    event.preventDefault()
+
+    if (!newAdminForm.adminName.trim() || !newAdminForm.adminEmail.trim() || !newAdminForm.adminPassword.trim()) {
+      setError("All fields are required")
+      return
+    }
+
+    if (!window.confirm(`Create new admin "${newAdminForm.adminName.trim()}"?`)) {
+      return
+    }
+
+    setBusy(true)
+    setError("")
+    setMessage("")
+
+    try {
+      const response = await apiFetch("/create", {
+        method: "POST",
+        body: JSON.stringify({
+          adminName: newAdminForm.adminName.trim(),
+          adminEmail: newAdminForm.adminEmail.trim().toLowerCase(),
+          adminPassword: newAdminForm.adminPassword,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data?.message || "Could not create admin")
+      setMessage("Admin created successfully.")
+      setNewAdminForm({ adminName: "", adminEmail: "", adminPassword: "" })
+      setShowAddAdmin(false)
+      await refreshDashboard()
+    } catch (err) {
+      setError(err?.message || "Failed to create admin")
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const isAuthed = Boolean(admin?.token || token)
 
   if (loading && !isAuthed) {
@@ -519,44 +528,6 @@ export default function AdminPage() {
           </div>
         </section>
 
-        <section className={styles.bootstrapCard}>
-          <h2>First-time setup</h2>
-          <p>Use this once to create the initial super-admin if no admin account exists yet.</p>
-          <form className={styles.formGrid} onSubmit={handleBootstrap}>
-            <label>
-              <span>Name</span>
-              <input
-                type="text"
-                value={bootstrapForm.adminName}
-                onChange={(event) => setBootstrapForm((current) => ({ ...current, adminName: event.target.value }))}
-                required
-                disabled={busy}
-              />
-            </label>
-            <label>
-              <span>Email</span>
-              <input
-                type="email"
-                value={bootstrapForm.adminEmail}
-                onChange={(event) => setBootstrapForm((current) => ({ ...current, adminEmail: event.target.value }))}
-                required
-                disabled={busy}
-              />
-            </label>
-            <label>
-              <span>Password</span>
-              <input
-                type="password"
-                value={bootstrapForm.adminPassword}
-                onChange={(event) => setBootstrapForm((current) => ({ ...current, adminPassword: event.target.value }))}
-                required
-                disabled={busy}
-              />
-            </label>
-            <button className={styles.actionButton} type="submit" disabled={busy}>Create admin</button>
-          </form>
-        </section>
-
         {error ? <p className={styles.error}>{error}</p> : null}
         {message ? <p className={styles.message}>{message}</p> : null}
       </main>
@@ -565,96 +536,186 @@ export default function AdminPage() {
 
   return (
     <main className={styles.shell}>
-      <section className={styles.heroCompact}>
-        <div>
-          <p className={styles.kicker}>Signed in as admin</p>
-          <h1>{admin?.adminName || "Admin"}</h1>
-          <p className={styles.lead}>Counts update from MongoDB in real time. Approvals and CRUD actions go through the admin API.</p>
+      <header className={styles.adminHeader}>
+        <div className={styles.adminHeaderLeft}>
+          <h1>Admin Dashboard</h1>
+          <p>Manage users, approvals, and content</p>
         </div>
-        <div className={styles.heroActions}>
+        <div className={styles.adminHeaderRight}>
+          <div className={styles.adminProfile}>
+            <span className={styles.adminLabel}>Signed in as</span>
+            <strong>{admin?.adminName || "Admin"}</strong>
+          </div>
           <button className={styles.actionButton} type="button" onClick={refreshDashboard} disabled={busy}>Refresh</button>
           <button className={styles.actionButton} type="button" onClick={logout}>Logout</button>
         </div>
-      </section>
+      </header>
 
-      <section className={styles.statsGrid}>
-        <article className={styles.statCard}><span>Doctors</span><strong>{summary.doctors}</strong></article>
-        <article className={styles.statCard}><span>Pending approvals</span><strong>{summary.pendingDoctors}</strong></article>
-        <article className={styles.statCard}><span>Patients</span><strong>{summary.patients}</strong></article>
-        <article className={styles.statCard}><span>Posts</span><strong>{summary.posts}</strong></article>
-      </section>
+      <div style={{ margin: '0 0 1rem 0' }} className={styles.tabNav}>
+        <button type="button" className={`${styles.tabButton} ${selectedTab === 'overview' ? styles.active : ''}`} onClick={() => setSelectedTab('overview')}>Overview</button>
+        <button type="button" className={`${styles.tabButton} ${selectedTab === 'approvals' ? styles.active : ''}`} onClick={() => setSelectedTab('approvals')}>Approvals</button>
+        <button type="button" className={`${styles.tabButton} ${selectedTab === 'addAdmin' ? styles.active : ''}`} onClick={() => setSelectedTab('addAdmin')}>Add admin</button>
+        <button type="button" className={`${styles.tabButton} ${selectedTab === 'create' ? styles.active : ''}`} onClick={() => setSelectedTab('create')}>Create</button>
+        <button type="button" className={`${styles.tabButton} ${selectedTab === 'update' ? styles.active : ''}`} onClick={() => setSelectedTab('update')}>Update</button>
+        <button type="button" className={`${styles.tabButton} ${selectedTab === 'records' ? styles.active : ''}`} onClick={() => setSelectedTab('records')}>Records</button>
+      </div>
 
-      <section className={styles.panelGrid}>
-        <article className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <div>
-              <p className={styles.panelLabel}>Approvals</p>
-              <h2>Pending doctors</h2>
-            </div>
-          </div>
-          <div className={styles.list}>
-            {pendingDoctors.length === 0 ? <p className={styles.empty}>No doctors waiting for approval.</p> : null}
-            {pendingDoctors.map((doctor) => (
-              <div key={doctor.doctorId} className={styles.listItem}>
+      {selectedTab === 'overview' && (
+        <section className={styles.dashboardGrid}>
+          <article className={styles.dashCard}>
+            <span className={styles.cardLabel}>Verified Doctors</span>
+            <strong className={styles.cardValue}>{summary.doctors}</strong>
+          </article>
+          <article className={styles.dashCard}>
+            <span className={styles.cardLabel}>Pending Approvals</span>
+            <strong className={styles.cardValue}>{summary.pendingDoctors}</strong>
+          </article>
+          <article className={styles.dashCard}>
+            <span className={styles.cardLabel}>Patients</span>
+            <strong className={styles.cardValue}>{summary.patients}</strong>
+          </article>
+          <article className={styles.dashCard}>
+            <span className={styles.cardLabel}>Posts</span>
+            <strong className={styles.cardValue}>{summary.posts}</strong>
+          </article>
+        </section>
+      )}
+
+      {selectedTab !== 'overview' && selectedTab !== 'records' && (
+        <section className={styles.panelGrid}>
+          {selectedTab === 'approvals' && (
+            <article className={styles.panel}>
+              <div className={styles.panelHeader}>
                 <div>
-                  <strong>{formatName(doctor.doctorFirstName, doctor.doctorLastName, doctor.doctorId)}</strong>
-                  <p>{doctor.doctorEmail}</p>
-                  <p>{doctor.specialization || 'Unspecified'} · {doctor.isAvailable ? 'Available' : 'Unavailable'}</p>
+                  <p className={styles.panelLabel}>Approvals</p>
+                  <h2>Pending doctors</h2>
                 </div>
-                <button className={styles.actionButton} type="button" onClick={() => approveDoctor(doctor.doctorId, true)} disabled={busy}>Approve</button>
               </div>
-            ))}
-          </div>
-        </article>
+              <div className={styles.list}>
+                {pendingDoctors.length === 0 ? <p className={styles.empty}>No doctors waiting for approval.</p> : null}
+                {pendingDoctors.map((doctor) => (
+                  <div key={doctor.doctorId} className={styles.listItem}>
+                    <div>
+                      <strong>{formatName(doctor.doctorFirstName, doctor.doctorLastName, doctor.doctorId)}</strong>
+                      <p>{doctor.doctorEmail}</p>
+                      <p>{doctor.specialization || 'Unspecified'} · {doctor.isAvailable ? 'Available' : 'Unavailable'}</p>
+                    </div>
+                    <button className={styles.actionButton} type="button" onClick={() => approveDoctor(doctor.doctorId, true)} disabled={busy}>Approve</button>
+                  </div>
+                ))}
+              </div>
+            </article>
+          )}
 
-        <article className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <div>
-              <p className={styles.panelLabel}>Create</p>
-              <h2>Create a record</h2>
-            </div>
-          </div>
-          <form className={styles.form} onSubmit={handleCreateRecord}>
-            <label>
-              <span>Resource</span>
-              <select value={createResource} onChange={(event) => setCreateResource(event.target.value)} disabled={busy}>
-                {resourceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
-            </label>
-            <label>
-              <span>Payload JSON</span>
-              <textarea value={createJson} onChange={(event) => setCreateJson(event.target.value)} rows={12} disabled={busy} />
-            </label>
-            <button className={styles.actionButton} type="submit" disabled={busy}>Create</button>
-          </form>
-        </article>
+          {selectedTab === 'addAdmin' && (
+            <article className={styles.panel}>
+              <div className={styles.panelHeader}>
+                <div>
+                  <p className={styles.panelLabel}>Management</p>
+                  <h2>Add admin</h2>
+                </div>
+              </div>
+              <div className={styles.panelBody}>
+                {showAddAdmin ? (
+                  <form className={styles.form} onSubmit={handleCreateAdmin}>
+                    <label>
+                      <span>Name</span>
+                      <input
+                        type="text"
+                        value={newAdminForm.adminName}
+                        onChange={(event) => setNewAdminForm((current) => ({ ...current, adminName: event.target.value }))}
+                        placeholder="Admin name"
+                        required
+                        disabled={busy}
+                      />
+                    </label>
+                    <label>
+                      <span>Email</span>
+                      <input
+                        type="email"
+                        value={newAdminForm.adminEmail}
+                        onChange={(event) => setNewAdminForm((current) => ({ ...current, adminEmail: event.target.value }))}
+                        placeholder="admin@example.com"
+                        required
+                        disabled={busy}
+                      />
+                    </label>
+                    <label>
+                      <span>Password</span>
+                      <input
+                        type="password"
+                        value={newAdminForm.adminPassword}
+                        onChange={(event) => setNewAdminForm((current) => ({ ...current, adminPassword: event.target.value }))}
+                        placeholder="Secure password"
+                        required
+                        disabled={busy}
+                      />
+                    </label>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button className={styles.actionButton} type="submit" disabled={busy}>Create</button>
+                      <button className={styles.actionButton} type="button" onClick={() => setShowAddAdmin(false)} disabled={busy} style={{ background: 'rgba(15, 23, 42, 0.5)' }}>Cancel</button>
+                    </div>
+                  </form>
+                ) : (
+                  <button className={styles.actionButton} type="button" onClick={() => setShowAddAdmin(true)} disabled={busy}>Add new admin</button>
+                )}
+              </div>
+            </article>
+          )}
 
-        <article className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <div>
-              <p className={styles.panelLabel}>Update</p>
-              <h2>Patch any record</h2>
-            </div>
-          </div>
-          <form className={styles.form} onSubmit={handleUpdateRecord}>
-            <label>
-              <span>Resource</span>
-              <select value={updateResource} onChange={(event) => setUpdateResource(event.target.value)} disabled={busy}>
-                {resourceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
-            </label>
-            <label>
-              <span>Identifier</span>
-              <input value={updateId} onChange={(event) => setUpdateId(event.target.value)} placeholder="DOC-... / PAT-... / POST-..." disabled={busy} />
-            </label>
-            <label>
-              <span>Update JSON</span>
-              <textarea value={updateJson} onChange={(event) => setUpdateJson(event.target.value)} rows={10} disabled={busy} />
-            </label>
-            <button className={styles.actionButton} type="submit" disabled={busy}>Update</button>
-          </form>
-        </article>
-      </section>
+          {selectedTab === 'create' && (
+            <article className={styles.panel}>
+              <div className={styles.panelHeader}>
+                <div>
+                  <p className={styles.panelLabel}>Create</p>
+                  <h2>Create a record</h2>
+                </div>
+              </div>
+              <form className={styles.form} onSubmit={handleCreateRecord}>
+                <label>
+                  <span>Resource</span>
+                  <select value={createResource} onChange={(event) => setCreateResource(event.target.value)} disabled={busy}>
+                    {resourceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Payload JSON</span>
+                  <textarea value={createJson} onChange={(event) => setCreateJson(event.target.value)} rows={12} disabled={busy} />
+                </label>
+                <button className={styles.actionButton} type="submit" disabled={busy}>Create</button>
+              </form>
+            </article>
+          )}
+
+          {selectedTab === 'update' && (
+            <article className={styles.panel}>
+              <div className={styles.panelHeader}>
+                <div>
+                  <p className={styles.panelLabel}>Update</p>
+                  <h2>Patch any record</h2>
+                </div>
+              </div>
+              <form className={styles.form} onSubmit={handleUpdateRecord}>
+                <label>
+                  <span>Resource</span>
+                  <select value={updateResource} onChange={(event) => setUpdateResource(event.target.value)} disabled={busy}>
+                    {resourceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Identifier</span>
+                  <input value={updateId} onChange={(event) => setUpdateId(event.target.value)} placeholder="DOC-... / PAT-... / POST-..." disabled={busy} />
+                </label>
+                <label>
+                  <span>Update JSON</span>
+                  <textarea value={updateJson} onChange={(event) => setUpdateJson(event.target.value)} rows={10} disabled={busy} />
+                </label>
+                <button className={styles.actionButton} type="submit" disabled={busy}>Update</button>
+              </form>
+            </article>
+          )}
+        </section>
+      )}
 
       <section className={styles.tableGrid}>
         <article className={styles.panel}>

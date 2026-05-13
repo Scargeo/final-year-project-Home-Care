@@ -114,7 +114,16 @@ router.get('/:id/appointments', allowOwnerOrDoctor((req) => req.params.id), asyn
 			.sort({ appointmentDate: 1, appointmentTime: 1 })
 			.lean();
 
-		const doctorIds = [...new Set(appointments.map((appointment) => String(appointment.doctorId || '')).filter(Boolean))];
+		const uniqueAppointments = Array.from(
+			appointments.reduce((map, appointment) => {
+				const key = String(appointment.appointmentId || appointment._id || '')
+				if (!key) return map
+				map.set(key, appointment)
+				return map
+			}, new Map()).values(),
+		)
+
+		const doctorIds = [...new Set(uniqueAppointments.map((appointment) => String(appointment.doctorId || '')).filter(Boolean))];
 		const doctors = doctorIds.length > 0
 			? await Doctor.find({ doctorId: { $in: doctorIds } })
 				.select('doctorId doctorFirstName doctorLastName specialization profileImage isVerified')
@@ -122,7 +131,7 @@ router.get('/:id/appointments', allowOwnerOrDoctor((req) => req.params.id), asyn
 			: [];
 
 		const doctorMap = new Map(doctors.map((doctor) => [String(doctor.doctorId), doctor]));
-		const appointmentsWithDoctors = appointments.map((appointment) => {
+		const appointmentsWithDoctors = uniqueAppointments.map((appointment) => {
 			const doctor = doctorMap.get(String(appointment.doctorId))
 			return {
 				...appointment,

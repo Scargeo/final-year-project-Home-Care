@@ -36,6 +36,115 @@
   align-items: start;
 }
 
+.adminHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+  margin-bottom: 2rem;
+  padding: 1.5rem 2rem;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 24px;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.08);
+}
+
+.adminHeaderLeft h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.adminHeaderLeft p {
+  margin: 0;
+  color: rgba(15, 23, 42, 0.6);
+  font-size: 0.95rem;
+}
+
+.adminHeaderRight {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.tabNav {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.tabButton {
+  padding: 0.45rem 0.75rem;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  cursor: pointer;
+}
+
+.tabButton:hover {
+  background: rgba(15, 23, 42, 0.09);
+}
+
+.active {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.adminProfile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  text-align: right;
+}
+
+.adminLabel {
+  font-size: 0.8rem;
+  color: rgba(15, 23, 42, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.dashboardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.dashCard {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  transition: all 0.15s ease;
+}
+
+.dashCard:hover {
+  border-color: rgba(15, 105, 202, 0.18);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+}
+
+.cardLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(15, 23, 42, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.cardValue {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1;
+}
+
 .heroCompact {
   display: flex;
   justify-content: space-between;
@@ -203,12 +312,39 @@
   gap: 0.75rem;
 }
 
+/* Make long lists (doctors/patients/posts) scrollable inside their panel */
+.tableList {
+  max-height: 32rem;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+/* Approvals list can also scroll when long */
+.list {
+  max-height: 24rem;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+/* Hide native scrollbars but keep scrolling functional */
+.tableList,
+.list {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.tableList::-webkit-scrollbar,
+.list::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+}
+
 .listItem,
 .rowCard {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  align-items: start;
+  align-items: flex-start;
   padding: 1rem;
   border-radius: 18px;
   background: rgba(248, 250, 252, 0.95);
@@ -230,7 +366,24 @@
 }
 
 .danger {
-  background: linear-gradient(135deg, #991b1b, #dc2626);
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  padding: 0.45rem 0.7rem;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  color: #fff;
+  border: none;
+  transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+}
+
+.danger:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(185, 28, 28, 0.12);
+}
+
+.danger:disabled {
+  opacity: 0.6;
+  transform: none;
+  box-shadow: none;
 }
 
 .empty,
