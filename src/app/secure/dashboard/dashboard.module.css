@@ -516,6 +516,24 @@
   border-radius: 999px;
 }
 
+/* Join button for patient appointment list */
+.appointmentJoinLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.9rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.appointmentJoinLinkDisabled {
+  opacity: 0.6;
+  filter: saturate(0.8);
+}
+
 .appointmentItem {
   padding: 0.85rem;
   border-radius: 0.95rem;

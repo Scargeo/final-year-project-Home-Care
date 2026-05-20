@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import Image from "next/image"
 import { useSearchParams } from "next/navigation"
 import { Suspense } from "react"
 import LoadingCanvas from "../components/LoadingCanvas"
@@ -16,6 +17,40 @@ function resolveSignalUrl() {
 
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
   return `${protocol}//${window.location.hostname}:3001`
+}
+
+function getStoredSession() {
+  if (typeof window === "undefined") return null
+
+  try {
+    const doctorRaw = window.localStorage.getItem("doctorAuth")
+    if (doctorRaw) {
+      const doctor = JSON.parse(doctorRaw)
+      return {
+        role: "doctor",
+        id: doctor?.doctorId || doctor?.id || doctor?._id || "",
+        firstName: doctor?.doctorFirstName || doctor?.firstName || "",
+        lastName: doctor?.doctorLastName || doctor?.lastName || "",
+        token: doctor?.token || doctor?.accessToken || "",
+      }
+    }
+
+    const patientRaw = window.localStorage.getItem("patientAuth")
+    if (patientRaw) {
+      const patient = JSON.parse(patientRaw)
+      return {
+        role: "patient",
+        id: patient?.patientId || patient?.id || patient?._id || "",
+        firstName: patient?.patientFirstName || patient?.firstName || "",
+        lastName: patient?.patientLastName || patient?.lastName || "",
+        token: patient?.token || patient?.accessToken || "",
+      }
+    }
+  } catch {
+    return null
+  }
+
+  return null
 }
 
 function safeParse(raw) {
@@ -177,8 +212,10 @@ function ChatPageContent() {
   const signalUrl = resolveSignalUrl()
   const contactName = searchParams.get("name") || "GCTU"
   const roomId = searchParams.get("roomId") || "demo-room"
+  const urlPatientId = searchParams.get("patientId") || ""
+  const urlDoctorId = searchParams.get("doctorId") || ""
+  const urlDoctorName = searchParams.get("doctorName") || ""
 
-  const [menuOpen, setMenuOpen] = useState(false)
   const [status, setStatus] = useState("idle")
   const [error, setError] = useState("")
   const [messages, setMessages] = useState([]) // { id, from, ivB64, ciphertextB64, ts, text?, status?, reactions? }
@@ -186,6 +223,22 @@ function ChatPageContent() {
   const [aesReady, setAesReady] = useState(false)
   const [typingPeer, setTypingPeer] = useState(false)
   const [openReactionDropdown, setOpenReactionDropdown] = useState(null) // messageId or null
+
+  const [sessionInfo, setSessionInfo] = useState(null)
+  const [roomData, setRoomData] = useState(null)
+  const [roomLoading, setRoomLoading] = useState(false)
+  const [roomError, setRoomError] = useState("")
+  const [savingClinical, setSavingClinical] = useState(false)
+  const [roomActionBusy, setRoomActionBusy] = useState(false)
+  const [callRequestBusy, setCallRequestBusy] = useState("")
+  const [uploadingRoomFiles, setUploadingRoomFiles] = useState(false)
+  const [doctorNotesDraft, setDoctorNotesDraft] = useState("")
+  const [doctorPrescriptionDraft, setDoctorPrescriptionDraft] = useState("")
+  const [doctorAllergiesDraft, setDoctorAllergiesDraft] = useState("")
+  const [clinicalNotice, setClinicalNotice] = useState("")
+  const [isMobile, setIsMobile] = useState(false)
+  const [showRoomOnMobile, setShowRoomOnMobile] = useState(false)
+  const [selectedLabFile, setSelectedLabFile] = useState(null)
 
   const [myPeerId, setMyPeerId] = useState("")
   const [remotePeerId, setRemotePeerId] = useState("")
@@ -214,6 +267,248 @@ function ChatPageContent() {
     const ws = wsRef.current
     if (!ws || ws.readyState !== WebSocket.OPEN) return
     ws.send(JSON.stringify(payload))
+  }
+
+  useEffect(() => {
+    setSessionInfo(getStoredSession())
+  }, [])
+
+  useEffect(() => {
+    function handleResize() {
+      setIsMobile(window.innerWidth < 1024)
+    }
+
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    let active = true
+
+    async function loadRoom() {
+      if (!roomId) return
+
+      setRoomLoading(true)
+      setRoomError("")
+
+      try {
+        const auth = getStoredSession()
+        const headers = {}
+        if (auth?.token) headers.authorization = `Bearer ${auth.token}`
+
+        const response = await fetch(`/api/rooms/${encodeURIComponent(roomId)}`, {
+          method: "GET",
+          cache: "no-store",
+          headers,
+        })
+
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(data?.message || "Failed to load room data")
+        if (!active) return
+
+        setRoomData(data)
+        setDoctorNotesDraft(String(data?.room?.notes || ""))
+        setDoctorPrescriptionDraft(String(data?.room?.prescription || ""))
+        setDoctorAllergiesDraft(String(data?.room?.allergies || ""))
+      } catch (err) {
+        if (active) setRoomError(err?.message || "Failed to load room data")
+      } finally {
+        if (active) setRoomLoading(false)
+      }
+    }
+
+    loadRoom()
+    return () => {
+      active = false
+    }
+  }, [roomId])
+
+  useEffect(() => {
+    let active = true
+
+    async function refreshRoomStatus() {
+      if (!roomId) return
+
+      try {
+        const auth = getStoredSession()
+        const headers = {}
+        if (auth?.token) headers.authorization = `Bearer ${auth.token}`
+
+        const response = await fetch(`/api/rooms/${encodeURIComponent(roomId)}`, {
+          method: "GET",
+          cache: "no-store",
+          headers,
+        })
+
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok || !active) return
+
+        setRoomData(data)
+
+        const roomStatus = String(data?.room?.status || "").toLowerCase()
+        const callRequestStatus = String(data?.room?.callRequestStatus || "").toLowerCase()
+        const callRequestType = String(data?.room?.callRequestType || "audio") || "audio"
+
+        if (callRequestStatus === "approved") {
+          window.location.href = buildCallUrl(callRequestType)
+          return
+        }
+
+        if (roomStatus === "completed" || roomStatus === "cancelled") {
+          const target = sessionInfo?.role === "doctor" ? "/secure/doctor" : "/secure/appointments"
+          window.location.href = target
+        }
+      } catch {
+        // best-effort polling only
+      }
+    }
+
+    refreshRoomStatus()
+    const timer = setInterval(refreshRoomStatus, 5000)
+
+    return () => {
+      active = false
+      clearInterval(timer)
+    }
+  }, [roomId, sessionInfo?.role])
+
+  async function saveClinicalSection() {
+    setClinicalNotice("")
+    setRoomError("")
+    setSavingClinical(true)
+
+    try {
+      const auth = getStoredSession()
+      const headers = { "Content-Type": "application/json" }
+      if (auth?.token) headers.authorization = `Bearer ${auth.token}`
+
+      const response = await fetch(`/api/rooms/${encodeURIComponent(roomId)}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({
+          notes: doctorNotesDraft,
+          prescription: doctorPrescriptionDraft,
+          allergies: doctorAllergiesDraft,
+          status: "active",
+          syncToHealthRecord: true,
+        }),
+      })
+
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data?.message || "Failed to save clinical notes")
+
+      setRoomData((current) => ({ ...current, room: data?.room || current?.room }))
+      if (data?.healthRecordUpdated) {
+        setClinicalNotice("Saved. Prescription, consultation notes, and allergies synced to patient health records.")
+      } else {
+        setClinicalNotice(data?.healthRecordSkippedReason || "Saved to room. Health-record sync is waiting for accepted consent.")
+      }
+    } catch (err) {
+      setRoomError(err?.message || "Failed to save clinical notes")
+    } finally {
+      setSavingClinical(false)
+    }
+  }
+
+  async function uploadRoomFiles(event) {
+    const selectedFiles = Array.from(event?.target?.files || [])
+    if (selectedFiles.length === 0) return
+
+    setRoomError("")
+    setClinicalNotice("")
+    setUploadingRoomFiles(true)
+
+    try {
+      const auth = getStoredSession()
+      const patientId = String(roomData?.room?.patientId || urlPatientId || "").trim()
+      if (!patientId) throw new Error("Missing patient id for room file uploads")
+
+      const formData = new FormData()
+      selectedFiles.forEach((file) => formData.append("files", file))
+      formData.append("ownerRef", patientId)
+      formData.append("purpose", "document")
+
+      const headers = {}
+      if (auth?.token) headers.authorization = `Bearer ${auth.token}`
+
+      const uploadRes = await fetch("/api/uploads", {
+        method: "POST",
+        headers,
+        body: formData,
+      })
+
+      const uploadData = await uploadRes.json().catch(() => ({}))
+      if (!uploadRes.ok) throw new Error(uploadData?.message || "Failed to upload room files")
+
+      const uploadedFiles = Array.isArray(uploadData?.files)
+        ? uploadData.files.map((item) => ({
+            name: String(item?.originalName || item?.name || "File"),
+            url: String(item?.url || ""),
+            mimeType: String(item?.mimeType || ""),
+            uploadedAt: item?.uploadedAt || new Date().toISOString(),
+          }))
+        : []
+
+      if (uploadedFiles.length === 0) throw new Error("Upload succeeded but no files were returned")
+
+      const mergedFiles = [...(Array.isArray(roomData?.room?.files) ? roomData.room.files : []), ...uploadedFiles]
+
+      const roomRes = await fetch(`/api/rooms/${encodeURIComponent(roomId)}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(auth?.token ? { authorization: `Bearer ${auth.token}` } : {}),
+        },
+        body: JSON.stringify({ files: mergedFiles, syncToHealthRecord: false }),
+      })
+
+      const roomPatchData = await roomRes.json().catch(() => ({}))
+      if (!roomRes.ok) throw new Error(roomPatchData?.message || "Failed to save files to room")
+
+      setRoomData((current) => ({ ...current, room: roomPatchData?.room || current?.room }))
+      setClinicalNotice(`Uploaded ${uploadedFiles.length} file(s) to the room.`)
+    } catch (err) {
+      setRoomError(err?.message || "Failed to upload room files")
+    } finally {
+      setUploadingRoomFiles(false)
+      if (event?.target) event.target.value = ""
+    }
+  }
+
+  function leaveRoom() {
+    try {
+      window.location.href = sessionInfo?.role === "doctor" ? "/secure/doctor" : "/secure/appointments"
+    } catch {
+      window.history.back()
+    }
+  }
+
+  async function endRoom() {
+    setRoomError("")
+    setRoomActionBusy(true)
+
+    try {
+      const auth = getStoredSession()
+      const headers = { "Content-Type": "application/json" }
+      if (auth?.token) headers.authorization = `Bearer ${auth.token}`
+
+      const response = await fetch(`/api/rooms/${encodeURIComponent(roomId)}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ participantAction: "end", role: "doctor" }),
+      })
+
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data?.message || "Failed to end room")
+
+      setRoomData((current) => ({ ...current, room: data?.room || current?.room }))
+      leaveRoom()
+    } catch (err) {
+      setRoomError(err?.message || "Failed to end room")
+    } finally {
+      setRoomActionBusy(false)
+    }
   }
 
   const initCryptoAndKeys = useCallback(async () => {
@@ -261,7 +556,6 @@ function ChatPageContent() {
     async function run() {
       setStatus("connecting")
       setError("")
-      setMenuOpen(false)
       setMessages([])
       setTypingPeer(false)
 
@@ -463,22 +757,78 @@ function ChatPageContent() {
     }
   }, [roomId, signalUrl, initCryptoAndKeys, attemptDeriveAesKey])
 
-  function goToCall(mode) {
-    window.location.href = `/secure/call?roomId=${encodeURIComponent(roomId)}&mode=${encodeURIComponent(mode)}`
+  function buildCallUrl(callType) {
+    const params = new URLSearchParams({
+      roomId,
+      mode: callType,
+      role: sessionInfo?.role || "doctor",
+      autoJoin: "1",
+      name: contactName,
+      patientId: urlPatientId,
+      doctorId: urlDoctorId,
+      doctorName: urlDoctorName,
+    })
+
+    return `/secure/call?${params.toString()}`
   }
 
-  function openCallLink(mode) {
-    const link = `${window.location.origin}/secure/call?roomId=${encodeURIComponent(roomId)}&mode=${encodeURIComponent(mode)}`
-    navigator.clipboard
-      .writeText(link)
-      .then(() => alert("Call link copied. Paste it to the other person."))
-      .catch(() => {
-        window.location.href = link
+  async function requestCallSwitch(callType) {
+    if (sessionInfo?.role !== "doctor") return
+    const nextType = callType === "video" ? "video" : "audio"
+    const confirmed = window.confirm(`Request a ${nextType === "video" ? "video" : "voice"} call for this room?`)
+    if (!confirmed) return
+
+    setCallRequestBusy(nextType)
+    try {
+      const auth = getStoredSession()
+      const headers = { "Content-Type": "application/json" }
+      if (auth?.token) headers.authorization = `Bearer ${auth.token}`
+
+      const response = await fetch(`/api/rooms/${encodeURIComponent(roomId)}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ participantAction: "request-call", role: "doctor", callType: nextType }),
       })
+
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data?.message || "Failed to request call switch")
+
+      setRoomData((current) => ({ ...current, room: data?.room || current?.room }))
+    } catch (err) {
+      setRoomError(err?.message || "Failed to request call switch")
+    } finally {
+      setCallRequestBusy("")
+    }
   }
 
-  function scheduleCall() {
-    alert("Schedule call UI placeholder (backend scheduling not implemented in this MVP).")
+  async function respondToCallRequest(accept) {
+    if (sessionInfo?.role !== "patient") return
+    const currentType = String(roomData?.room?.callRequestType || "audio") || "audio"
+
+    setCallRequestBusy(accept ? "approve" : "decline")
+    try {
+      const auth = getStoredSession()
+      const headers = { "Content-Type": "application/json" }
+      if (auth?.token) headers.authorization = `Bearer ${auth.token}`
+
+      const response = await fetch(`/api/rooms/${encodeURIComponent(roomId)}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ participantAction: accept ? "approve-call" : "decline-call", role: "patient" }),
+      })
+
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data?.message || "Failed to respond to call request")
+
+      setRoomData((current) => ({ ...current, room: data?.room || current?.room }))
+      if (accept) {
+        window.location.href = buildCallUrl(currentType)
+      }
+    } catch (err) {
+      setRoomError(err?.message || "Failed to respond to call request")
+    } finally {
+      setCallRequestBusy("")
+    }
   }
 
   function sendTyping(isTyping) {
@@ -552,62 +902,30 @@ function ChatPageContent() {
         </div>
 
         <div className="secureChatHeader__actions">
-          <button className="secureChatIconButton" type="button" onClick={() => goToCall("audio")} title="Voice call">
-            <Icon name="phone" />
-          </button>
-          <button className="secureChatIconButton" type="button" onClick={() => goToCall("video")} title="Video call">
-            <Icon name="video" />
-          </button>
-          <button className="secureChatIconButton" type="button" onClick={() => setMenuOpen((v) => !v)} title="More" aria-haspopup="menu" aria-expanded={menuOpen}>
-            <Icon name="dots" />
-          </button>
+          {sessionInfo?.role === "doctor" ? (
+            <>
+              <button
+                className="secureChatIconButton"
+                type="button"
+                onClick={() => requestCallSwitch("audio")}
+                title="Request voice call"
+                disabled={callRequestBusy === "audio"}
+              >
+                <Icon name="phone" />
+              </button>
+              <button
+                className="secureChatIconButton"
+                type="button"
+                onClick={() => requestCallSwitch("video")}
+                title="Request video call"
+                disabled={callRequestBusy === "video"}
+              >
+                <Icon name="video" />
+              </button>
+            </>
+          ) : null}
         </div>
       </div>
-
-      {menuOpen ? (
-        <div className="secureChatMenu" role="menu" aria-label="Chat actions">
-          <button
-            className="secureChatMenu__item"
-            type="button"
-            onClick={() => {
-              setMenuOpen(false)
-              goToCall("audio")
-            }}
-          >
-            Voice Call <span className="secureChatMenu__kbd">Audio</span>
-          </button>
-          <button
-            className="secureChatMenu__item"
-            type="button"
-            onClick={() => {
-              setMenuOpen(false)
-              goToCall("video")
-            }}
-          >
-            Video Call <span className="secureChatMenu__kbd">Video</span>
-          </button>
-          <button
-            className="secureChatMenu__item"
-            type="button"
-            onClick={() => {
-              setMenuOpen(false)
-              openCallLink("video")
-            }}
-          >
-            Send call link <span className="secureChatMenu__kbd">Copy URL</span>
-          </button>
-          <button
-            className="secureChatMenu__item"
-            type="button"
-            onClick={() => {
-              setMenuOpen(false)
-              scheduleCall()
-            }}
-          >
-            Schedule call <span className="secureChatMenu__kbd">Demo</span>
-          </button>
-        </div>
-      ) : null}
 
       <div className="secureChatBanner">
         <div style={{ color: "#22c55e", marginTop: 1 }}>
@@ -616,150 +934,375 @@ function ChatPageContent() {
         <div className="secureChatBanner__text">Messages and calls are end-to-end encrypted. Only people in this chat can read, listen to, or share them.</div>
       </div>
 
+      {sessionInfo?.role === "patient" && String(roomData?.room?.callRequestStatus || "").toLowerCase() === "pending" ? (
+        <div className="secureCallRequestBanner">
+          <strong>Doctor is requesting a call switch.</strong>
+          <p>
+            Switch to {String(roomData?.room?.callRequestType || "audio") === "video" ? "video" : "voice"} call now?
+          </p>
+          <div className="secureCallRequestBanner__actions">
+            <button
+              type="button"
+              className="secureCallRequestBanner__approve"
+              onClick={() => respondToCallRequest(true)}
+              disabled={callRequestBusy === "approve"}
+            >
+              {callRequestBusy === "approve" ? "Opening..." : "Agree"}
+            </button>
+            <button
+              type="button"
+              className="secureCallRequestBanner__decline"
+              onClick={() => respondToCallRequest(false)}
+              disabled={callRequestBusy === "decline"}
+            >
+              {callRequestBusy === "decline" ? "Declining..." : "Decline"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {sessionInfo?.role === "doctor" && String(roomData?.room?.callRequestStatus || "").toLowerCase() === "pending" ? (
+        <div className="secureCallRequestBanner">
+          <strong>Call switch request sent.</strong>
+          <p>Waiting for the patient to approve the switch.</p>
+        </div>
+      ) : null}
+
       <div className="secureChatStatusLine">
         Room: <code>{roomId}</code> • {remotePeerId ? `Peer connected` : `Waiting for a second person`}
       </div>
 
-      <div className="secureChatBody" ref={listRef}>
-        {messages.length === 0 ? (
-          <div style={{ padding: "12px 0 24px", color: "rgba(229,231,235,0.65)", fontSize: 13 }}>No messages yet. Join the same room on another browser/device to start chatting.</div>
-        ) : null}
+      {/* Mobile-only tab toggle for chat/room */}
+      {isMobile ? (
+        <div className="secureMobileTabToggle">
+          <button
+            className={`secureMobileTabToggle__btn ${!showRoomOnMobile ? 'secureMobileTabToggle__btn--active' : ''}`}
+            onClick={() => setShowRoomOnMobile(false)}
+          >
+            Chat
+          </button>
+          <button
+            className={`secureMobileTabToggle__btn ${showRoomOnMobile ? 'secureMobileTabToggle__btn--active' : ''}`}
+            onClick={() => setShowRoomOnMobile(true)}
+          >
+            Room
+          </button>
+        </div>
+      ) : null}
 
-        {messages.map((m) => {
-          const mine = myPeerId && m.from === myPeerId
-          const text = m.text
-          const reactions = m.reactions || {}
-          const hasReactions = Object.keys(reactions).length > 0
-          const isDropdownOpen = openReactionDropdown === m.id
+      {/* Split-screen container for desktop, single column for mobile */}
+      <div className={`secureChatContainer ${isMobile ? 'secureChatContainer--mobile' : 'secureChatContainer--desktop'}`}>
+        {/* Chat section (hidden on mobile unless showRoomOnMobile is false) */}
+        <div className={`secureChatSection ${isMobile && showRoomOnMobile ? 'secureChatSection--hidden' : ''}`}>
+          <div className="secureChatBody" ref={listRef}>
+            {messages.length === 0 ? (
+              <div style={{ padding: "12px 0 24px", color: "rgba(229,231,235,0.65)", fontSize: 13 }}>No messages yet. Join the same room on another browser/device to start chatting.</div>
+            ) : null}
 
-          return (
-            <div key={m.id} className={`secureChatRow ${mine ? "secureChatRow--mine" : "secureChatRow--theirs"}`}>
-              <div className={`secureChatBubble ${mine ? "secureChatBubble--mine" : "secureChatBubble--theirs"}`}>
-                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    {text === undefined ? "Decrypting..." : text}
-                    
-                  </div>
-                  <div style={{ position: "relative" }}>
-                    <button
-                      type="button"
-                      onClick={() => setOpenReactionDropdown(isDropdownOpen ? null : m.id)}
-                      title="Add reaction"
-                      style={{
-                        border: "1px solid rgba(255,255,255,0.14)",
-                        background: "rgba(0,0,0,0.14)",
-                        color: "inherit",
-                        borderRadius: 999,
-                        padding: "2px 7px",
-                        cursor: remotePeerId ? "pointer" : "not-allowed",
-                        fontSize: 14,
-                        opacity: remotePeerId ? 1 : 0.5,
-                      }}
-                      disabled={!remotePeerId}
-                    >
-                      +
-                    </button>
-                    {isDropdownOpen ? (
-                      <div
-                        style={{
-                          position: "absolute",
-                          bottom: "100%",
-                          right: 0,
-                          marginBottom: 4,
-                          background: "rgba(0,0,0,0.8)",
-                          border: "1px solid rgba(255,255,255,0.14)",
-                          borderRadius: 8,
-                          padding: "4px",
-                          display: "flex",
-                          gap: 4,
-                          zIndex: 1000,
-                        }}
-                      >
-                        {REACTIONS.map((e) => (
-                          <button
-                            key={e}
-                            type="button"
-                            onClick={() => {
-                              sendReaction(m.id, e)
-                              setOpenReactionDropdown(null)
-                            }}
-                            title={`React with ${e}`}
+            {messages.map((m) => {
+              const mine = myPeerId && m.from === myPeerId
+              const text = m.text
+              const reactions = m.reactions || {}
+              const hasReactions = Object.keys(reactions).length > 0
+              const isDropdownOpen = openReactionDropdown === m.id
+
+              return (
+                <div key={m.id} className={`secureChatRow ${mine ? "secureChatRow--mine" : "secureChatRow--theirs"}`}>
+                  <div className={`secureChatBubble ${mine ? "secureChatBubble--mine" : "secureChatBubble--theirs"}`}>
+                    <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        {text === undefined ? "Decrypting..." : text}
+                        
+                      </div>
+                      <div style={{ position: "relative" }}>
+                        <button
+                          type="button"
+                          onClick={() => setOpenReactionDropdown(isDropdownOpen ? null : m.id)}
+                          title="Add reaction"
+                          style={{
+                            border: "1px solid rgba(255,255,255,0.14)",
+                            background: "rgba(0,0,0,0.14)",
+                            color: "inherit",
+                            borderRadius: 999,
+                            padding: "2px 7px",
+                            cursor: remotePeerId ? "pointer" : "not-allowed",
+                            fontSize: 14,
+                            opacity: remotePeerId ? 1 : 0.5,
+                          }}
+                          disabled={!remotePeerId}
+                        >
+                          +
+                        </button>
+                        {isDropdownOpen ? (
+                          <div
                             style={{
-                              border: "none",
-                              background: "transparent",
-                              color: "inherit",
-                              cursor: "pointer",
-                              fontSize: 18,
-                              padding: "2px 4px",
-                              opacity: 0.8,
-                              transition: "opacity 0.2s",
+                              position: "absolute",
+                              bottom: "100%",
+                              right: 0,
+                              marginBottom: 4,
+                              background: "rgba(0,0,0,0.8)",
+                              border: "1px solid rgba(255,255,255,0.14)",
+                              borderRadius: 8,
+                              padding: "4px",
+                              display: "flex",
+                              gap: 4,
+                              zIndex: 1000,
                             }}
-                            onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-                            onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.8")}
                           >
-                            {e}
-                          </button>
+                            {REACTIONS.map((e) => (
+                              <button
+                                key={e}
+                                type="button"
+                                onClick={() => {
+                                  sendReaction(m.id, e)
+                                  setOpenReactionDropdown(null)
+                                }}
+                                title={`React with ${e}`}
+                                style={{
+                                  border: "none",
+                                  background: "transparent",
+                                  color: "inherit",
+                                  cursor: "pointer",
+                                  fontSize: 18,
+                                  padding: "2px 4px",
+                                  opacity: 0.8,
+                                  transition: "opacity 0.2s",
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                                onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.8")}
+                              >
+                                {e}
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {hasReactions ? (
+                      <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        {Object.entries(reactions).map(([emoji, count]) => (
+                          <span
+                            key={emoji}
+                            style={{
+                              fontSize: 12,
+                              padding: "2px 8px",
+                              borderRadius: 999,
+                              border: "1px solid rgba(255,255,255,0.12)",
+                              background: "rgba(255,255,255,0.04)",
+                            }}
+                          >
+                            {emoji} {count}
+                          </span>
                         ))}
                       </div>
                     ) : null}
+
+                    <div className="secureChatMeta">
+                      {formatTime(m.ts)}
+                      {mine && m.status ? ` • ${receiptLabel(m.status)}` : ""}
+                    </div>
                   </div>
                 </div>
+              )
+            })}
+          </div>
 
-                {hasReactions ? (
-                  <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {Object.entries(reactions).map(([emoji, count]) => (
-                      <span
-                        key={emoji}
-                        style={{
-                          fontSize: 12,
-                          padding: "2px 8px",
-                          borderRadius: 999,
-                          border: "1px solid rgba(255,255,255,0.12)",
-                          background: "rgba(255,255,255,0.04)",
-                        }}
-                      >
-                        {emoji} {count}
-                      </span>
-                    ))}
+          <div className="secureChatInputBar">
+            <div className="secureChatInputInner">
+              <textarea
+                className="secureChatTextInput"
+                value={draft}
+                onChange={(e) => onDraftChanged(e.target.value)}
+                placeholder="Message"
+                rows={1}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault()
+                    sendMessage().catch(() => setError("Message encryption/send failed."))
+                  }
+                }}
+              />
+              <button
+                className="secureChatSendButton"
+                type="button"
+                onClick={() => sendMessage().catch(() => setError("Message encryption/send failed."))}
+                disabled={!draft.trim() || !remotePeerId || !aesReady}
+                title={!remotePeerId ? "Waiting for peer..." : !aesReady ? "Securing..." : "Send"}
+              >
+                <Icon name="send" />
+              </button>
+            </div>
+            {error ? <div style={{ marginTop: 8, color: "#f87171", fontSize: 12 }}>{error}</div> : null}
+          </div>
+        </div>
+
+        {/* Room section (hidden on mobile unless showRoomOnMobile is true) */}
+        <div className={`secureRoomSection ${isMobile && !showRoomOnMobile ? 'secureRoomSection--hidden' : ''}`}>
+          <div className="secureRoomPanel">
+            <div className="secureRoomPanel__header">
+              <strong>Consultation Room</strong>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span>
+                  Patient: {roomData?.room?.patientId || urlPatientId || "N/A"} • Doctor: {roomData?.room?.doctorId || urlDoctorId || "N/A"}
+                </span>
+                {sessionInfo?.role === "doctor" ? (
+                  <button
+                    type="button"
+                    className="secureRoomPanel__end"
+                    onClick={() => endRoom()}
+                    disabled={roomActionBusy}
+                    title="End session"
+                  >
+                    {roomActionBusy ? "Ending..." : "End session"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="secureRoomPanel__close"
+                    onClick={() => leaveRoom()}
+                    title="Close room"
+                  >
+                    Close
+                  </button>
+                )}
+              </span>
+            </div>
+
+            {roomLoading ? <p className="secureRoomPanel__hint">Loading room details...</p> : null}
+
+            {!roomLoading && roomData?.consentAccepted ? (
+              <div className="secureRoomPreview">
+                <h4>Consented record preview</h4>
+                <p><strong>Medical history:</strong> {roomData?.recordPreview?.medicalHistory || "No shared medical history."}</p>
+                <p><strong>Prescriptions:</strong> {roomData?.recordPreview?.prescriptions || "No shared prescriptions."}</p>
+                <p><strong>Allergies:</strong> {roomData?.recordPreview?.allergies || "No shared allergies."}</p>
+              </div>
+            ) : null}
+
+            {!roomLoading && !roomData?.consentAccepted ? (
+              <p className="secureRoomPanel__hint">Patient records remain hidden until consent is accepted for this appointment.</p>
+            ) : null}
+
+            {sessionInfo?.role === "doctor" ? (
+              <div className="secureDoctorClinical">
+                <h4>Doctor clinical section</h4>
+                <label className="secureDoctorClinical__label">
+                  Consultation notes (used for patient medical history)
+                  <textarea
+                    className="secureDoctorClinical__input"
+                    value={doctorNotesDraft}
+                    onChange={(e) => setDoctorNotesDraft(e.target.value)}
+                    rows={3}
+                    placeholder="Write consultation notes..."
+                  />
+                </label>
+
+                <label className="secureDoctorClinical__label">
+                  Prescription
+                  <textarea
+                    className="secureDoctorClinical__input"
+                    value={doctorPrescriptionDraft}
+                    onChange={(e) => setDoctorPrescriptionDraft(e.target.value)}
+                    rows={3}
+                    placeholder="Write prescription instructions..."
+                  />
+                </label>
+
+                <label className="secureDoctorClinical__label">
+                  Allergies
+                  <textarea
+                    className="secureDoctorClinical__input"
+                    value={doctorAllergiesDraft}
+                    onChange={(e) => setDoctorAllergiesDraft(e.target.value)}
+                    rows={2}
+                    placeholder="Document allergies if any..."
+                  />
+                </label>
+
+                <button type="button" className="secureDoctorClinical__save" onClick={saveClinicalSection} disabled={savingClinical}>
+                  {savingClinical ? "Saving..." : "Save to room and patient record"}
+                </button>
+
+                {/* Patient Lab Files Section */}
+                {roomData?.consentAccepted && Array.isArray(roomData?.recordPreview?.labResults) && roomData.recordPreview.labResults.length > 0 ? (
+                  <div className="secureLabFilesSection">
+                    <h4>Patient Lab Files</h4>
+                    <div className="secureLabFilesList">
+                      {roomData.recordPreview.labResults.map((file, index) => (
+                        <button
+                          key={`${file.url || "file"}-${index}`}
+                          className={`secureLabFileItem ${selectedLabFile?.url === file.url ? 'secureLabFileItem--selected' : ''}`}
+                          onClick={() => setSelectedLabFile(selectedLabFile?.url === file.url ? null : file)}
+                        >
+                          📄 {file.fileName || `Lab Result ${index + 1}`}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Lab File Preview */}
+                    {selectedLabFile ? (
+                      <div className="secureLabFilePreview">
+                        <div className="secureLabFilePreview__header">
+                          <strong>{selectedLabFile.fileName || "Lab File"}</strong>
+                          <button
+                            type="button"
+                            className="secureLabFilePreview__close"
+                            onClick={() => setSelectedLabFile(null)}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <div className="secureLabFilePreview__container">
+                          {selectedLabFile.mimeType?.includes('pdf') ? (
+                            <iframe
+                              src={`https://docs.google.com/gview?url=${encodeURIComponent(selectedLabFile.url)}&embedded=true`}
+                              className="secureLabFilePreview__iframe"
+                              title="Lab file preview"
+                              frameBorder="0"
+                            />
+                          ) : selectedLabFile.mimeType?.includes('image') ? (
+                            <Image
+                              src={selectedLabFile.url}
+                              alt={selectedLabFile.fileName || 'Lab file'}
+                              className="secureLabFilePreview__image"
+                              width={400}
+                              height={400}
+                            />
+                          ) : (
+                            <div className="secureLabFilePreview__fallback">
+                              <a href={selectedLabFile.url} target="_blank" rel="noreferrer" className="secureLabFilePreview__link">
+                                Open file in new tab →
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
 
-                <div className="secureChatMeta">
-                  {formatTime(m.ts)}
-                  {mine && m.status ? ` • ${receiptLabel(m.status)}` : ""}
-                </div>
+                <label className="secureDoctorClinical__label">
+                  Room files
+                  <input type="file" multiple onChange={uploadRoomFiles} disabled={uploadingRoomFiles} />
+                </label>
+                {Array.isArray(roomData?.room?.files) && roomData.room.files.length > 0 ? (
+                  <div className="secureRoomFilesList">
+                    {roomData.room.files.map((item, index) => (
+                      <a key={`${item.url || "file"}-${index}`} href={item.url || "#"} target="_blank" rel="noreferrer">
+                        {item.name || `File ${index + 1}`}
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
+                {clinicalNotice ? <p className="secureRoomPanel__notice">{clinicalNotice}</p> : null}
               </div>
-            </div>
-          )
-        })}
-      </div>
+            ) : null}
 
-      <div className="secureChatInputBar">
-        <div className="secureChatInputInner">
-          <textarea
-            className="secureChatTextInput"
-            value={draft}
-            onChange={(e) => onDraftChanged(e.target.value)}
-            placeholder="Message"
-            rows={1}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault()
-                sendMessage().catch(() => setError("Message encryption/send failed."))
-              }
-            }}
-          />
-          <button
-            className="secureChatSendButton"
-            type="button"
-            onClick={() => sendMessage().catch(() => setError("Message encryption/send failed."))}
-            disabled={!draft.trim() || !remotePeerId || !aesReady}
-            title={!remotePeerId ? "Waiting for peer..." : !aesReady ? "Securing..." : "Send"}
-          >
-            <Icon name="send" />
-          </button>
+            {urlDoctorName ? <p className="secureRoomPanel__hint">Assigned doctor: {urlDoctorName}</p> : null}
+            {roomError ? <p className="secureRoomPanel__error">{roomError}</p> : null}
+          </div>
         </div>
-        {error ? <div style={{ marginTop: 8, color: "#f87171", fontSize: 12 }}>{error}</div> : null}
       </div>
     </div>
   )

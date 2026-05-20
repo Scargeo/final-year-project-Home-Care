@@ -568,6 +568,25 @@
   margin-top: 0.75rem;
 }
 
+/* Join button specific styling */
+.joinButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 0.95rem;
+  border-radius: 0.5rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  text-decoration: none;
+}
+
+.joinButtonDisabled {
+  opacity: 0.6;
+  cursor: default;
+  filter: saturate(0.7);
+}
+
 .actionFaded {
   opacity: 0.45;
   filter: saturate(0.75);

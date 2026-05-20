@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@pinecone-database/pinecone": "^7.1.0",
+    "@modelcontextprotocol/sdk": "^1.15.0",
     "axios": "^1.13.6",
     "bcrypt": "^6.0.0",
     "cloudinary": "^1.41.3",

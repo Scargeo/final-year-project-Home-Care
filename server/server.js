@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
+const Appointment = require('./models/privateHealthWorker/doctor/appointment');
+const ConsultationRoom = require('./models/hospital/consultationRoom');
 // const { createProxyMiddleware } = require('http-proxy-middleware');
 // Load environment variables from .env file
 const dotenv = require('dotenv');
@@ -50,6 +52,66 @@ const io = new Server(server, {
 
 // Real-time SOS sockets let providers see new alerts instantly without waiting for polling.
 app.set('io', io);
+
+function getAppointmentEndDate(appointment) {
+  if (!appointment) return null
+
+  const appointmentDate = new Date(appointment.appointmentDate)
+  if (Number.isNaN(appointmentDate.getTime())) return null
+
+  const [hours = 0, minutes = 0] = String(appointment.appointmentTime || '')
+    .split(':')
+    .map((value) => Number.parseInt(value, 10))
+
+  appointmentDate.setHours(Number.isFinite(hours) ? hours : 0, Number.isFinite(minutes) ? minutes : 0, 0, 0)
+  appointmentDate.setMinutes(appointmentDate.getMinutes() + Number.parseInt(String(appointment.duration || 30), 10))
+  return appointmentDate
+}
+
+async function completeEligibleRooms() {
+  const now = new Date()
+  const rooms = await ConsultationRoom.find({
+    status: { $nin: ['completed', 'cancelled'] },
+    appointmentId: { $ne: '' },
+    doctorJoinedAt: { $ne: null },
+    patientJoinedAt: { $ne: null },
+  }).lean()
+
+  for (const room of rooms) {
+    const appointment = await Appointment.findOne({ appointmentId: String(room.appointmentId || '') }).lean()
+    if (!appointment) continue
+
+    const terminalStatuses = new Set(['completed', 'cancelled', 'no-show'])
+    if (terminalStatuses.has(String(appointment.status || '').toLowerCase())) continue
+
+    const endTime = getAppointmentEndDate(appointment)
+    if (!endTime || endTime.getTime() > now.getTime()) continue
+
+    const completedAt = room.completedAt ? new Date(room.completedAt) : now
+    const updatedAppointment = await Appointment.findOneAndUpdate(
+      { appointmentId: appointment.appointmentId },
+      { status: 'completed', updatedAt: now },
+      { new: true },
+    )
+
+    if (!updatedAppointment) continue
+
+    await ConsultationRoom.findOneAndUpdate(
+      { roomId: room.roomId },
+      { $set: { status: 'completed', completedAt } },
+      { new: true },
+    )
+
+    io.to(`appointments-doctor-${String(updatedAppointment.doctorId)}`).emit('appointment-updated', { appointment: updatedAppointment })
+    io.to(`appointments-patient-${String(updatedAppointment.patientId)}`).emit('appointment-updated', { appointment: updatedAppointment })
+  }
+}
+
+setInterval(() => {
+  completeEligibleRooms().catch((error) => {
+    console.error('Failed to auto-complete consultation rooms:', error)
+  })
+}, 60 * 1000)
 
 io.on('connection', (socket) => {
   socket.on('join-provider', () => {
@@ -103,6 +165,8 @@ app.use('/api/ai', require('./routes/ai/labResultRoute'));
 app.use('/api/uploads', require('./routes/uploadsRoute'));
 // Public posts (doctors can post thoughts/images; visible to all users)
 app.use('/api/posts', require('./routes/posts/postRoute'));
+// Consultation room data for appointments (consent-aware record preview + doctor notes)
+app.use('/api/rooms', require('./routes/rooms/roomRoute'));
 
 
 

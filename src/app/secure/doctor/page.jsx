@@ -175,6 +175,7 @@ export default function DoctorDashboard() {
   const [appointmentView, setAppointmentView] = useState("today") // today, upcoming
   const [appointmentHistory, setAppointmentHistory] = useState([])
   const [appointmentHistoryLoading, setAppointmentHistoryLoading] = useState(false)
+  const [nowTick, setNowTick] = useState(new Date())
   const selectedAppointmentRef = useRef(null)
   const fileInputRef = useRef(null)
   const labFileInputRef = useRef(null)
@@ -234,6 +235,12 @@ export default function DoctorDashboard() {
 
     loadAppointmentHistory()
   }, [selectedTab, doctorId, appointmentHistoryFilter])
+
+  // Keep a ticking "now" to enable join buttons when appointment time is reached
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(new Date()), 15_000)
+    return () => clearInterval(id)
+  }, [])
 
   // Accept appointment from history
   const handleAcceptAppointment = useCallback(async (appointmentId) => {
@@ -906,6 +913,13 @@ export default function DoctorDashboard() {
       upsertAppointment(payload?.appointment)
     })
 
+    socket.on('appointment-room-assigned', (payload) => {
+      const aId = String(payload?.appointmentId || '')
+      const rId = String(payload?.roomId || '')
+      if (!aId || !rId) return
+      upsertAppointment({ appointmentId: aId, roomId: rId })
+    })
+
     // clear pending flags when the server indicates rebook finished via created/updated flows
     socket.on('appointment-reassigned', () => {
       // noop here; appointment-created handler will handle moving items
@@ -1066,6 +1080,42 @@ export default function DoctorDashboard() {
                 {isAccepted ? "Cancel appointment" : "Accept appointment"}
               </button>
             )}
+            {/* Join room button - visible only on accepted appointments and not missed */}
+            {String(apt.status || '').toLowerCase() === 'accepted' && !isMissed ? (
+              (() => {
+                const appointmentId = String(apt.appointmentId || apt._id || '')
+                const roomId = String(apt.roomId || `appointment-${appointmentId}`)
+                const dateTime = buildAppointmentDateTime(apt.appointmentDate, apt.appointmentTime)
+                const now = nowTick || new Date()
+                const canJoin = dateTime && now.getTime() >= dateTime.getTime()
+                const type = String(apt.consultationType || '').toLowerCase()
+                let href = '#'
+                if (type === 'messaging' || type === 'message') {
+                  const name = encodeURIComponent(apt.patientName || 'Patient')
+                  href = `/secure/chat?roomId=${encodeURIComponent(roomId)}&name=${name}&patientId=${encodeURIComponent(apt.patientId||'')}&doctorId=${encodeURIComponent(doctorId)}`
+                } else if (type === 'video') {
+                  href = `/secure/call?roomId=${encodeURIComponent(roomId)}&mode=video&patientId=${encodeURIComponent(apt.patientId||'')}&doctorId=${encodeURIComponent(doctorId)}`
+                } else if (type === 'phone' || type === 'call') {
+                  href = `/secure/call?roomId=${encodeURIComponent(roomId)}&mode=phone&patientId=${encodeURIComponent(apt.patientId||'')}&doctorId=${encodeURIComponent(doctorId)}`
+                }
+
+                return (
+                  <Link
+                    href={href}
+                    className={`${styles.joinButton} ${!canJoin ? styles.joinButtonDisabled : ''}`}
+                    onClick={(e) => {
+                      if (!canJoin) {
+                        e.preventDefault()
+                        return
+                      }
+                    }}
+                    aria-disabled={!canJoin}
+                  >
+                    {canJoin ? 'Join room' : 'Join (when live)'}
+                  </Link>
+                )
+              })()
+            ) : null}
           </div>
         </div>
       </div>

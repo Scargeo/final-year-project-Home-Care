@@ -738,6 +738,7 @@ router.post('/appointments/auto-assign', async (req, res) => {
 
     const parsedAppointmentDate = plan.parsedAppointmentDate
     const inference = plan.inference
+    const generatedRoomId = `appointment-${resolvedAppointmentId}`
     const appointment = await Appointment.create({
       appointmentId: resolvedAppointmentId,
       doctorId: selectedDoctor.doctorId,
@@ -749,6 +750,7 @@ router.post('/appointments/auto-assign', async (req, res) => {
       duration: Number(duration) > 0 ? Number(duration) : 30,
       reason: patientReason,
       consultationType: resolvedConsultationType,
+      roomId: generatedRoomId,
       triageCategory: inference.specialtyLabel,
       triageConfidence: inference.confidence,
       triageSummary: inference.summary,
@@ -759,6 +761,14 @@ router.post('/appointments/auto-assign', async (req, res) => {
     if (io) {
       io.to(`appointments-doctor-${String(selectedDoctor.doctorId)}`).emit('appointment-created', { appointment })
       io.to(`appointments-patient-${String(patientId)}`).emit('appointment-created', { appointment })
+      // announce room assignment so clients can wire up join controls
+      try {
+        const rid = String(appointment.roomId || `appointment-${appointment.appointmentId}`)
+        io.to(`appointments-doctor-${String(selectedDoctor.doctorId)}`).emit('appointment-room-assigned', { appointmentId: String(appointment.appointmentId), roomId: rid })
+        io.to(`appointments-patient-${String(patientId)}`).emit('appointment-room-assigned', { appointmentId: String(appointment.appointmentId), roomId: rid })
+      } catch {
+        // ignore
+      }
     }
 
     try {
@@ -766,8 +776,8 @@ router.post('/appointments/auto-assign', async (req, res) => {
         notificationId: `NOTIF-${nanoid(10).toUpperCase()}`,
         doctorId: selectedDoctor.doctorId,
         type: 'appointment',
-        title: 'New appointment assigned',
-        message: `${patientName} was assigned to you for ${appointmentTime} on ${parsedAppointmentDate.toLocaleDateString()}.`,
+        title: 'New appointment booked',
+        message: `${patientName} booked an appointment for ${appointmentTime} on ${parsedAppointmentDate.toLocaleDateString()}.`,
         relatedTo: resolvedAppointmentId,
         priority: 'normal',
         actionUrl: '/secure/doctor',
@@ -856,6 +866,7 @@ router.post('/:doctorId/appointments', async (req, res) => {
       return res.status(400).json({ message: 'Please choose a time at least 5 minutes from now' })
     }
 
+    const generatedRoomId = `appointment-${resolvedAppointmentId}`
     const appointment = await Appointment.create({
       appointmentId: resolvedAppointmentId,
       doctorId,
@@ -867,6 +878,7 @@ router.post('/:doctorId/appointments', async (req, res) => {
       duration: duration || 30,
       reason,
       consultationType: resolvedConsultationType,
+      roomId: generatedRoomId,
       triageCategory,
       triageConfidence,
       triageSummary,
@@ -877,6 +889,13 @@ router.post('/:doctorId/appointments', async (req, res) => {
     if (io) {
       io.to(`appointments-doctor-${String(doctorId)}`).emit('appointment-created', { appointment })
       io.to(`appointments-patient-${String(patientId)}`).emit('appointment-created', { appointment })
+      try {
+        const rid = String(appointment.roomId || `appointment-${appointment.appointmentId}`)
+        io.to(`appointments-doctor-${String(doctorId)}`).emit('appointment-room-assigned', { appointmentId: String(appointment.appointmentId), roomId: rid })
+        io.to(`appointments-patient-${String(patientId)}`).emit('appointment-room-assigned', { appointmentId: String(appointment.appointmentId), roomId: rid })
+      } catch {
+        // ignore
+      }
     }
 
     try {
@@ -907,7 +926,7 @@ router.patch('/:doctorId/appointments/:appointmentId', async (req, res) => {
     const { doctorId, appointmentId } = req.params
     const { status, notes } = req.body
 
-    const appointment = await Appointment.findOneAndUpdate(
+    let appointment = await Appointment.findOneAndUpdate(
       { appointmentId, doctorId },
       {
         status,
@@ -1033,11 +1052,25 @@ router.patch('/:doctorId/appointments/:appointmentId', async (req, res) => {
           console.error('Failed to mark original appointment cancelled after rebook cancellation:', innerErr && innerErr.stack ? innerErr.stack : innerErr)
         }
       }
-    } catch {
-      // best-effort; ignore errors
+    } catch (err) {
+      void err
     }
 
+    // Ensure a roomId exists when appointment is accepted so clients can join
     const io = req?.app?.get('io')
+    if (String(status || '').toLowerCase() === 'accepted' && appointment) {
+      if (!appointment.roomId) {
+        try {
+          const newRoom = `appointment-${String(appointment.appointmentId)}`
+          appointment.roomId = newRoom
+          await Appointment.updateOne({ appointmentId: appointment.appointmentId }, { roomId: newRoom }).catch(() => {})
+          appointment = { ...(appointment.toObject ? appointment.toObject() : appointment), roomId: newRoom }
+        } catch {
+          // best-effort; continue
+        }
+      }
+    }
+
     if (io) {
       io.to(`appointments-doctor-${String(doctorId)}`).emit('appointment-updated', { appointment })
       if (appointment?.patientId) {
@@ -1122,8 +1155,9 @@ router.post('/:doctorId/appointments/:appointmentId/rebook', async (req, res) =>
 
     let rebookedAppointment
     try {
+      const newRebookId = `APT-${nanoid(10).toUpperCase()}`
       rebookedAppointment = await Appointment.create({
-        appointmentId: `APT-${nanoid(10).toUpperCase()}`,
+        appointmentId: newRebookId,
         doctorId: plan.selectedDoctor.doctorId,
         patientId: existingAppointment.patientId,
         patientName: existingAppointment.patientName,
@@ -1135,6 +1169,7 @@ router.post('/:doctorId/appointments/:appointmentId/rebook', async (req, res) =>
         rebookedFromAppointmentId: String(existingAppointment.appointmentId || ''),
         reason: existingAppointment.reason,
         consultationType: existingAppointment.consultationType,
+        roomId: `appointment-${newRebookId}`,
         triageCategory: existingAppointment.triageCategory,
         triageConfidence: existingAppointment.triageConfidence,
         triageSummary: existingAppointment.triageSummary,
@@ -1161,6 +1196,12 @@ router.post('/:doctorId/appointments/:appointmentId/rebook', async (req, res) =>
       console.log('[rebook] emitting appointment-created to doctor %s and patient %s', String(plan.selectedDoctor.doctorId), String(existingAppointment.patientId))
       io.to(`appointments-doctor-${String(plan.selectedDoctor.doctorId)}`).emit('appointment-created', { appointment: payload })
       io.to(`appointments-patient-${String(existingAppointment.patientId)}`).emit('appointment-created', { appointment: payload })
+      try {
+        io.to(`appointments-doctor-${String(plan.selectedDoctor.doctorId)}`).emit('appointment-room-assigned', { appointmentId: String(payload.appointmentId), roomId: String(payload.roomId || `appointment-${payload.appointmentId}`) })
+        io.to(`appointments-patient-${String(existingAppointment.patientId)}`).emit('appointment-room-assigned', { appointmentId: String(payload.appointmentId), roomId: String(payload.roomId || `appointment-${payload.appointmentId}`) })
+      } catch {
+        // ignore
+      }
     }
 
     return res.status(201).json({

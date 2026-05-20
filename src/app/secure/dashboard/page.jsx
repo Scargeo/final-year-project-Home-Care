@@ -116,6 +116,28 @@ function getWelcomeMessage(name) {
   return `${timeGreeting}${displayName}. ${opener}`
 }
 
+function getStoredAuth() {
+  if (typeof window === "undefined") return null
+  try {
+    const stored = window.localStorage.getItem("patientAuth")
+    return stored ? JSON.parse(stored) : null
+  } catch {
+    return null
+  }
+}
+
+function getStoredToken() {
+  if (typeof window === 'undefined') return null
+  try {
+    const patientAuth = window.localStorage.getItem('patientAuth')
+    const doctorAuth = window.localStorage.getItem('doctorAuth')
+    const parsed = patientAuth ? JSON.parse(patientAuth) : doctorAuth ? JSON.parse(doctorAuth) : null
+    return parsed?.token || parsed?.accessToken || null
+  } catch {
+    return null
+  }
+}
+
 export default function DashboardPage() {
   const patientName = useSyncExternalStore(() => () => {}, getDisplayName, () => "Patient")
   const [aiOpen, setAiOpen] = useState(false)
@@ -125,52 +147,12 @@ export default function DashboardPage() {
   const [aiConversationId, setAiConversationId] = useState("")
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState("")
+  const [proposedAppointment, setProposedAppointment] = useState(null)
   const [profileImage, setProfileImage] = useState(null)
   const aiInputRef = useRef(null)
   const aiThreadRef = useRef(null)
   const fileInputRef = useRef(null)
   const headerRef = useRef(null)
-
-  useEffect(() => {
-    if (typeof window === "undefined") return
-
-    const storedAuth = window.localStorage.getItem("patientAuth")
-    if (!storedAuth) return
-
-    try {
-      const auth = JSON.parse(storedAuth)
-      if (auth.profileImage && auth.profileImage.url) {
-        setProfileImage(auth.profileImage)
-      }
-    } catch {
-      // ignore parse errors
-    }
-  }, [])
-
-  function getStoredAuth() {
-    if (typeof window === "undefined") return null
-
-    const stored = window.localStorage.getItem("patientAuth")
-    if (!stored) return null
-
-    try {
-      return JSON.parse(stored)
-    } catch {
-      return null
-    }
-  }
-
-  function getStoredToken() {
-    if (typeof window === 'undefined') return null
-    try {
-      const patientAuth = window.localStorage.getItem('patientAuth')
-      const doctorAuth = window.localStorage.getItem('doctorAuth')
-      const parsed = patientAuth ? JSON.parse(patientAuth) : doctorAuth ? JSON.parse(doctorAuth) : null
-      return parsed?.token || parsed?.accessToken || null
-    } catch {
-      return null
-    }
-  }
 
   const handleProfileImageSelect = useCallback(
     async (event) => {
@@ -333,11 +315,12 @@ export default function DashboardPage() {
 
     try {
       const storedAuth = typeof window !== "undefined" ? window.localStorage.getItem("patientAuth") : null
+      let auth = null
       let userId = "patient"
 
       if (storedAuth) {
         try {
-          const auth = JSON.parse(storedAuth)
+          auth = JSON.parse(storedAuth)
           userId = auth?.patientEmail || auth?.id || [auth?.patientFirstName, auth?.patientLastName].filter(Boolean).join(" ").trim() || "patient"
         } catch {
           userId = "patient"
@@ -351,6 +334,8 @@ export default function DashboardPage() {
         body: JSON.stringify({
           query,
           userId,
+          patientId: auth?.patientId || auth?.id || auth?._id || "",
+          userRole: "patient",
           conversationId: aiConversationId || undefined,
         }),
       })
@@ -360,17 +345,98 @@ export default function DashboardPage() {
         throw new Error(data?.error || data?.details || "Could not load the assistant response.")
       }
 
-      setAiMessages((currentMessages) => [
-        ...currentMessages,
-        {
-          id: `${Date.now()}-assistant`,
-          role: "assistant",
-          content: String(data?.response || "No response returned.").trim(),
-          timestamp: new Date(),
-          sources: Array.isArray(data?.context) ? data.context : Array.isArray(data?.sources) ? data.sources : [],
-        },
-      ])
+      const proposedAppointmentDraft = data?.action?.proposedAppointment
       setAiConversationId(String(data?.conversationId || aiConversationId || ""))
+
+      if (proposedAppointmentDraft && !data?.action?.actionTaken) {
+        setProposedAppointment(proposedAppointmentDraft)
+        setAiMessages((currentMessages) => [
+          ...currentMessages,
+          {
+            id: `${Date.now()}-assistant-waiting`,
+            role: "assistant",
+            content: "Please wait while I book your appointment.",
+            timestamp: new Date(),
+          },
+        ])
+
+        const storedAuth = typeof window !== "undefined" ? window.localStorage.getItem("patientAuth") : null
+        let auth = null
+        if (storedAuth) {
+          try {
+            auth = JSON.parse(storedAuth)
+          } catch {
+            auth = null
+          }
+        }
+
+        const appointmentTime = new Date(proposedAppointmentDraft.appointmentDate)
+        const bookingPayload = {
+          appointmentId: `APT-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
+          patientId: auth?.patientId || auth?.id || auth?._id || "",
+          patientName: auth ? ([auth.patientFirstName, auth.patientLastName].filter(Boolean).join(" ").trim() || auth.patientFirstName || patientName) : patientName,
+          patientPhone: auth?.patientPhone || auth?.phone || "",
+          appointmentDate: appointmentTime.toISOString().slice(0, 10),
+          appointmentTime: appointmentTime.toTimeString().slice(0, 5),
+          consultationType: proposedAppointmentDraft.consultationType || "messaging",
+          duration: 30,
+          reason: proposedAppointmentDraft.reason || query,
+        }
+
+        try {
+          const headers = { 'Content-Type': 'application/json' }
+          const token = getStoredToken()
+          if (token) headers.authorization = `Bearer ${token}`
+
+          const bookingResponse = await fetch('/api/doctors/auto-assign', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(bookingPayload),
+          })
+          const bookingData = await bookingResponse.json().catch(() => ({}))
+
+          if (!bookingResponse.ok) {
+            throw new Error(bookingData?.message || bookingData?.error || 'Could not book appointment')
+          }
+
+          const doctor = bookingData?.doctor || {}
+          const assignedDoctorName = doctor?.doctorName || [doctor?.doctorFirstName, doctor?.doctorLastName].filter(Boolean).join(' ').trim() || doctor?.name || 'Doctor'
+          setAiMessages((currentMessages) => [
+            ...currentMessages,
+            {
+              id: `${Date.now()}-assistant-success`,
+              role: 'assistant',
+              content: `Appointment booked successfully. ${assignedDoctorName} has been assigned.`,
+              timestamp: new Date(),
+            },
+          ])
+        } catch (bookingError) {
+          const message = bookingError?.message || 'Could not book appointment'
+          setAiMessages((currentMessages) => [
+            ...currentMessages,
+            {
+              id: `${Date.now()}-assistant-failure`,
+              role: 'assistant',
+              content: `Booking failed: ${message}`,
+              tone: 'error',
+              timestamp: new Date(),
+            },
+          ])
+        } finally {
+          setProposedAppointment(null)
+        }
+      } else {
+        setAiMessages((currentMessages) => [
+          ...currentMessages,
+          {
+            id: `${Date.now()}-assistant`,
+            role: "assistant",
+            content: String(data?.response || "No response returned.").trim(),
+            timestamp: new Date(),
+            sources: Array.isArray(data?.context) ? data.context : Array.isArray(data?.sources) ? data.sources : [],
+          },
+        ])
+      }
     } catch (error) {
       const errorMessage = error?.message || "AI assistant is unavailable right now."
       setAiError(errorMessage)
@@ -637,6 +703,56 @@ export default function DashboardPage() {
                               <span />
                               <span />
                             </div>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {proposedAppointment ? (
+                        <div className={styles.proposedAppointment} role="dialog" aria-label="Proposed appointment">
+                          <div className={styles.proposedAppointmentHeader}>Proposed Appointment</div>
+                          <div className={styles.proposedAppointmentBody}>
+                            <div><strong>Doctor:</strong> {proposedAppointment.doctor?.name || proposedAppointment.doctorId}</div>
+                            <div><strong>Specialty:</strong> {proposedAppointment.specialty || 'General'}</div>
+                            <div><strong>Date:</strong> {new Date(proposedAppointment.appointmentDate).toLocaleString()}</div>
+                            <div><strong>Type:</strong> {proposedAppointment.consultationType || 'video'}</div>
+                            <div style={{ marginTop: 8 }}><em>Reason:</em> {proposedAppointment.reason}</div>
+                          </div>
+                          <div className={styles.proposedAppointmentActions}>
+                            <button
+                              type="button"
+                              className={styles.aiButton}
+                              onClick={async () => {
+                                const draft = {
+                                  date: proposedAppointment.appointmentDate?.slice(0, 10) || '',
+                                  time: new Date(proposedAppointment.appointmentDate).toTimeString().slice(0, 5),
+                                  consultationType: proposedAppointment.consultationType || 'messaging',
+                                  duration: '30',
+                                  reason: proposedAppointment.reason || aiQuery || 'Book appointment',
+                                  specialty: proposedAppointment.specialty || 'general',
+                                  doctorId: proposedAppointment.doctor?.id || proposedAppointment.doctorId || '',
+                                }
+
+                                try {
+                                  window.sessionStorage.setItem('homecare:appointmentDraft', JSON.stringify(draft))
+                                  window.sessionStorage.setItem('homecare:appointmentAutoSubmit', '1')
+                                  window.sessionStorage.setItem('homecare:appointmentDraftSource', 'ai')
+                                  setProposedAppointment(null)
+                                  window.location.href = '/secure/appointments'
+                                } catch (err) {
+                                  console.error('Failed to hand off appointment draft', err)
+                                  setAiError(String(err?.message || err))
+                                }
+                              }}
+                            >
+                              Open Booking Form
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.aiGhostButton}
+                              onClick={() => setProposedAppointment(null)}
+                            >
+                              Cancel
+                            </button>
                           </div>
                         </div>
                       ) : null}

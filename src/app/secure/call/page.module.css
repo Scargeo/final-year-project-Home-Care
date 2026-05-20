@@ -1,0 +1,360 @@
+.page {
+  min-height: 100svh;
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.2), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.16), transparent 28%),
+    linear-gradient(180deg, #09111f 0%, #0b1726 48%, #08101b 100%);
+  color: #e5eefb;
+  display: flex;
+  flex-direction: column;
+}
+
+.topBar {
+  min-height: 4.5rem;
+  padding: 0.9rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(7, 13, 24, 0.7);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+.topBar__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.logoMark {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.95rem;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #0ea5e9 0%, #22c55e 100%);
+  box-shadow: 0 18px 34px rgba(14, 165, 233, 0.22);
+}
+
+.logoMark span {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.topBar__title {
+  font-size: 0.98rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.topBar__subtitle {
+  font-size: 0.78rem;
+  color: rgba(229, 238, 251, 0.72);
+  margin-top: 0.1rem;
+}
+
+.topBar__badge {
+  padding: 0.5rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.24);
+  background: rgba(14, 165, 233, 0.12);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #d6f3ff;
+}
+
+.meetingShell {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: 1rem;
+  padding: 1rem;
+  min-height: 0;
+}
+
+.stage {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 0;
+}
+
+.videoFrame {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border-radius: 1.5rem;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background:
+    radial-gradient(circle at 35% 20%, rgba(14, 165, 233, 0.18), transparent 28%),
+    linear-gradient(180deg, rgba(11, 23, 38, 0.86), rgba(5, 10, 20, 0.95));
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.28);
+  min-height: 34rem;
+}
+
+.remoteVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #050b14;
+}
+
+.joinOverlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: linear-gradient(180deg, rgba(5, 10, 20, 0.32), rgba(5, 10, 20, 0.58));
+}
+
+.joinOverlay__card {
+  width: min(32rem, 100%);
+  padding: 1.4rem;
+  border-radius: 1.4rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(8, 16, 28, 0.84);
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.32);
+  text-align: center;
+}
+
+.joinOverlay__card p {
+  margin: 0 0 0.4rem;
+  color: rgba(226, 232, 240, 0.78);
+  font-size: 0.86rem;
+}
+
+.joinOverlay__card h1 {
+  margin: 0;
+  font-size: clamp(1.5rem, 3vw, 2.5rem);
+  letter-spacing: -0.04em;
+}
+
+.joinOverlay__card span {
+  display: block;
+  margin-top: 0.45rem;
+  color: rgba(203, 213, 225, 0.8);
+  font-size: 0.92rem;
+}
+
+.joinButton {
+  margin-top: 1rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.85rem 1.2rem;
+  background: linear-gradient(135deg, #0ea5e9 0%, #22c55e 100%);
+  color: #ffffff;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 18px 30px rgba(14, 165, 233, 0.24);
+}
+
+.selfViewCard {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  width: 13rem;
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(7, 13, 24, 0.72);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.28);
+  z-index: 2;
+}
+
+.selfVideo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: #0b1220;
+}
+
+.selfViewCard__label {
+  padding: 0.55rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: rgba(226, 232, 240, 0.9);
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(8, 15, 26, 0.75);
+}
+
+.controlDock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.85rem;
+  border-radius: 1.3rem;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(7, 13, 24, 0.72);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+.controlButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.8rem 1rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: #eef6ff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.controlButton:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.controlButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.controlButtonDanger {
+  background: rgba(239, 68, 68, 0.16);
+  color: #fecaca;
+}
+
+.controlButtonDanger:hover {
+  background: rgba(239, 68, 68, 0.24);
+}
+
+.sideRail {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+  min-width: 0;
+}
+
+.sideCard {
+  padding: 1rem;
+  border-radius: 1.2rem;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(8, 15, 26, 0.8);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.18);
+}
+
+.sideCard h2 {
+  margin: 0 0 0.7rem;
+  font-size: 0.92rem;
+  letter-spacing: 0.01em;
+}
+
+.sideCard p {
+  margin: 0;
+  color: rgba(226, 232, 240, 0.76);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.metaRow,
+.participantItem {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  font-size: 0.88rem;
+}
+
+.metaRow span,
+.participantItem span {
+  color: rgba(203, 213, 225, 0.72);
+}
+
+.metaRow strong,
+.participantItem strong {
+  color: #f8fbff;
+  text-align: right;
+}
+
+.errorBox {
+  margin-top: 0.9rem;
+  padding: 0.75rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(248, 113, 113, 0.28);
+  background: rgba(127, 29, 29, 0.16);
+  color: #fecaca;
+  font-size: 0.88rem;
+}
+
+@media (max-width: 1120px) {
+  .meetingShell {
+    grid-template-columns: 1fr;
+  }
+
+  .sideRail {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .topBar {
+    padding-inline: 0.85rem;
+  }
+
+  .meetingShell {
+    padding: 0.85rem;
+  }
+
+  .videoFrame {
+    min-height: 26rem;
+  }
+
+  .sideRail {
+    grid-template-columns: 1fr;
+  }
+
+  .controlDock {
+    justify-content: stretch;
+  }
+
+  .controlButton {
+    flex: 1 1 calc(50% - 0.5rem);
+    justify-content: center;
+  }
+
+  .selfViewCard {
+    width: 9rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .topBar {
+    min-height: 4rem;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .videoFrame {
+    min-height: 22rem;
+    border-radius: 1.1rem;
+  }
+
+  .joinOverlay__card {
+    padding: 1.1rem;
+  }
+
+  .controlButton {
+    flex: 1 1 100%;
+  }
+
+  .selfViewCard {
+    right: 0.75rem;
+    bottom: 0.75rem;
+    width: 7.8rem;
+  }
+}

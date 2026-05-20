@@ -2,6 +2,7 @@
   min-height: 100svh;
   background: linear-gradient(180deg, #ffffff 0%, #f6fdff 38%, #f9fcff 100%);
   color: #0f172a;
+  overflow-x: clip;
 }
 
 .hc-container {
@@ -139,8 +140,8 @@
 
 .hc-sos-fab {
   position: fixed;
-  right: 1rem;
-  bottom: 1rem;
+  right: calc(1rem + env(safe-area-inset-right));
+  bottom: calc(1rem + env(safe-area-inset-bottom));
   z-index: 40;
   display: inline-flex;
   align-items: center;
@@ -205,8 +206,8 @@
 
 .hc-ai-fab {
   position: fixed;
-  right: 1rem;
-  bottom: 1rem;
+  right: calc(1rem + env(safe-area-inset-right));
+  bottom: calc(1rem + env(safe-area-inset-bottom));
   z-index: 41;
   display: inline-flex;
   align-items: center;
@@ -827,8 +828,8 @@
   }
 
   .hc-sos-fab {
-    right: 0.75rem;
-    bottom: 0.75rem;
+    right: calc(0.75rem + env(safe-area-inset-right));
+    bottom: calc(0.75rem + env(safe-area-inset-bottom));
     min-height: 3.6rem;
     padding: 0.68rem 0.9rem 0.68rem 0.8rem;
   }
@@ -1358,17 +1359,59 @@
   }
 }
 
-@media (max-width: 480px) {
-  .hc-footer__inner {
-    grid-template-columns: minmax(7.2rem, 0.78fr) minmax(0, 1.22fr);
+@media (max-width: 560px) {
+  .hc-container {
+    width: min(1160px, calc(100% - 1rem));
   }
 
-  .hc-footer__brand p {
-    max-width: 15ch;
+  .hc-hero {
+    padding: 3.4rem 0 2.6rem;
+  }
+
+  .hc-hero__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hc-hero__actions .hc-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .hc-hero__badges {
+    gap: 0.45rem;
+  }
+
+  .hc-hero__stats {
+    grid-template-columns: 1fr;
+  }
+
+  .hc-float-card {
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    max-width: none;
+  }
+
+  .hc-float-card--left {
+    display: none;
+  }
+
+  .hc-footer__inner {
+    grid-template-columns: 1fr;
   }
 
   .hc-footer__links {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.5rem;
+    grid-template-columns: 1fr;
+  }
+
+  .hc-footer__brand p {
+    max-width: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .hc-footer__inner {
+    gap: 1rem;
   }
 }

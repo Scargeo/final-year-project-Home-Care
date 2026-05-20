@@ -92,6 +92,61 @@
   color: rgba(229, 231, 235, 0.9);
 }
 
+.secureCallRequestBanner {
+  margin: 10px 14px 0;
+  padding: 12px 12px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(96, 165, 250, 0.22);
+  background: rgba(30, 41, 59, 0.78);
+  color: #e5e7eb;
+}
+
+.secureCallRequestBanner strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.secureCallRequestBanner p {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(229, 231, 235, 0.76);
+}
+
+.secureCallRequestBanner__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.secureCallRequestBanner__approve,
+.secureCallRequestBanner__decline {
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.secureCallRequestBanner__approve {
+  background: linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%);
+  color: #ffffff;
+}
+
+.secureCallRequestBanner__decline {
+  background: rgba(255, 255, 255, 0.06);
+  color: #e5e7eb;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.secureCallRequestBanner__approve:disabled,
+.secureCallRequestBanner__decline:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 .secureChatBody {
   flex: 1;
   overflow: auto;
@@ -222,3 +277,360 @@
   color: rgba(229, 231, 235, 0.70);
 }
 
+.secureRoomPanel {
+  margin: 8px 14px 0;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.65);
+}
+
+.secureRoomPanel__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: rgba(229, 231, 235, 0.8);
+}
+
+.secureRoomPanel__close {
+  border: 1px solid rgba(255,255,255,0.08);
+  background: transparent;
+  color: rgba(229,231,235,0.95);
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.secureRoomPanel__close:hover {
+  background: rgba(255,255,255,0.04);
+}
+
+.secureRoomPanel__end {
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fecaca;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.secureRoomPanel__end:hover {
+  background: rgba(239, 68, 68, 0.18);
+}
+
+.secureRoomPanel__end:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.secureRoomPanel__hint {
+  margin: 6px 0;
+  font-size: 12px;
+  color: rgba(229, 231, 235, 0.75);
+}
+
+.secureRoomPanel__error {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #fca5a5;
+}
+
+.secureRoomPanel__notice {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #86efac;
+}
+
+.secureRoomPreview {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.secureRoomPreview h4,
+.secureDoctorClinical h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.secureRoomPreview p {
+  margin: 0 0 6px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.secureDoctorClinical {
+  display: grid;
+  gap: 8px;
+}
+
+.secureDoctorClinical__label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: rgba(229, 231, 235, 0.88);
+}
+
+.secureDoctorClinical__input {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e5e7eb;
+  font: inherit;
+  padding: 8px;
+  resize: vertical;
+}
+
+.secureDoctorClinical__save {
+  justify-self: start;
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #10b981 0%, #0ea5e9 100%);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.secureDoctorClinical__save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.secureRoomFilesList {
+  display: grid;
+  gap: 4px;
+}
+
+.secureRoomFilesList a {
+  color: #93c5fd;
+  font-size: 12px;
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+/* Split-screen responsive layout */
+.secureChatContainer {
+  display: flex;
+  gap: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.secureChatContainer--desktop {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.secureChatContainer--mobile {
+  display: flex;
+  flex-direction: column;
+}
+
+.secureChatSection {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.secureChatSection--hidden {
+  display: none;
+}
+
+.secureRoomSection {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: auto;
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.secureRoomSection--hidden {
+  display: none;
+}
+
+/* Mobile tab toggle */
+.secureMobileTabToggle {
+  display: flex;
+  gap: 0;
+  background: rgba(10, 20, 35, 0.6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0;
+}
+
+.secureMobileTabToggle__btn {
+  flex: 1;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  color: rgba(229, 231, 235, 0.7);
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 13px;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.secureMobileTabToggle__btn--active {
+  color: #10b981;
+  border-bottom-color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.secureMobileTabToggle__btn:hover {
+  color: #e5e7eb;
+}
+
+/* Lab files section */
+.secureLabFilesSection {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  margin: 8px 0;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+.secureLabFilesSection h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: rgba(229, 231, 235, 0.9);
+}
+
+.secureLabFilesList {
+  display: grid;
+  gap: 6px;
+}
+
+.secureLabFileItem {
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #93c5fd;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  word-break: break-word;
+}
+
+.secureLabFileItem:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(147, 197, 253, 0.5);
+}
+
+.secureLabFileItem--selected {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.5);
+  color: #10b981;
+}
+
+/* Lab file preview */
+.secureLabFilePreview {
+  margin-top: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.secureLabFilePreview__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.secureLabFilePreview__header strong {
+  font-size: 12px;
+  color: #e5e7eb;
+  word-break: break-word;
+  flex: 1;
+  margin-right: 10px;
+}
+
+.secureLabFilePreview__close {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: rgba(229, 231, 235, 0.7);
+  cursor: pointer;
+  font-size: 14px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.secureLabFilePreview__close:hover {
+  color: #e5e7eb;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.secureLabFilePreview__container {
+  max-height: 400px;
+  overflow: auto;
+  padding: 10px;
+}
+
+.secureLabFilePreview__iframe {
+  width: 100%;
+  height: 380px;
+  border: none;
+  border-radius: 6px;
+}
+
+.secureLabFilePreview__image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
+.secureLabFilePreview__fallback {
+  padding: 20px;
+  text-align: center;
+  color: rgba(229, 231, 235, 0.7);
+  font-size: 12px;
+}
+
+.secureLabFilePreview__link {
+  color: #93c5fd;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.secureLabFilePreview__link:hover {
+  color: #bfdbfe;
+}
+
+/* Media query for mobile - override grid layout */
+@media (max-width: 1023px) {
+  .secureChatContainer--desktop {
+    display: flex;
+    flex-direction: column;
+    grid-template-columns: auto;
+  }
+
+  .secureRoomSection {
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+}

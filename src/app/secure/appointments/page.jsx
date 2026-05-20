@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useState, useRef } from "react"
+import { useEffect, useMemo, useState, useRef, useCallback } from "react"
 import { io } from "socket.io-client"
 import styles from "../dashboard/dashboard.module.css"
 import VerifiedDoctorBadge from "../components/VerifiedDoctorBadge"
@@ -137,7 +137,10 @@ export default function AppointmentsPage() {
   const [rebookingMap, setRebookingMap] = useState({})
   const [rebookedByDoctorMap, setRebookedByDoctorMap] = useState({})
   const [form, setForm] = useState({ date: "", time: "09:00", consultationType: "messaging", duration: "30", reason: "" })
+  const [nowTick, setNowTick] = useState(new Date())
   const [submitting, setSubmitting] = useState(false)
+  const [autoSubmitReady, setAutoSubmitReady] = useState(false)
+  const [autoSubmitDone, setAutoSubmitDone] = useState(false)
 
   const upsertAppointment = useMemo(() => {
     return (incomingAppointment) => {
@@ -167,6 +170,131 @@ export default function AppointmentsPage() {
     tomorrow.setDate(tomorrow.getDate() + 1)
     setForm((c) => ({ ...c, date: tomorrow.toISOString().slice(0, 10) }))
   }, [])
+
+  const submit = useCallback(async (e) => {
+    e?.preventDefault?.()
+    setError("")
+    setSuccess("")
+    setAssignmentInsight(null)
+    const auth = loadStoredAuth()
+    if (!auth?.patientId) return setError("Please sign in to book an appointment")
+    if (!form.reason.trim()) return setError("Describe your symptoms so the system can assign a suitable doctor")
+
+    setSubmitting(true)
+    try {
+      const selectedDateTime = buildAppointmentDateTime(form.date, form.time)
+      const minimumDateTime = getMinimumBookableDateTime()
+
+      if (!selectedDateTime || Number.isNaN(selectedDateTime.getTime())) {
+        setError("Please choose a valid appointment date and time")
+        return
+      }
+
+      if (selectedDateTime < minimumDateTime) {
+        setError("Please choose a time at least 5 minutes from now")
+        return
+      }
+
+      const headers = { "Content-Type": "application/json" }
+      const token = getStoredToken()
+      if (token) headers.authorization = `Bearer ${token}`
+      const res = await fetch("/api/doctors/auto-assign", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          appointmentId: createAppointmentId(),
+          patientId: auth.patientId,
+          patientName: getPatientNameFromAuth(auth),
+          patientPhone: auth?.patientPhone || auth?.phone || "",
+          appointmentDate: form.date,
+          appointmentTime: form.time,
+          consultationType: form.consultationType,
+          duration: Number(form.duration) || 30,
+          reason: form.reason.trim(),
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.message || "Could not create appointment")
+      upsertAppointment(data)
+      setAssignmentInsight(data?.assignment || null)
+      const assignedDoctorName = getDoctorName(data?.doctor)
+      const sourceSuffix = typeof window !== 'undefined' && window.sessionStorage.getItem('homecare:appointmentDraftSource') === 'ai'
+        ? ' The AI filled and submitted the booking form for you.'
+        : ''
+      setSuccess(`Appointment booked. ${assignedDoctorName} has been assigned to your case.${sourceSuffix}`)
+      setForm((c) => ({ ...c, reason: "" }))
+
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem('homecare:appointmentDraft')
+        window.sessionStorage.removeItem('homecare:appointmentAutoSubmit')
+        window.sessionStorage.removeItem('homecare:appointmentDraftSource')
+      }
+
+      try {
+        const auth = loadStoredAuth()
+        if (auth?.patientId) {
+          const consentHeaders = {}
+          const consentToken = getStoredToken()
+          if (consentToken) consentHeaders.authorization = `Bearer ${consentToken}`
+          const consentRes = await fetch(`/api/patients/${encodeURIComponent(auth.patientId)}/consent-requests`, {
+            cache: "no-store",
+            headers: consentHeaders,
+          })
+          const consentData = await consentRes.json().catch(() => ({}))
+          if (consentRes.ok) {
+            setConsentRequests(Array.isArray(consentData?.requests) ? consentData.requests : [])
+          }
+        }
+      } catch {
+        // ignore consent refresh errors
+      }
+    } catch (err) {
+      setError(err?.message || "Could not create appointment")
+    } finally {
+      setSubmitting(false)
+    }
+  }, [form.date, form.time, form.consultationType, form.duration, form.reason, upsertAppointment])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    try {
+      const draftRaw = window.sessionStorage.getItem('homecare:appointmentDraft')
+      const shouldAutoSubmit = window.sessionStorage.getItem('homecare:appointmentAutoSubmit') === '1'
+      if (!draftRaw) return
+
+      const draft = JSON.parse(draftRaw)
+      if (draft && typeof draft === 'object') {
+        setForm((current) => ({
+          ...current,
+          date: draft.date || current.date,
+          time: draft.time || current.time,
+          consultationType: draft.consultationType || current.consultationType,
+          duration: draft.duration || current.duration,
+          reason: draft.reason || current.reason,
+        }))
+        if (shouldAutoSubmit) {
+          setAutoSubmitReady(true)
+        }
+      }
+    } catch (error) {
+      console.error('Could not load appointment draft', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!autoSubmitReady || autoSubmitDone) return
+    if (!form.reason.trim() || !form.date || !form.time) return
+
+    setAutoSubmitDone(true)
+    const timer = window.setTimeout(() => {
+      submit(new Event('submit')).catch(() => {
+        setError('Could not auto-submit appointment draft')
+      })
+    }, 150)
+
+    return () => window.clearTimeout(timer)
+  }, [autoSubmitReady, autoSubmitDone, form.date, form.reason, form.time, submit])
 
   useEffect(() => {
     const auth = loadStoredAuth()
@@ -201,6 +329,12 @@ export default function AppointmentsPage() {
     }
   }, [])
 
+  // Keep a ticking "now" so Join becomes active when appointment time arrives
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(new Date()), 15_000)
+    return () => clearInterval(id)
+  }, [])
+
   const displayedAppointments = useMemo(() => {
     try {
       const now = new Date()
@@ -221,7 +355,7 @@ export default function AppointmentsPage() {
         return withEffectiveStatus
           .filter((a) => {
             const status = String(a.status || '').toLowerCase()
-            return !['scheduled', 'completed', 'no-show', 'cancelled'].includes(status)
+            return !['completed', 'no-show', 'cancelled'].includes(status)
           })
           .sort(compareAppointmentsAsc)
       }
@@ -472,6 +606,13 @@ export default function AppointmentsPage() {
       upsertAppointment(payload?.appointment)
     })
 
+    socket.on('appointment-room-assigned', (payload) => {
+      const aId = String(payload?.appointmentId || '')
+      const rId = String(payload?.roomId || '')
+      if (!aId || !rId) return
+      upsertAppointment({ appointmentId: aId, roomId: rId })
+    })
+
     socket.on("appointment-reassigned", (payload) => {
       const reassignedAppointment = payload?.appointment
       if (!reassignedAppointment) return
@@ -545,81 +686,6 @@ export default function AppointmentsPage() {
     }
   }
 
-  async function submit(e) {
-    e.preventDefault()
-    setError("")
-    setSuccess("")
-    setAssignmentInsight(null)
-    const auth = loadStoredAuth()
-    if (!auth?.patientId) return setError("Please sign in to book an appointment")
-    if (!form.reason.trim()) return setError("Describe your symptoms so the system can assign a suitable doctor")
-
-    setSubmitting(true)
-    try {
-      const selectedDateTime = buildAppointmentDateTime(form.date, form.time)
-      const minimumDateTime = getMinimumBookableDateTime()
-
-      if (!selectedDateTime || Number.isNaN(selectedDateTime.getTime())) {
-        setError("Please choose a valid appointment date and time")
-        return
-      }
-
-      if (selectedDateTime < minimumDateTime) {
-        setError("Please choose a time at least 5 minutes from now")
-        return
-      }
-
-      const headers = { "Content-Type": "application/json" }
-      const token = getStoredToken()
-      if (token) headers.authorization = `Bearer ${token}`
-      const res = await fetch("/api/doctors/auto-assign", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          appointmentId: createAppointmentId(),
-          patientId: auth.patientId,
-          patientName: getPatientNameFromAuth(auth),
-          patientPhone: auth?.patientPhone || auth?.phone || "",
-          appointmentDate: form.date,
-          appointmentTime: form.time,
-          consultationType: form.consultationType,
-          duration: Number(form.duration) || 30,
-          reason: form.reason.trim(),
-        }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data?.message || "Could not create appointment")
-      upsertAppointment(data)
-      setAssignmentInsight(data?.assignment || null)
-      const assignedDoctorName = getDoctorName(data?.doctor)
-      setSuccess(`Appointment booked. ${assignedDoctorName} has been assigned to your case.`)
-      setForm((c) => ({ ...c, reason: "" }))
-
-      // refresh consent requests for new appointment timeline
-      try {
-        const auth = loadStoredAuth()
-        if (auth?.patientId) {
-          const consentHeaders = {}
-          const consentToken = getStoredToken()
-          if (consentToken) consentHeaders.authorization = `Bearer ${consentToken}`
-          const consentRes = await fetch(`/api/patients/${encodeURIComponent(auth.patientId)}/consent-requests`, {
-            cache: "no-store",
-            headers: consentHeaders,
-          })
-          const consentData = await consentRes.json().catch(() => ({}))
-          if (consentRes.ok) {
-            setConsentRequests(Array.isArray(consentData?.requests) ? consentData.requests : [])
-          }
-        }
-      } catch {
-        // ignore consent refresh errors
-      }
-    } catch (err) {
-      setError(err?.message || "Could not create appointment")
-    } finally {
-      setSubmitting(false)
-    }
-  }
 
   return (
     <main className={styles.page}>
@@ -789,6 +855,42 @@ export default function AppointmentsPage() {
                           <button type="button" className={styles.actionButton} onClick={() => cancelAppointment(a)}>Cancel</button>
                         </div>
                       ) : null}
+
+                      {/* Join room button for accepted appointments (patient) */}
+                      {String(a.status || '').toLowerCase() === 'accepted' && String(a.status || '').toLowerCase() !== 'no-show' ? (() => {
+                        const appointmentId = String(a.appointmentId || a._id || '')
+                        const roomId = String(a.roomId || `appointment-${appointmentId}`)
+                        const dateTime = buildAppointmentDateTime(a.appointmentDate, a.appointmentTime)
+                        const now = nowTick || new Date()
+                        const canJoin = dateTime && now.getTime() >= dateTime.getTime()
+                        const type = String(a.consultationType || '').toLowerCase()
+                        let href = '#'
+                        const auth = loadStoredAuth()
+                        const patientName = encodeURIComponent(getPatientNameFromAuth(auth))
+                        const patientId = encodeURIComponent(auth?.patientId || '')
+                        const doctorName = encodeURIComponent(a.doctor?.doctorName || a.doctorName || '')
+                        const doctorId = encodeURIComponent(a.doctor?.doctorId || a.doctorId || '')
+                        if (type === 'messaging' || type === 'message') {
+                          href = `/secure/chat?roomId=${encodeURIComponent(roomId)}&name=${patientName}&patientId=${patientId}&doctorId=${doctorId}&doctorName=${doctorName}`
+                        } else if (type === 'video') {
+                          href = `/secure/call?roomId=${encodeURIComponent(roomId)}&mode=video&patientId=${patientId}&doctorId=${doctorId}`
+                        } else if (type === 'phone' || type === 'call') {
+                          href = `/secure/call?roomId=${encodeURIComponent(roomId)}&mode=phone&patientId=${patientId}&doctorId=${doctorId}`
+                        }
+
+                        return (
+                          <div style={{ marginTop: 8 }}>
+                            <Link
+                              href={href}
+                              className={`${styles.appointmentJoinLink} ${!canJoin ? styles.appointmentJoinLinkDisabled : ''}`}
+                              onClick={(e) => { if (!canJoin) { e.preventDefault(); } }}
+                              aria-disabled={!canJoin}
+                            >
+                              {canJoin ? 'Join room' : 'Join (when live)'}
+                            </Link>
+                          </div>
+                        )
+                      })() : null}
 
                       {pendingConsent ? (
                         <div className={styles.appointmentConsentMessage}>

@@ -10,6 +10,19 @@ function createWebSocket(url) {
   return new WebSocket(url)
 }
 
+function getStoredToken() {
+  if (typeof window === 'undefined') return null
+
+  try {
+    const patientAuth = window.localStorage.getItem('patientAuth')
+    const doctorAuth = window.localStorage.getItem('doctorAuth')
+    const parsed = patientAuth ? JSON.parse(patientAuth) : doctorAuth ? JSON.parse(doctorAuth) : null
+    return parsed?.token || parsed?.accessToken || null
+  } catch {
+    return null
+  }
+}
+
 export default function CallPage() {
   const urlParams = useMemo(() => new URLSearchParams(window.location.search), [])
   const signalUrl = useMemo(() => {
@@ -20,10 +33,12 @@ export default function CallPage() {
   const [roomId, setRoomId] = useState(urlParams.get('roomId') || 'demo-room')
   const [role, setRole] = useState(urlParams.get('role') || 'doctor')
   const [mode, setMode] = useState(urlParams.get('mode') || 'video') // 'audio' | 'video'
+  const autoJoin = urlParams.get('autoJoin') === '1'
   const [myPeerId, setMyPeerId] = useState('')
   const [remotePeerId, setRemotePeerId] = useState('')
   const [status, setStatus] = useState('idle') // idle | waiting | connecting | in_call | ended | error
   const [error, setError] = useState('')
+  const [roomActionBusy, setRoomActionBusy] = useState(false)
 
   const wsRef = useRef(null)
   const pcRef = useRef(null)
@@ -41,6 +56,63 @@ export default function CallPage() {
   useEffect(() => {
     roomIdRef.current = roomId
   }, [roomId])
+
+  useEffect(() => {
+    if (!autoJoin || status !== 'idle') return
+
+    let active = true
+    Promise.resolve()
+      .then(() => startCall())
+      .catch((err) => {
+        if (!active) return
+        setError(err?.message || 'Could not join the call automatically.')
+      })
+
+    return () => {
+      active = false
+    }
+  }, [autoJoin, status])
+
+  useEffect(() => {
+    let active = true
+
+    async function refreshRoomStatus() {
+      if (!roomIdRef.current) return
+
+      try {
+        const headers = {}
+        const token = getStoredToken()
+        if (token) headers.authorization = `Bearer ${token}`
+
+        const response = await fetch(`/api/rooms/${encodeURIComponent(roomIdRef.current)}`, {
+          method: 'GET',
+          cache: 'no-store',
+          headers,
+        })
+
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok || !active) return
+
+        const roomStatus = String(data?.room?.status || '').toLowerCase()
+        if (roomStatus === 'completed' || roomStatus === 'cancelled') {
+          await cleanup()
+          setError('This room has ended.')
+          const target = role === 'doctor' ? '/secure/doctor' : '/secure/appointments'
+          window.location.href = target
+        }
+      } catch {
+        // best-effort only
+      }
+    }
+
+    refreshRoomStatus()
+    const timer = setInterval(refreshRoomStatus, 5000)
+
+    return () => {
+      active = false
+      clearInterval(timer)
+    }
+  }, [role])
 
   useEffect(() => {
     // Attach remote stream to the remote video element.
@@ -230,6 +302,19 @@ export default function CallPage() {
     localStreamRef.current = localStream
     localStream.getTracks().forEach((t) => pc.addTrack(t, localStream))
 
+    try {
+      const headers = {}
+      const token = getStoredToken()
+      if (token) headers.authorization = `Bearer ${token}`
+      await fetch(`/api/rooms/${encodeURIComponent(roomIdRef.current)}`, {
+        method: 'GET',
+        cache: 'no-store',
+        headers,
+      })
+    } catch {
+      // Best-effort participation tracking.
+    }
+
     if (localVideoRef.current) {
       localVideoRef.current.srcObject = localStream
     }
@@ -296,9 +381,34 @@ export default function CallPage() {
   }
 
   async function endCall() {
-    await cleanup()
-    setMyPeerId('')
-    setRemotePeerId('')
+    setRoomActionBusy(true)
+
+    try {
+      if (role === 'doctor') {
+        const headers = { 'Content-Type': 'application/json' }
+        const token = getStoredToken()
+        if (token) headers.authorization = `Bearer ${token}`
+
+        await fetch(`/api/rooms/${encodeURIComponent(roomIdRef.current)}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ participantAction: 'end', role: 'doctor' }),
+        })
+      }
+    } catch {
+      // best-effort; the local cleanup still runs below.
+    } finally {
+      await cleanup()
+      setMyPeerId('')
+      setRemotePeerId('')
+      setRoomActionBusy(false)
+
+      if (role === 'doctor') {
+        window.location.href = '/secure/doctor'
+      } else {
+        window.location.href = '/secure/appointments'
+      }
+    }
   }
 
   return (
@@ -370,9 +480,9 @@ export default function CallPage() {
             <button
               onClick={endCall}
               style={{ padding: '10px 14px', borderRadius: 10, cursor: 'pointer', border: '1px solid #e5e7eb', flex: 1 }}
-              disabled={status === 'idle' || status === 'ended'}
+              disabled={status === 'idle' || status === 'ended' || roomActionBusy}
             >
-              End
+              {role === 'doctor' ? (roomActionBusy ? 'Ending...' : 'End room') : 'Leave'}
             </button>
           </div>
 

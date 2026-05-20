@@ -88,6 +88,12 @@ const appointmentSchema = new mongoose.Schema(
       enum: ['messaging', 'video', 'phone'],
       default: 'messaging',
     },
+    roomId: {
+      type: String,
+      trim: true,
+      default: null,
+      index: true,
+    },
     createdAt: {
       type: Date,
       default: Date.now,

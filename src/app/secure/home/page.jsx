@@ -478,6 +478,9 @@ export default function SecureHomePage() {
         body: JSON.stringify({
           query,
           userId,
+          patientId: String(patientId || ""),
+          doctorId: String(doctorId || ""),
+          userRole: doctorId ? "doctor" : patientId ? "patient" : "",
           conversationId: aiConversationId || undefined,
         }),
       })
@@ -487,17 +490,86 @@ export default function SecureHomePage() {
         throw new Error(data?.error || data?.details || "Could not load the assistant response.")
       }
 
-      setAiMessages((currentMessages) => [
-        ...currentMessages,
-        {
-          id: `${Date.now()}-assistant`,
-          role: "assistant",
-          content: String(data?.response || "No response returned.").trim(),
-          timestamp: new Date(),
-          sources: Array.isArray(data?.context) ? data.context : Array.isArray(data?.sources) ? data.sources : [],
-        },
-      ])
+      const proposedAppointmentDraft = data?.action?.proposedAppointment
       setAiConversationId(String(data?.conversationId || aiConversationId || ""))
+
+      if (proposedAppointmentDraft && !data?.action?.actionTaken) {
+        setAiMessages((currentMessages) => [
+          ...currentMessages,
+          {
+            id: `${Date.now()}-assistant-waiting`,
+            role: "assistant",
+            content: "Please wait while I book your appointment.",
+            timestamp: new Date(),
+          },
+        ])
+
+        const auth = getStoredAuth()
+        const appointmentTime = new Date(proposedAppointmentDraft.appointmentDate)
+        const bookingPayload = {
+          appointmentId: `APT-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
+          patientId: auth?.patientId || patientId || auth?.id || auth?._id || "",
+          patientName: auth ? ([auth.patientFirstName, auth.patientLastName].filter(Boolean).join(" ").trim() || auth.patientFirstName || userName) : userName,
+          patientPhone: auth?.patientPhone || auth?.phone || "",
+          appointmentDate: appointmentTime.toISOString().slice(0, 10),
+          appointmentTime: appointmentTime.toTimeString().slice(0, 5),
+          consultationType: proposedAppointmentDraft.consultationType || "messaging",
+          duration: 30,
+          reason: proposedAppointmentDraft.reason || query,
+        }
+
+        try {
+          const headers = { "Content-Type": "application/json" }
+          const token = getStoredToken()
+          if (token) headers.authorization = `Bearer ${token}`
+
+          const bookingResponse = await fetch("/api/doctors/auto-assign", {
+            method: "POST",
+            headers,
+            body: JSON.stringify(bookingPayload),
+          })
+          const bookingData = await bookingResponse.json().catch(() => ({}))
+
+          if (!bookingResponse.ok) {
+            throw new Error(bookingData?.message || bookingData?.error || "Could not book appointment")
+          }
+
+          const doctor = bookingData?.doctor || {}
+          const assignedDoctorName = doctor?.doctorName || [doctor?.doctorFirstName, doctor?.doctorLastName].filter(Boolean).join(" ").trim() || doctor?.name || "Doctor"
+          setAiMessages((currentMessages) => [
+            ...currentMessages,
+            {
+              id: `${Date.now()}-assistant-success`,
+              role: "assistant",
+              content: `Appointment booked successfully. ${assignedDoctorName} has been assigned.`,
+              timestamp: new Date(),
+            },
+          ])
+        } catch (bookingError) {
+          const message = bookingError?.message || "Could not book appointment"
+          setAiMessages((currentMessages) => [
+            ...currentMessages,
+            {
+              id: `${Date.now()}-assistant-failure`,
+              role: "assistant",
+              content: `Booking failed: ${message}`,
+              tone: "error",
+              timestamp: new Date(),
+            },
+          ])
+        }
+      } else {
+        setAiMessages((currentMessages) => [
+          ...currentMessages,
+          {
+            id: `${Date.now()}-assistant`,
+            role: "assistant",
+            content: String(data?.response || "No response returned.").trim(),
+            timestamp: new Date(),
+            sources: Array.isArray(data?.context) ? data.context : Array.isArray(data?.sources) ? data.sources : [],
+          },
+        ])
+      }
     } catch (error) {
       const errorMessage = error?.message || "AI assistant is unavailable right now."
       setAiError(errorMessage)
