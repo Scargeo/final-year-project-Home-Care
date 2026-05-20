@@ -33,7 +33,7 @@
   grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.9fr);
   gap: 1.5rem;
   padding: 2rem;
-  align-items: start;
+  align-items: flex-start;
 }
 
 .adminHeader {
@@ -70,9 +70,9 @@
 
 .tabNav {
   display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.5rem;
+  gap: 1.5rem;
+  padding: 2rem;
+  align-items: flex-start;
 }
 
 .tabButton {
@@ -303,7 +303,7 @@
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  align-items: start;
+  align-items: flex-start;
 }
 
 .list,

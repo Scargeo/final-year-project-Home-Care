@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 const DEFAULT_SIGNAL_URL = 'ws://localhost:3001'
 const DEFAULT_ICE_SERVERS = [
@@ -58,22 +58,6 @@ export default function CallPage() {
   }, [roomId])
 
   useEffect(() => {
-    if (!autoJoin || status !== 'idle') return
-
-    let active = true
-    Promise.resolve()
-      .then(() => startCall())
-      .catch((err) => {
-        if (!active) return
-        setError(err?.message || 'Could not join the call automatically.')
-      })
-
-    return () => {
-      active = false
-    }
-  }, [autoJoin, status])
-
-  useEffect(() => {
     let active = true
 
     async function refreshRoomStatus() {
@@ -112,7 +96,7 @@ export default function CallPage() {
       active = false
       clearInterval(timer)
     }
-  }, [role])
+  }, [cleanup, role])
 
   useEffect(() => {
     // Attach remote stream to the remote video element.
@@ -121,7 +105,7 @@ export default function CallPage() {
     }
   }, [])
 
-  async function cleanup() {
+  const cleanup = useCallback(async () => {
     try {
       if (pcRef.current) {
         pcRef.current.onicecandidate = null
@@ -151,15 +135,15 @@ export default function CallPage() {
     wsRef.current = null
 
     setStatus('ended')
-  }
+  }, [])
 
-  function sendJson(payload) {
+  const sendJson = useCallback((payload) => {
     const ws = wsRef.current
     if (!ws || ws.readyState !== WebSocket.OPEN) return
     ws.send(JSON.stringify(payload))
-  }
+  }, [])
 
-  function createPeerConnection() {
+  const createPeerConnection = useCallback(() => {
     const pc = new RTCPeerConnection({ iceServers: DEFAULT_ICE_SERVERS })
     pcRef.current = pc
 
@@ -191,9 +175,9 @@ export default function CallPage() {
     }
 
     return pc
-  }
+  }, [sendJson])
 
-  async function flushPendingIce() {
+  const flushPendingIce = useCallback(async () => {
     const pc = pcRef.current
     if (!pc) return
     if (!pc.remoteDescription) return
@@ -207,9 +191,9 @@ export default function CallPage() {
         // Best-effort for POC
       }
     }
-  }
+  }, [])
 
-  async function makeOffer() {
+  const makeOffer = useCallback(async () => {
     const pc = pcRef.current
     if (!pc) return
     setStatus('connecting')
@@ -224,9 +208,9 @@ export default function CallPage() {
       to: remotePeerIdRef.current,
       sdp: pc.localDescription,
     })
-  }
+  }, [sendJson])
 
-  async function handleOffer(msg) {
+  const handleOffer = useCallback(async (msg) => {
     const pc = pcRef.current
     if (!pc) return
     setStatus('connecting')
@@ -249,9 +233,9 @@ export default function CallPage() {
     })
 
     await flushPendingIce()
-  }
+  }, [flushPendingIce, sendJson])
 
-  async function handleAnswer(msg) {
+  const handleAnswer = useCallback(async (msg) => {
     const pc = pcRef.current
     if (!pc) return
     if (!remotePeerIdRef.current && msg.from) {
@@ -261,9 +245,9 @@ export default function CallPage() {
     await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp))
 
     await flushPendingIce()
-  }
+  }, [flushPendingIce])
 
-  async function handleIce(msg) {
+  const handleIce = useCallback(async (msg) => {
     const pc = pcRef.current
     if (!pc) return
     const cand = msg.candidate
@@ -275,9 +259,9 @@ export default function CallPage() {
     }
 
     await pc.addIceCandidate(new RTCIceCandidate(cand))
-  }
+  }, [])
 
-  async function startCall() {
+  const startCall = useCallback(async () => {
     setError('')
     setStatus('idle')
 
@@ -370,7 +354,23 @@ export default function CallPage() {
     }
 
     ws.onerror = () => setError('WebSocket error. Check the signaling server URL.')
-  }
+  }, [cleanup, createPeerConnection, handleAnswer, handleIce, handleOffer, makeOffer, mode, role, sendJson, signalUrl])
+
+  useEffect(() => {
+    if (!autoJoin || status !== 'idle') return
+
+    let active = true
+    Promise.resolve()
+      .then(() => startCall())
+      .catch((err) => {
+        if (!active) return
+        setError(err?.message || 'Could not join the call automatically.')
+      })
+
+    return () => {
+      active = false
+    }
+  }, [autoJoin, startCall, status])
 
   function safeParse(raw) {
     try {

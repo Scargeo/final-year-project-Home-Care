@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import LoadingCanvas from "../components/LoadingCanvas"
 import styles from "./page.module.css"
@@ -101,13 +101,12 @@ function Icon({ name }) {
 
 function CallPageContent() {
   const searchParams = useSearchParams()
-
   const signalUrl = useMemo(() => globalThis?.process?.env?.NEXT_PUBLIC_SIGNAL_URL || DEFAULT_SIGNAL_URL, [])
-
-  const [roomId, setRoomId] = useState(searchParams.get("roomId") || "demo-room")
-  const [role, setRole] = useState(searchParams.get("role") || "doctor")
-  const [mode, setMode] = useState(searchParams.get("mode") || "video")
+  const [roomId] = useState(searchParams.get("roomId") || "demo-room")
+  const [role] = useState(searchParams.get("role") || "doctor")
+  const [mode] = useState(searchParams.get("mode") || "video")
   const autoJoin = searchParams.get("autoJoin") === "1"
+
   const [myPeerId, setMyPeerId] = useState("")
   const [remotePeerId, setRemotePeerId] = useState("")
   const [status, setStatus] = useState("idle")
@@ -115,28 +114,23 @@ function CallPageContent() {
   const [roomActionBusy, setRoomActionBusy] = useState(false)
   const [audioEnabled, setAudioEnabled] = useState(true)
   const [videoEnabled, setVideoEnabled] = useState(true)
+  const [hasLocalMedia, setHasLocalMedia] = useState(false)
+  const [sessionInfo] = useState(() => getStoredSession())
 
   const wsRef = useRef(null)
   const pcRef = useRef(null)
   const localStreamRef = useRef(null)
   const remoteStreamRef = useRef(null)
-
   const localVideoRef = useRef(null)
   const remoteVideoRef = useRef(null)
-
   const myPeerIdRef = useRef("")
   const remotePeerIdRef = useRef("")
   const roomIdRef = useRef(roomId)
   const pendingIceCandidatesRef = useRef([])
-  const sessionRef = useRef(null)
 
   useEffect(() => {
     roomIdRef.current = roomId
   }, [roomId])
-
-  useEffect(() => {
-    sessionRef.current = getStoredSession()
-  }, [])
 
   useEffect(() => {
     if (!remoteStreamRef.current && typeof window !== "undefined" && typeof window.MediaStream !== "undefined") {
@@ -147,12 +141,9 @@ function CallPageContent() {
     }
   }, [])
 
-  function getDisplayName() {
-    const session = sessionRef.current
-    return [session?.firstName, session?.lastName].filter(Boolean).join(" ").trim() || session?.role || "Participant"
-  }
+  const displayName = [sessionInfo?.firstName, sessionInfo?.lastName].filter(Boolean).join(" ").trim() || sessionInfo?.role || "Participant"
 
-  async function cleanup() {
+  const cleanup = useCallback(async () => {
     try {
       if (pcRef.current) {
         pcRef.current.onicecandidate = null
@@ -173,6 +164,7 @@ function CallPageContent() {
       // ignore
     }
     localStreamRef.current = null
+    setHasLocalMedia(false)
 
     try {
       wsRef.current?.close()
@@ -182,15 +174,15 @@ function CallPageContent() {
     wsRef.current = null
 
     setStatus("ended")
-  }
+  }, [])
 
-  function sendJson(payload) {
+  const sendJson = useCallback((payload) => {
     const ws = wsRef.current
     if (!ws || ws.readyState !== WebSocket.OPEN) return
     ws.send(JSON.stringify(payload))
-  }
+  }, [])
 
-  function createPeerConnection() {
+  const createPeerConnection = useCallback(() => {
     const pc = new RTCPeerConnection({ iceServers: DEFAULT_ICE_SERVERS })
     pcRef.current = pc
 
@@ -218,9 +210,9 @@ function CallPageContent() {
     }
 
     return pc
-  }
+  }, [sendJson])
 
-  async function flushPendingIce() {
+  const flushPendingIce = useCallback(async () => {
     const pc = pcRef.current
     if (!pc || !pc.remoteDescription) return
 
@@ -233,9 +225,9 @@ function CallPageContent() {
         // best-effort
       }
     }
-  }
+  }, [])
 
-  async function makeOffer() {
+  const makeOffer = useCallback(async () => {
     const pc = pcRef.current
     if (!pc) return
     setStatus("connecting")
@@ -243,9 +235,9 @@ function CallPageContent() {
     const offer = await pc.createOffer()
     await pc.setLocalDescription(offer)
     sendJson({ type: "offer", roomId: roomIdRef.current, from: myPeerIdRef.current, to: remotePeerIdRef.current, sdp: pc.localDescription })
-  }
+  }, [sendJson])
 
-  async function handleOffer(msg) {
+  const handleOffer = useCallback(async (msg) => {
     const pc = pcRef.current
     if (!pc) return
     setStatus("connecting")
@@ -261,9 +253,9 @@ function CallPageContent() {
 
     sendJson({ type: "answer", roomId: roomIdRef.current, from: myPeerIdRef.current, to: msg.from, sdp: pc.localDescription })
     await flushPendingIce()
-  }
+  }, [flushPendingIce, sendJson])
 
-  async function handleAnswer(msg) {
+  const handleAnswer = useCallback(async (msg) => {
     const pc = pcRef.current
     if (!pc) return
     if (!remotePeerIdRef.current && msg.from) {
@@ -272,9 +264,9 @@ function CallPageContent() {
     }
     await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp))
     await flushPendingIce()
-  }
+  }, [flushPendingIce])
 
-  async function handleIce(msg) {
+  const handleIce = useCallback(async (msg) => {
     const pc = pcRef.current
     if (!pc) return
     const cand = msg.candidate
@@ -286,9 +278,9 @@ function CallPageContent() {
     }
 
     await pc.addIceCandidate(new RTCIceCandidate(cand))
-  }
+  }, [])
 
-  async function startCall() {
+  const startCall = useCallback(async () => {
     setError("")
     setStatus("idle")
 
@@ -306,9 +298,10 @@ function CallPageContent() {
 
     const localStream = await navigator.mediaDevices.getUserMedia({ video: mode === "video", audio: true })
     localStreamRef.current = localStream
-    localStream.getTracks().forEach((t) => pc.addTrack(t, localStream))
+    localStream.getTracks().forEach((track) => pc.addTrack(track, localStream))
     setAudioEnabled(true)
     setVideoEnabled(mode === "video")
+    setHasLocalMedia(true)
 
     if (localVideoRef.current) localVideoRef.current.srcObject = localStream
 
@@ -344,12 +337,18 @@ function CallPageContent() {
     }
 
     ws.onerror = () => setError("WebSocket error. Check the signaling server URL.")
-  }
+  }, [cleanup, createPeerConnection, handleAnswer, handleIce, handleOffer, makeOffer, mode, role, sendJson, signalUrl])
 
   useEffect(() => {
     if (!autoJoin || status !== "idle") return
-    startCall().catch((err) => setError(err?.message || "Could not join the call automatically."))
-  }, [autoJoin, status])
+    void (async () => {
+      try {
+        await startCall()
+      } catch (err) {
+        setError(err?.message || "Could not join the call automatically.")
+      }
+    })()
+  }, [autoJoin, status, startCall])
 
   useEffect(() => {
     let active = true
@@ -389,7 +388,7 @@ function CallPageContent() {
       active = false
       clearInterval(timer)
     }
-  }, [role])
+  }, [cleanup, role])
 
   function toggleTrack(kind) {
     const stream = localStreamRef.current
@@ -462,7 +461,7 @@ function CallPageContent() {
               <div className={styles.joinOverlay}>
                 <div className={styles.joinOverlay__card}>
                   <p>{getJoinCopy()}</p>
-                  <h1>{getDisplayName()}</h1>
+                  <h1>{displayName}</h1>
                   <span>{roomId}</span>
                   {!autoJoin ? (
                     <button className={styles.joinButton} onClick={() => startCall().catch((err) => setError(err?.message || "Could not join the call."))}>
@@ -475,20 +474,20 @@ function CallPageContent() {
 
             <div className={styles.selfViewCard}>
               <video ref={localVideoRef} autoPlay playsInline muted className={styles.selfVideo} />
-              <div className={styles.selfViewCard__label}>{getDisplayName()}</div>
+              <div className={styles.selfViewCard__label}>{displayName}</div>
             </div>
           </div>
 
           <div className={styles.controlDock}>
-            <button className={styles.controlButton} onClick={() => toggleTrack("audio")} disabled={!localStreamRef.current}>
+            <button className={styles.controlButton} onClick={() => toggleTrack("audio")} disabled={!hasLocalMedia}>
               <Icon name="mic" />
               <span>{audioEnabled ? "Mute" : "Unmute"}</span>
             </button>
-            <button className={styles.controlButton} onClick={() => toggleTrack("video")} disabled={mode !== "video" || !localStreamRef.current}>
+            <button className={styles.controlButton} onClick={() => toggleTrack("video")} disabled={mode !== "video" || !hasLocalMedia}>
               <Icon name="video" />
               <span>{videoEnabled ? "Stop video" : "Start video"}</span>
             </button>
-            <button className={styles.controlButton} onClick={() => sendJson({ type: "join", roomId: roomIdRef.current, peerId: myPeerIdRef.current, role })} disabled={!myPeerIdRef.current}>
+            <button className={styles.controlButton} onClick={() => sendJson({ type: "join", roomId: roomIdRef.current, peerId: myPeerIdRef.current, role })} disabled={!myPeerId}>
               <Icon name="dots" />
               <span>Reconnect</span>
             </button>
@@ -535,4 +534,3 @@ export default function CallPage() {
     </Suspense>
   )
 }
-

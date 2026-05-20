@@ -324,6 +324,21 @@ function ChatPageContent() {
     }
   }, [roomId])
 
+  const buildCallUrl = useCallback((callType) => {
+    const params = new URLSearchParams({
+      roomId,
+      mode: callType,
+      role: sessionInfo?.role || "doctor",
+      autoJoin: "1",
+      name: contactName,
+      patientId: urlPatientId,
+      doctorId: urlDoctorId,
+      doctorName: urlDoctorName,
+    })
+
+    return `/secure/call?${params.toString()}`
+  }, [contactName, roomId, sessionInfo?.role, urlDoctorId, urlDoctorName, urlPatientId])
+
   useEffect(() => {
     let active = true
 
@@ -371,7 +386,7 @@ function ChatPageContent() {
       active = false
       clearInterval(timer)
     }
-  }, [roomId, sessionInfo?.role])
+  }, [roomId, sessionInfo?.role, buildCallUrl])
 
   async function saveClinicalSection() {
     setClinicalNotice("")
@@ -756,21 +771,6 @@ function ChatPageContent() {
       isTypingRef.current = false
     }
   }, [roomId, signalUrl, initCryptoAndKeys, attemptDeriveAesKey])
-
-  function buildCallUrl(callType) {
-    const params = new URLSearchParams({
-      roomId,
-      mode: callType,
-      role: sessionInfo?.role || "doctor",
-      autoJoin: "1",
-      name: contactName,
-      patientId: urlPatientId,
-      doctorId: urlDoctorId,
-      doctorName: urlDoctorName,
-    })
-
-    return `/secure/call?${params.toString()}`
-  }
 
   async function requestCallSwitch(callType) {
     if (sessionInfo?.role !== "doctor") return

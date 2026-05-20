@@ -42,6 +42,27 @@ A comprehensive healthcare management system built with **Next.js**, **React**, 
    npm start
    ```
 
+### Production run (suggested)
+
+Run backend API and frontend separately in production environments. Example using two terminals:
+
+```bash
+# build frontend
+npm run build
+
+# start frontend (serves compiled Next app)
+npm run start:frontend
+
+# in a second terminal, start API server
+npm run start:api
+```
+
+For a single-command production start that builds and launches the Next frontend, use:
+
+```bash
+npm run start:prod
+```
+
 ## Features
 
 - Emergency SOS system with real-time notifications

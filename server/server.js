@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const http = require('http');
 const { Server } = require('socket.io');
 const Appointment = require('./models/privateHealthWorker/doctor/appointment');
@@ -15,6 +17,17 @@ connectDB();
 
 const app = express();
 app.use(express.json());
+// Basic security headers
+app.use(helmet())
+
+// Basic rate limiting to reduce abuse
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // limit each IP to 200 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+app.use(limiter)
 
 // CORS configuration for frontend access
 const allowedOrigins = [
