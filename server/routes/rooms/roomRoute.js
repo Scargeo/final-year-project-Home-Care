@@ -6,6 +6,7 @@ const ConsentRequest = require('../../models/patient/consentRequest')
 const HealthRecord = require('../../models/patient/healthRecord')
 const ConsultationRoom = require('../../models/hospital/consultationRoom')
 const { loadUser } = require('../../middleware/loadUserMiddleware')
+const { createNurseAssignmentForCompletedAppointment } = require('../../lib/nurseAssignment')
 
 router.use(loadUser)
 
@@ -106,7 +107,7 @@ async function completeAppointmentForRoom(room, appointment, io, options = {}) {
     io.to(`appointments-patient-${String(updatedAppointment.patientId)}`).emit('appointment-updated', { appointment: updatedAppointment })
   }
 
-  return true
+  return updatedAppointment
 }
 
 async function markRoomParticipantJoined(room, role) {
@@ -228,9 +229,20 @@ router.get('/:roomId', async (req, res) => {
       if (joinedRoom) room = joinedRoom
     }
 
-    await completeAppointmentForRoom(room, appointment, req?.app?.get('io')).catch((error) => {
+    const completedAppointment = await completeAppointmentForRoom(room, appointment, req?.app?.get('io')).catch((error) => {
       console.error('Failed to auto-complete consultation room:', error)
+      return null
     })
+
+    if (completedAppointment) {
+      await createNurseAssignmentForCompletedAppointment({
+        appointment: completedAppointment,
+        room,
+        io: req?.app?.get('io'),
+      }).catch((error) => {
+        console.error('Failed to create nurse assignment:', error)
+      })
+    }
 
     const consent = await getAcceptedConsent({
       patientId: room.patientId,

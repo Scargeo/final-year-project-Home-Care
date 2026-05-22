@@ -865,6 +865,71 @@
 
 .feedCard {
   padding: 1rem 1.1rem;
+  min-height: 14rem;
+}
+
+.postImage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 5; /* Instagram-like portrait crop */
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+@media (min-width: 760px) {
+  .postImage {
+    aspect-ratio: 4 / 5;
+    height: auto;
+  }
+}
+
+.postCarouselControls {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.carouselBtn {
+  pointer-events: auto;
+  background: rgba(0,0,0,0.35);
+  color: white;
+  border: none;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 1.2rem;
+  margin: 0 0.5rem;
+}
+
+.carouselDots {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.5rem;
+  pointer-events: auto;
+}
+
+.carouselDot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.6);
+  border: none;
+}
+
+.activeDot {
+  background: rgba(255,255,255,0.95);
 }
 
 .feedHeader {
@@ -2014,7 +2079,7 @@
   overflow-x: auto;
   scroll-behavior: smooth;
   flex-shrink: 0;
-  -webkit-overflow-scrolling: touch;
+  /* removed -webkit-overflow-scrolling: touch; for broader compatibility */
 }
 
 .labTabs::-webkit-scrollbar {
@@ -2058,7 +2123,7 @@
   overflow-y: auto;
   padding: 1.5rem;
   scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
+  /* removed -webkit-overflow-scrolling: touch; for broader compatibility */
 }
 
 .labScrollContent::-webkit-scrollbar {

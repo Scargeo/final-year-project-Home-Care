@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192" role="img" aria-label="Home Care+ icon">
+  <defs>
+    <linearGradient id="bg" x1="22" y1="18" x2="170" y2="176" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0b1220"/>
+      <stop offset="1" stop-color="#0f766e"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="70" y1="70" x2="126" y2="132" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#dbeafe"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="176" height="176" rx="40" fill="url(#bg)"/>
+  <path d="M96 38 40 84h16v56a8 8 0 0 0 8 8h24v-28a8 8 0 0 1 8-8h16a8 8 0 0 1 8 8v28h24a8 8 0 0 0 8-8V84h16z" fill="url(#accent)"/>
+  <path d="M96 68v56M68 96h56" stroke="#0f766e" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="96" cy="136" r="14" fill="#dbeafe" opacity="0.85"/>
+</svg>

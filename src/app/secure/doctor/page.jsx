@@ -176,6 +176,7 @@ export default function DoctorDashboard() {
   const [appointmentHistory, setAppointmentHistory] = useState([])
   const [appointmentHistoryLoading, setAppointmentHistoryLoading] = useState(false)
   const [nowTick, setNowTick] = useState(new Date())
+  const [dashboardSyncTick, setDashboardSyncTick] = useState(0)
   const selectedAppointmentRef = useRef(null)
   const fileInputRef = useRef(null)
   const labFileInputRef = useRef(null)
@@ -907,10 +908,12 @@ export default function DoctorDashboard() {
 
     socket.on("appointment-created", (payload) => {
       upsertAppointment(payload?.appointment)
+      setDashboardSyncTick((value) => value + 1)
     })
 
     socket.on("appointment-updated", (payload) => {
       upsertAppointment(payload?.appointment)
+      setDashboardSyncTick((value) => value + 1)
     })
 
     socket.on('appointment-room-assigned', (payload) => {
@@ -918,6 +921,7 @@ export default function DoctorDashboard() {
       const rId = String(payload?.roomId || '')
       if (!aId || !rId) return
       upsertAppointment({ appointmentId: aId, roomId: rId })
+      setDashboardSyncTick((value) => value + 1)
     })
 
     // clear pending flags when the server indicates rebook finished via created/updated flows

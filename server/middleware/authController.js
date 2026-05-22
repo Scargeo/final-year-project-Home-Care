@@ -1,5 +1,6 @@
 const Patient = require('../models/patient/patientRegistration');
 const Doctor = require('../models/privateHealthWorker/doctor/doctorRegistration');
+const Nurse = require('../models/privateHealthWorker/nurse/privateNurseRegistration');
 const bcrypt = require('bcrypt');
 const { signToken } = require('./jwtAuth')
 
@@ -59,6 +60,32 @@ const loginUnified = async (req, res) => {
             doctorEmail: doctor.doctorEmail,
             role: 'doctor',
             profileImage: doctor.profileImage,
+          },
+        });
+      }
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Try nurse
+    const nurse = await Nurse.findOne({ nurseEmail: normalized });
+    if (nurse) {
+      const matchN = await bcrypt.compare(password, nurse.nursePassword);
+      if (matchN) {
+        const payload = { id: nurse.uid || nurse._id, role: 'nurse', nurseId: nurse.uid || nurse._id }
+        const token = signToken(payload)
+        const { signRefreshToken } = require('./jwtAuth')
+        const refreshToken = await signRefreshToken(payload)
+        return res.status(200).json({
+          message: 'Login successful',
+          token,
+          refreshToken,
+          user: {
+            nurseId: nurse.uid || nurse._id,
+            nurseFirstName: nurse.nurseFirstName,
+            nurseLastName: nurse.nurseLastName,
+            nurseEmail: nurse.nurseEmail,
+            role: 'nurse',
+            profileImage: nurse.profileImage || null,
           },
         });
       }

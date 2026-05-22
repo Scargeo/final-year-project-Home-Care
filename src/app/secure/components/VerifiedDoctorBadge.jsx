@@ -1,16 +1,18 @@
 "use client"
 
-export default function VerifiedDoctorBadge({ doctor, verified, role, className = "", style = {}, label = "Verified" }) {
+export default function VerifiedDoctorBadge({ doctor, verified, role, className = "", style = {}, label }) {
   const isVerified = typeof verified === "boolean" ? verified : Boolean(doctor?.isVerified)
   const normalizedRole = String(role || doctor?.role || "").toLowerCase()
+  const badgeRole = normalizedRole === "nurse" ? "nurse" : "doctor"
+  const badgeLabel = label ?? (badgeRole === "nurse" ? "Verified nurse" : "Verified doctor")
 
-  if (!isVerified || normalizedRole !== "doctor") return null
+  if (!isVerified || !["doctor", "nurse"].includes(badgeRole)) return null
 
   return (
     <span
       className={className}
-      title="Verified doctor"
-      aria-label="Verified doctor"
+      title={`Verified ${badgeRole}`}
+      aria-label={`Verified ${badgeRole}`}
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -27,7 +29,7 @@ export default function VerifiedDoctorBadge({ doctor, verified, role, className 
         ...style,
       }}
     >
-      ✓ {label}
+      ✓ {badgeLabel}
     </span>
   )
 }

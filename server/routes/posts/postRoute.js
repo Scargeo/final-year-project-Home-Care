@@ -2,18 +2,21 @@ const express = require('express')
 const router = express.Router()
 const Post = require('../../models/posts/post')
 const Doctor = require('../../models/privateHealthWorker/doctor/doctorRegistration')
+const Nurse = require('../../models/privateHealthWorker/nurse/privateNurseRegistration')
 const { loadUser } = require('../../middleware/loadUserMiddleware')
 
 function getUserIdentity(user = {}) {
   const record = user.record || {}
   return {
-    id: user.id || user.userId || user.patientId || user.doctorId || record.patientId || record.doctorId || 'anonymous',
+    id: user.id || user.userId || user.patientId || user.doctorId || user.nurseId || record.patientId || record.doctorId || record.uid || 'anonymous',
     name:
       record.patientFirstName ||
       record.doctorFirstName ||
+      record.nurseFirstName ||
       record.adminName ||
       user?.patientFirstName ||
       user?.doctorFirstName ||
+      user?.nurseFirstName ||
       user?.adminName ||
       user?.name ||
       record.name ||
@@ -68,6 +71,13 @@ router.get('/', async (req, res) => {
         .filter(Boolean),
     )]
 
+    const nurseAuthorIds = [...new Set(
+      posts
+        .filter((post) => String(post?.author?.role || '').toLowerCase() === 'nurse')
+        .map((post) => String(post?.author?.id || ''))
+        .filter(Boolean),
+    )]
+
     const doctorVerificationMap = new Map()
     if (doctorAuthorIds.length > 0) {
       const doctors = await Doctor.find({ doctorId: { $in: doctorAuthorIds } })
@@ -79,12 +89,27 @@ router.get('/', async (req, res) => {
       }
     }
 
+    const nurseVerificationMap = new Map()
+    if (nurseAuthorIds.length > 0) {
+      const nurses = await Nurse.find({ uid: { $in: nurseAuthorIds } })
+        .select('uid isVerified')
+        .lean()
+
+      for (const nurse of nurses) {
+        nurseVerificationMap.set(String(nurse.uid), Boolean(nurse.isVerified))
+      }
+    }
+
     const normalizedPosts = posts.map((post) => {
       if (!post?.author) return post
 
       const authorId = String(post.author.id || '')
       const authorRole = String(post.author.role || '').toLowerCase()
-      const fallbackVerified = authorRole === 'doctor' ? Boolean(doctorVerificationMap.get(authorId)) : false
+      const fallbackVerified = authorRole === 'doctor'
+        ? Boolean(doctorVerificationMap.get(authorId))
+        : authorRole === 'nurse'
+          ? Boolean(nurseVerificationMap.get(authorId))
+          : false
 
       return {
         ...post,

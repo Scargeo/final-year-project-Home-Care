@@ -51,15 +51,21 @@ body {
 }
 
 html {
-  overflow-x: clip;
+  overflow-x: hidden;
 }
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  overflow-x: clip;
+  overflow-x: hidden;
   min-width: 320px;
+}
+
+@media (display-mode: standalone) {
+  body {
+    touch-action: manipulation;
+  }
 }
 
 #root {

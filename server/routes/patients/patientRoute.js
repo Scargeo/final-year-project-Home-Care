@@ -6,6 +6,8 @@ const HealthRecord = require('../../models/patient/healthRecord');
 const Appointment = require('../../models/privateHealthWorker/doctor/appointment');
 const Doctor = require('../../models/privateHealthWorker/doctor/doctorRegistration');
 const Patient = require('../../models/patient/patientRegistration');
+const PatientNotification = require('../../models/patient/patientNotification')
+const NurseAssignment = require('../../models/privateHealthWorker/nurse/nurseAssignment')
 const { allowOwnerOrDoctor } = require('../../middleware/permissionMiddleware')
 const { loadUser } = require('../../middleware/loadUserMiddleware')
 const settingsRoute = require('./settingsRoute');
@@ -153,6 +155,85 @@ router.get('/:id/appointments', allowOwnerOrDoctor((req) => req.params.id), asyn
 	} catch (error) {
 		console.error('Failed to fetch appointments:', error)
 		return res.status(500).json({ message: 'Failed to fetch appointments' })
+	}
+});
+
+router.get('/:id/notifications', allowOwnerOrDoctor((req) => req.params.id), async (req, res) => {
+	try {
+		const { id } = req.params;
+		if (!id) {
+			return res.status(400).json({ message: 'Missing patient id' });
+		}
+
+		const notifications = await PatientNotification.find({ patientId: id })
+			.sort({ createdAt: -1 })
+			.lean();
+
+		return res.status(200).json({ notifications });
+	} catch (error) {
+		console.error('Failed to fetch patient notifications:', error);
+		return res.status(500).json({ message: 'Failed to fetch patient notifications' });
+	}
+});
+
+router.patch('/:id/notifications/:notificationId', allowOwnerOrDoctor((req) => req.params.id), async (req, res) => {
+	try {
+		const { id, notificationId } = req.params;
+		if (!id || !notificationId) {
+			return res.status(400).json({ message: 'Missing patient id or notification id' });
+		}
+
+		const notification = await PatientNotification.findOneAndUpdate(
+			{ patientId: id, notificationId },
+			{ $set: { isRead: true, readAt: new Date() } },
+			{ new: true },
+		);
+
+		if (!notification) {
+			return res.status(404).json({ message: 'Notification not found' });
+		}
+
+		return res.status(200).json(notification);
+	} catch (error) {
+		console.error('Failed to update patient notification:', error);
+		return res.status(500).json({ message: 'Failed to update patient notification' });
+	}
+});
+
+router.get('/:id/assignments', allowOwnerOrDoctor((req) => req.params.id), async (req, res) => {
+	try {
+		const { id } = req.params;
+		if (!id) {
+			return res.status(400).json({ message: 'Missing patient id' });
+		}
+
+		const assignments = await NurseAssignment.find({ patientId: id })
+			.sort({ createdAt: -1 })
+			.lean();
+
+		return res.status(200).json({ assignments });
+	} catch (error) {
+		console.error('Failed to fetch patient assignments:', error);
+		return res.status(500).json({ message: 'Failed to fetch patient assignments' });
+	}
+});
+
+router.get('/:id/assignments/:assignmentId', allowOwnerOrDoctor((req) => req.params.id), async (req, res) => {
+	try {
+		const { id, assignmentId } = req.params;
+		if (!id || !assignmentId) {
+			return res.status(400).json({ message: 'Missing patient id or assignment id' });
+		}
+
+		const assignment = await NurseAssignment.findOne({ patientId: id, assignmentId: String(assignmentId) }).lean();
+		if (!assignment) {
+			return res.status(404).json({ message: 'Assignment not found' });
+		}
+
+		return res.status(200).json({ assignment });
+	} catch (error) {
+		console.error('Failed to fetch patient assignment details:', error);
+		return res.status(500).json({ message: 'Failed to fetch patient assignment details' });
 	}
 });
 

@@ -6,6 +6,7 @@ const cloudinary = require('cloudinary').v2
 const Attachment = require('../models/media/attachment')
 const Patient = require('../models/patient/patientRegistration')
 const Doctor = require('../models/privateHealthWorker/doctor/doctorRegistration')
+const Nurse = require('../models/privateHealthWorker/nurse/privateNurseRegistration')
 const HealthRecord = require('../models/patient/healthRecord')
 const { allowOwnerOrDoctor } = require('../middleware/permissionMiddleware')
 const { loadUser } = require('../middleware/loadUserMiddleware')
@@ -41,6 +42,15 @@ function serializeDoctor(doctor) {
   return safeDoctor
 }
 
+function serializeNurse(nurse) {
+  if (!nurse) return null
+
+  const nurseObject = typeof nurse.toObject === 'function' ? nurse.toObject() : nurse
+  const safeNurse = { ...nurseObject }
+  delete safeNurse.nursePassword
+  return safeNurse
+}
+
 // Load user (from headers) for permission checks on all routes
 router.use(loadUser)
 
@@ -55,6 +65,7 @@ router.post('/', upload.array('files', 10), async (req, res) => {
     const ownerRef = String(req.body.ownerRef || '')
     const purpose = String(req.body.purpose || 'other')
     let updatedDoctor = null
+    let updatedNurse = null
 
     if (!ownerRef) {
       return res.status(400).json({ message: 'Missing ownerRef in form data' })
@@ -124,6 +135,26 @@ router.post('/', upload.array('files', 10), async (req, res) => {
                 { $set: { profileImage: { url, publicId, mimeType: f.mimetype, uploadedAt: new Date() } } },
                 { new: true },
               )
+            } else {
+              // Not a doctor — try nurse by uid
+              const nurse = await Nurse.findOne({ uid: ownerRef })
+              if (nurse) {
+                if (nurse.profileImage && nurse.profileImage.publicId) {
+                  try {
+                    await cloudinary.uploader.destroy(nurse.profileImage.publicId, {
+                      resource_type: nurse.profileImage.mimeType && nurse.profileImage.mimeType.includes('pdf') ? 'raw' : 'image',
+                    })
+                  } catch (e) {
+                    console.warn('Failed to delete previous Cloudinary image for nurse:', e.message)
+                  }
+                }
+
+                updatedNurse = await Nurse.findOneAndUpdate(
+                  { uid: ownerRef },
+                  { $set: { profileImage: { url, publicId, mimeType: f.mimetype, uploadedAt: new Date() } } },
+                  { new: true },
+                )
+              }
             }
           }
         } catch (err) {
@@ -134,7 +165,7 @@ router.post('/', upload.array('files', 10), async (req, res) => {
       saved.push(doc)
     }
 
-    return res.status(200).json({ files: saved, doctor: serializeDoctor(updatedDoctor) })
+    return res.status(200).json({ files: saved, doctor: serializeDoctor(updatedDoctor), nurse: serializeNurse(updatedNurse) })
   } catch (error) {
     console.error('Upload failed', error)
     return res.status(500).json({ message: `File upload failed: ${error?.message || 'Unknown error'}` })
@@ -199,8 +230,10 @@ router.delete('/:id', async (req, res) => {
     if (attachment.purpose === 'profile') {
       try {
         await Patient.updateOne({ patientId: attachment.ownerRef }, { $set: { profileImage: { url: '', publicId: '', mimeType: '', uploadedAt: null } } })
+        await Doctor.updateOne({ doctorId: attachment.ownerRef }, { $set: { profileImage: { url: '', publicId: '', mimeType: '', uploadedAt: null } } })
+        await Nurse.updateOne({ uid: attachment.ownerRef }, { $set: { profileImage: { url: '', publicId: '', mimeType: '', uploadedAt: null } } })
       } catch (err) {
-        console.warn('Failed to clear patient profileImage', err)
+        console.warn('Failed to clear profileImage', err)
       }
     }
 

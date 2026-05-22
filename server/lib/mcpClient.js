@@ -261,9 +261,9 @@ async function buildMcpContext({ query, userId, patientId, doctorId, userRole })
 }
 
 // Evaluate query intent, perform system actions (book appointment, add note) when appropriate
-async function evaluateAndAct({ query, userId, patientId, doctorId, userRole, confirmBooking = false, preferredAppointment = null }) {
+async function evaluateAndAct({ query, userId, patientId, preferredAppointment = null }) {
   const intent = inferMcpIntent(query)
-  const client = await getClient()
+  await getClient()
   const actions = []
 
   // Urgent signs - recommend emergency services, do not book

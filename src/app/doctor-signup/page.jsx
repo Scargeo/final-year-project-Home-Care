@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import AuthShowcase from "../auth/AuthShowcase"
+import { buildBackendApiUrl } from "../../lib/backend-url"
 import styles from "../auth/auth.module.css"
 
 const initialForm = {
@@ -35,12 +36,13 @@ function calculatePasswordStrength(password) {
 export default function DoctorSignupPage() {
   const router = useRouter()
   const [form, setForm] = useState(initialForm)
-  const [status, setStatus] = useState("Fill in your details to create your doctor account.")
+  const [status, setStatus] = useState("Fill in your details to create your practitioner account.")
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [role, setRole] = useState("doctor")
 
   const passwordStrength = useMemo(
     () => calculatePasswordStrength(form.doctorPassword),
@@ -67,28 +69,46 @@ export default function DoctorSignupPage() {
     }
 
     setLoading(true)
-    setStatus("Creating your doctor account...")
+    setStatus(role === 'doctor' ? "Creating your doctor account..." : "Creating your nurse account...")
 
     try {
-      const response = await fetch("/api/doctors/register", {
+      const endpointPath = role === 'doctor' ? "/api/doctors/register" : "/api/nurses/register"
+      const endpoint = buildBackendApiUrl(endpointPath)
+
+      // Map form fields to backend-expected keys for doctor vs nurse
+      const body = role === 'doctor'
+        ? {
+            doctorFirstName: form.doctorFirstName.trim(),
+            doctorLastName: form.doctorLastName.trim(),
+            doctorEmail: form.doctorEmail.trim().toLowerCase(),
+            doctorPhone: form.doctorPhone.trim(),
+            doctorAddress: form.doctorAddress.trim(),
+            doctorPassword: form.doctorPassword,
+            specialization: form.specialization.trim(),
+            licenseNumber: form.licenseNumber.trim(),
+          }
+        : {
+            nurseFirstName: form.doctorFirstName.trim(),
+            nurseLastName: form.doctorLastName.trim(),
+            nurseEmail: form.doctorEmail.trim().toLowerCase(),
+            nursePhone: form.doctorPhone.trim(),
+            nurseAddress: form.doctorAddress.trim(),
+            nursePassword: form.doctorPassword,
+            specialization: form.specialization.trim(),
+            // Use the same input for a nurse identifier
+            nurseId: form.licenseNumber.trim(),
+          }
+
+      const response = await fetch(endpoint, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          doctorFirstName: form.doctorFirstName.trim(),
-          doctorLastName: form.doctorLastName.trim(),
-          doctorEmail: form.doctorEmail.trim().toLowerCase(),
-          doctorPhone: form.doctorPhone.trim(),
-          doctorAddress: form.doctorAddress.trim(),
-          doctorPassword: form.doctorPassword,
-          specialization: form.specialization.trim(),
-          licenseNumber: form.licenseNumber.trim(),
-        }),
+        body: JSON.stringify(body),
       })
 
       const data = await response.json().catch(() => ({}))
       if (!response.ok) {
-        throw new Error(data?.message || "Could not create doctor account.")
+        throw new Error(data?.message || `Could not create ${role} account.`)
       }
 
       // success - redirect to login so the practitioner signs in
@@ -97,8 +117,8 @@ export default function DoctorSignupPage() {
       setForm(initialForm)
       setTimeout(() => router.push('/login'), 1000)
     } catch (err) {
-      setError(err.message || "Signup failed.")
-      setStatus("Unable to create account right now.")
+      setError(err.message || `Signup failed for ${role}.`)
+      setStatus(`Unable to create ${role} account right now.`)
     } finally {
       setLoading(false)
     }
@@ -128,8 +148,22 @@ export default function DoctorSignupPage() {
 
       <section className={styles.authPanel}>
         <div className={styles.authCard}>
-          <h2>Doctor signup</h2>
-          <p>Use a work email and your professional license details.</p>
+          <h2>Practitioner signup</h2>
+          <p>Use a work email and your professional details to create your account.</p>
+
+          <label className={styles.authField} style={{ marginTop: '-0.2rem' }}>
+            <span>Register as: {role === 'doctor' ? 'Doctor' : 'Nurse'}</span>
+            <button
+              type="button"
+              onClick={() => setRole((current) => (current === 'doctor' ? 'nurse' : 'doctor'))}
+              className={styles.authSecondary}
+              style={{ width: '100%' }}
+              disabled={loading}
+              aria-label="Switch registration role between doctor and nurse"
+            >
+              Switch to {role === 'doctor' ? 'Nurse' : 'Doctor'}
+            </button>
+          </label>
 
           <form className={styles.authForm} onSubmit={handleSubmit}>
             <div className={styles.authGridTwo}>
@@ -198,12 +232,13 @@ export default function DoctorSignupPage() {
             </div>
 
             <label className={styles.authField}>
-              <span>License number</span>
+              <span>{role === 'doctor' ? 'License number' : 'Registration / ID'}</span>
               <input
                 type="text"
                 value={form.licenseNumber}
                 onChange={(event) => updateField("licenseNumber", event.target.value)}
-                placeholder="LIC-123456"
+                placeholder={role === 'doctor' ? 'LIC-123456' : 'NURSE-001234'}
+                required
                 disabled={loading}
               />
             </label>
@@ -351,10 +386,10 @@ export default function DoctorSignupPage() {
                 {loading ? (
                   <>
                     <span style={{ marginRight: "0.5rem" }}>⟳</span>
-                    Creating account...
+                    {`Creating ${role === 'doctor' ? 'doctor' : 'nurse'} account...`}
                   </>
                 ) : (
-                  "Create account"
+                  `Create ${role === 'doctor' ? 'doctor' : 'nurse'} account`
                 )}
               </button>
               <Link href="/login" className={styles.authSecondary}>

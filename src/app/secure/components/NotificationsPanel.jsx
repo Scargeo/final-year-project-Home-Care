@@ -1,8 +1,10 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { io } from "socket.io-client"
 import { useRouter } from 'next/navigation'
 import Link from "next/link"
+import { getBackendBaseUrl } from "../../../lib/backend-url"
 import styles from "../home/home.module.css"
 
 const READ_STORAGE_KEY = "patientNotificationReadIds"
@@ -186,6 +188,24 @@ function buildAppointmentEntries(appointments) {
     }))
 }
 
+function buildPatientNotificationEntries(patientNotifications) {
+  return patientNotifications
+    .filter(Boolean)
+    .map((notification) => ({
+      id: notification.notificationId || notification.id || notification._id,
+      title: notification.title || "Patient update",
+      body: notification.message || notification.body || "You have a new update.",
+      at: notification.createdAt || notification.at || new Date().toISOString(),
+      emergency: {
+        notificationId: notification.notificationId || notification.id || notification._id,
+        relatedTo: notification.relatedTo || "",
+        actionUrl: notification.actionUrl || "/secure/notifications",
+      },
+      source: "patient-notification",
+      important: ["high", "urgent"].includes(String(notification.priority || "").toLowerCase()),
+    }))
+}
+
 function NotificationCard({ entry, isRead, isExpanded, onToggle, onMarkRead, userType, onRebooked }) {
   const preview = buildEntryPreview(entry)
   const timeLabel = formatNotificationTime(entry.at)
@@ -309,6 +329,13 @@ function NotificationCard({ entry, isRead, isExpanded, onToggle, onMarkRead, use
                 </Link>
               </div>
             ) : null}
+              {entry.source === "patient-notification" && entry.emergency?.actionUrl ? (
+                <div style={{ marginTop: 8 }}>
+                  <Link href={entry.emergency.actionUrl} className={styles.notificationSmallAction}>
+                    View assignment
+                  </Link>
+                </div>
+              ) : null}
           </div>
         </div>
       )}
@@ -320,6 +347,7 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
   const [notifications, setNotifications] = useState([])
   const [items, setItems] = useState([])
   const [appointments, setAppointments] = useState([])
+  const [patientNotifications, setPatientNotifications] = useState([])
   const [readIds, setReadIds] = useState(() => loadReadIds())
   const [expanded, setExpanded] = useState(() => new Set())
   const prevStatusRef = useRef(new Map())
@@ -404,6 +432,38 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
     const patientPhone = userType === "patient" ? String(auth.patientPhone || "").trim() : ""
     const patientName = userType === "patient" ? [auth.patientFirstName, auth.patientLastName].filter(Boolean).join(" ").trim() : ""
     const patientId = userType === "patient" ? String(auth.patientId || "").trim() : ""
+    const socketUrl = getBackendBaseUrl()
+    const socket = userType === "patient" && patientId
+      ? io(socketUrl, { transports: ["websocket"], withCredentials: true })
+      : null
+
+    if (socket && patientId) {
+      socket.emit("join-notifications-patient", patientId)
+      socket.on("patient-notification-created", (payload) => {
+        const notification = payload?.notification
+        if (!notification) return
+        setPatientNotifications((current) => {
+          const next = [notification, ...current].filter(Boolean)
+          const seen = new Set()
+          return next.filter((item) => {
+            const key = String(item.notificationId || item.id || item._id || "")
+            if (!key || seen.has(key)) return false
+            seen.add(key)
+            return true
+          }).slice(0, 20)
+        })
+
+        try {
+          if (typeof window !== "undefined" && "Notification" in window && window.Notification.permission === "granted") {
+            new window.Notification(notification.title || "HomeCare update", {
+              body: notification.message || "You have a new notification.",
+            })
+          }
+        } catch {
+          // ignore browser notification failures
+        }
+      })
+    }
 
     async function load() {
       try {
@@ -503,6 +563,16 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
 
         if (userType === "patient" && patientId) {
           try {
+            const notificationsResponse = await fetch(`/api/patients/${encodeURIComponent(patientId)}/notifications`, {
+              cache: "no-store",
+              headers,
+            })
+            const notificationsData = await notificationsResponse.json().catch(() => ({}))
+            if (notificationsResponse.ok) {
+              const nextPatientNotifications = Array.isArray(notificationsData?.notifications) ? notificationsData.notifications : []
+              setPatientNotifications(nextPatientNotifications)
+            }
+
             const appointmentsResponse = await fetch(`/api/patients/${encodeURIComponent(patientId)}/appointments`, {
               cache: "no-store",
               headers,
@@ -530,15 +600,18 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
     }
 
     load().catch(() => undefined)
-    const interval = setInterval(() => load().catch(() => undefined), 3000)
+    const interval = setInterval(() => load().catch(() => undefined), 12000)
 
     return () => {
       mounted = false
       clearInterval(interval)
+      if (socket) socket.disconnect()
     }
   }, [])
 
-  const entries = buildNotificationEntries(notifications, items).concat(buildAppointmentEntries(appointments))
+  const entries = buildNotificationEntries(notifications, items)
+    .concat(buildPatientNotificationEntries(patientNotifications))
+    .concat(buildAppointmentEntries(appointments))
   // Count any unread entry (live updates or request entries, including pending requests)
   const unreadEntries = entries.filter((entry) => !readIds.has(entry.id))
   const unreadCount = unreadEntries.length

@@ -44,6 +44,54 @@ const privateNurseSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
+    specialization: {
+        type: String,
+        trim: true,
+    },
+    yearsOfExperience: {
+        type: Number,
+        default: 0,
+    },
+    profileImage: {
+        url: String,
+        publicId: String,
+        mimeType: String,
+        uploadedAt: Date,
+    },
+    isVerified: {
+        type: Boolean,
+        default: false,
+    },
+    notificationPrefs: {
+        appointmentAlerts: { type: Boolean, default: true },
+        patientMessages: { type: Boolean, default: true },
+        systemUpdates: { type: Boolean, default: true },
+        newPatients: { type: Boolean, default: true },
+        emergencyCalls: { type: Boolean, default: true },
+    },
+    privacyPrefs: {
+        patientDataEncryption: { type: Boolean, default: true },
+        auditLogging: { type: Boolean, default: true },
+        enableTwoFactor: { type: Boolean, default: false },
+        allowDataSharing: { type: Boolean, default: false },
+    },
+    personalizationPrefs: {
+        language: { type: String, default: 'en' },
+        dateFormat: { type: String, default: 'MM/DD/YYYY' },
+        timeZone: { type: String, default: 'UTC' },
+        theme: { type: String, default: 'light' },
+        showPatientAlerts: { type: Boolean, default: true },
+        compactView: { type: Boolean, default: false },
+    },
+    isAvailable: {
+        type: Boolean,
+        default: true,
+    },
+    role: {
+        type: String,
+        enum: ['nurse'],
+        default: 'nurse',
+    },
 }, { timestamps: true });
 
 // Create the PrivateNurse model

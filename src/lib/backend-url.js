@@ -1,6 +1,6 @@
 const DEFAULT_BACKEND_BASE_URL = "https://home-care-ob1m.onrender.com"
 // Allow local backend port to be controlled by BACKENDSERVER_PORT env var when present
-const localPort = (globalThis?.process?.env?.BACKENDSERVER_PORT) || '8000'
+const localPort = (globalThis?.process?.env?.BACKENDSERVER_PORT) || '3003'
 const LOCAL_BACKEND_BASE_URL = `http://localhost:${String(localPort).trim()}`
 
 function isLocalhostBaseUrl(value) {

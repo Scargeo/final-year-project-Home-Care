@@ -152,7 +152,7 @@ function EmergencyDashboardContent() {
   useEffect(() => {
     // Poll lightly so the patient and provider views stay in sync without extra infrastructure.
     loadEmergencyData().catch(() => undefined)
-    const interval = setInterval(() => loadEmergencyData().catch(() => undefined), 2500)
+    const interval = setInterval(() => loadEmergencyData().catch(() => undefined), 10000)
     return () => clearInterval(interval)
   }, [refreshTick, isProvider, loadEmergencyData])
 
@@ -174,7 +174,7 @@ function EmergencyDashboardContent() {
       if (!response.ok) return
       const data = await response.json()
       setActiveRequest(data.emergency || null)
-    }, 2500)
+    }, 10000)
 
     return () => clearInterval(timer)
   }, [activeRequest?.id])

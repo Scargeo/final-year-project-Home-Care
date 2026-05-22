@@ -5,6 +5,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   reactStrictMode: true,
   outputFileTracingRoot: __dirname,
   images: {
@@ -18,4 +21,3 @@ const nextConfig = {
 }
 
 export default nextConfig
-

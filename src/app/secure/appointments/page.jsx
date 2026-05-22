@@ -141,6 +141,7 @@ export default function AppointmentsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [autoSubmitReady, setAutoSubmitReady] = useState(false)
   const [autoSubmitDone, setAutoSubmitDone] = useState(false)
+  const [appointmentsSyncTick, setAppointmentsSyncTick] = useState(0)
 
   const upsertAppointment = useMemo(() => {
     return (incomingAppointment) => {
@@ -169,7 +170,7 @@ export default function AppointmentsPage() {
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
     setForm((c) => ({ ...c, date: tomorrow.toISOString().slice(0, 10) }))
-  }, [])
+  }, [appointmentsSyncTick])
 
   const submit = useCallback(async (e) => {
     e?.preventDefault?.()
@@ -218,10 +219,12 @@ export default function AppointmentsPage() {
       upsertAppointment(data)
       setAssignmentInsight(data?.assignment || null)
       const assignedDoctorName = getDoctorName(data?.doctor)
+      setAppointmentsSyncTick((value) => value + 1)
       const sourceSuffix = typeof window !== 'undefined' && window.sessionStorage.getItem('homecare:appointmentDraftSource') === 'ai'
         ? ' The AI filled and submitted the booking form for you.'
         : ''
       setSuccess(`Appointment booked. ${assignedDoctorName} has been assigned to your case.${sourceSuffix}`)
+      setAppointmentsSyncTick((value) => value + 1)
       setForm((c) => ({ ...c, reason: "" }))
 
       if (typeof window !== 'undefined') {
@@ -280,7 +283,7 @@ export default function AppointmentsPage() {
     } catch (error) {
       console.error('Could not load appointment draft', error)
     }
-  }, [])
+  }, [appointmentsSyncTick])
 
   useEffect(() => {
     if (!autoSubmitReady || autoSubmitDone) return

@@ -4,8 +4,10 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const http = require('http');
 const { Server } = require('socket.io');
+const mongoose = require('mongoose');
 const Appointment = require('./models/privateHealthWorker/doctor/appointment');
 const ConsultationRoom = require('./models/hospital/consultationRoom');
+const { createNurseAssignmentForCompletedAppointment } = require('./lib/nurseAssignment')
 // const { createProxyMiddleware } = require('http-proxy-middleware');
 // Load environment variables from .env file
 const dotenv = require('dotenv');
@@ -26,8 +28,18 @@ const limiter = rateLimit({
   max: 200, // limit each IP to 200 requests per windowMs
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.path.startsWith('/api/auth/login') || req.path.startsWith('/api/sos'),
 })
 app.use(limiter)
+
+const authLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
+app.use('/api/auth/login', authLoginLimiter)
 
 // CORS configuration for frontend access
 const allowedOrigins = [
@@ -82,6 +94,10 @@ function getAppointmentEndDate(appointment) {
 }
 
 async function completeEligibleRooms() {
+  if (mongoose.connection.readyState !== 1) {
+    return
+  }
+
   const now = new Date()
   const rooms = await ConsultationRoom.find({
     status: { $nin: ['completed', 'cancelled'] },
@@ -115,6 +131,14 @@ async function completeEligibleRooms() {
       { new: true },
     )
 
+    await createNurseAssignmentForCompletedAppointment({
+      appointment: updatedAppointment,
+      room,
+      io,
+    }).catch((error) => {
+      console.error('Failed to create nurse assignment from auto-completion:', error)
+    })
+
     io.to(`appointments-doctor-${String(updatedAppointment.doctorId)}`).emit('appointment-updated', { appointment: updatedAppointment })
     io.to(`appointments-patient-${String(updatedAppointment.patientId)}`).emit('appointment-updated', { appointment: updatedAppointment })
   }
@@ -122,7 +146,7 @@ async function completeEligibleRooms() {
 
 setInterval(() => {
   completeEligibleRooms().catch((error) => {
-    console.error('Failed to auto-complete consultation rooms:', error)
+    console.error('Failed to auto-complete consultation rooms:', error?.message || error)
   })
 }, 60 * 1000)
 
@@ -148,10 +172,28 @@ io.on('connection', (socket) => {
     socket.join(`consent-patient-${String(patientId)}`);
   });
 
+  // Real-time patient notifications for assignment and care updates
+  socket.on('join-notifications-patient', (patientId) => {
+    if (!patientId) return;
+    socket.join(`notifications-patient-${String(patientId)}`);
+  });
+
   // Real-time appointment tracking: doctor receives appointment create/update events
   socket.on('join-appointments-doctor', (doctorId) => {
     if (!doctorId) return;
     socket.join(`appointments-doctor-${String(doctorId)}`);
+  });
+
+  // Real-time assignment tracking: nurse receives assignment create/update events
+  socket.on('join-assignments-nurse', (nurseId) => {
+    if (!nurseId) return;
+    socket.join(`assignments-nurse-${String(nurseId)}`);
+  });
+
+  // Real-time nurse notifications room
+  socket.on('join-notifications-nurse', (nurseId) => {
+    if (!nurseId) return;
+    socket.join(`notifications-nurse-${String(nurseId)}`);
   });
 
   // Real-time appointment tracking: patient receives appointment create/update events

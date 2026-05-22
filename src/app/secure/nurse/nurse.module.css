@@ -1,0 +1,172 @@
+.page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e8eef5 100%);
+  overflow-x: hidden;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  background: rgba(255, 255, 255, 0.95);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: #0a3a66;
+  font-weight: 700;
+  font-size: 1.125rem;
+  transition: opacity 160ms ease;
+}
+
+.brand:hover { opacity: 0.8; }
+
+.brandMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg, #0891b2 0%, #0369a1 100%);
+  color: white;
+}
+
+.brandText { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif; }
+
+.topActions { display: flex; align-items: center; gap: 1rem; }
+
+.actionButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 160ms ease;
+  border: none;
+  cursor: pointer;
+}
+
+.actionSecondary {
+  color: #0a3a66;
+  background: rgba(8, 145, 178, 0.08);
+  border: 1px solid rgba(8, 145, 178, 0.16);
+}
+
+.actionSecondary:hover { background: rgba(8, 145, 178, 0.12); }
+
+.shell {
+  width: min(1320px, calc(100% - 1.5rem));
+  margin-inline: auto;
+  padding: 1.25rem 0 2rem;
+}
+
+.hero { margin-bottom: 2.5rem; }
+
+.heroKicker {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0891b2;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.5rem;
+}
+
+.heroTitle {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #0a3a66;
+  margin: 0 0 1rem;
+  line-height: 1.1;
+}
+
+.heroBody {
+  font-size: 1rem;
+  color: #475569;
+  margin: 0;
+  max-width: 60ch;
+  line-height: 1.6;
+}
+
+.container {
+  background: white;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+}
+
+.appointmentDetailItem {
+  padding: 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  transition: all 160ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.appointmentDetailItem:last-child { margin-bottom: 0; }
+
+.appointmentDetail { flex: 1; }
+
+.appointmentDetail strong {
+  display: block;
+  color: #0a3a66;
+  margin-bottom: 0.5rem;
+}
+
+.appointmentDetail span,
+.appointmentDetail small {
+  display: block;
+  font-size: 0.875rem;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+}
+
+.appointmentActions { flex-shrink: 0; text-align: right; margin-left: 1rem; }
+
+.appointmentActionButtons { display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: flex-end; margin-top: 0.75rem; }
+
+.primaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 160ms ease;
+  border: none;
+  cursor: pointer;
+  color: #ffffff;
+  background: linear-gradient(135deg, #0891b2 0%, #0369a1 100%);
+}
+
+.emptyState { text-align: center; padding: 2rem; color: #94a3b8; font-size: 0.95rem; }
+.error { padding: 1rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 0.5rem; color: #991b1b; margin-bottom: 1.5rem; }
+
+@media (max-width: 760px) {
+  .topBar { padding: 1rem; }
+  .shell { padding: 1rem 0 2rem; }
+  .heroTitle { font-size: 1.5rem; }
+  .heroBody { font-size: 0.9rem; }
+  .appointmentDetailItem { flex-direction: column; align-items: flex-start; }
+  .appointmentActions { margin-left: 0; margin-top: 0.75rem; }
+}

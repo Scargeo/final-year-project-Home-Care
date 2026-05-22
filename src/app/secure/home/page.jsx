@@ -111,6 +111,34 @@ function getPostAgeLabel(createdAt) {
   return `${elapsedYears}y`
 }
 
+function getStoredTokenForRole(role) {
+  if (typeof window === 'undefined') return null
+
+  try {
+    const authKeys = role === 'nurse'
+      ? ['nurseAuth', 'doctorAuth', 'patientAuth']
+      : role === 'doctor'
+        ? ['doctorAuth', 'nurseAuth', 'patientAuth']
+        : ['patientAuth', 'doctorAuth', 'nurseAuth']
+
+    for (const key of authKeys) {
+      const raw = window.localStorage.getItem(key)
+      if (!raw) continue
+      try {
+        const parsed = JSON.parse(raw)
+        const token = parsed?.token || parsed?.accessToken || null
+        if (token) return token
+      } catch {
+        // ignore malformed storage entries and keep checking
+      }
+    }
+
+    return null
+  } catch {
+    return null
+  }
+}
+
 export default function SecureHomePage() {
   const aiAssistantLogoSrc = aiAssistantLogo?.src || aiAssistantLogo
   const [searchOpen, setSearchOpen] = useState(false)
@@ -124,10 +152,85 @@ export default function SecureHomePage() {
   const [aiError, setAiError] = useState("")
   const [profileImage, setProfileImage] = useState(null)
   const [doctorId, setDoctorId] = useState(null)
+  const [nurseId, setNurseId] = useState(null)
   const [patientId, setPatientId] = useState(null)
   const [doctorDetails, setDoctorDetails] = useState(null)
+  const [_nurseDetails, setNurseDetails] = useState(null)
   const [userRole, setUserRole] = useState(null)
   // Posts (doctor feed)
+
+  function PostImageCarousel({ images = [] }) {
+    const [index, setIndex] = useState(0)
+    const imgLen = images?.length || 0
+
+    // stable refs and callbacks must be declared unconditionally
+    const pointerDownRef = useRef(false)
+    const startXRef = useRef(0)
+    const lastXRef = useRef(0)
+
+    const next = useCallback(() => setIndex((i) => (i + 1) % imgLen), [imgLen])
+    const prev = useCallback(() => setIndex((i) => (i - 1 + imgLen) % imgLen), [imgLen])
+
+    const onPointerDown = useCallback((ev) => {
+      const clientX = ev.clientX ?? (ev.touches && ev.touches[0]?.clientX) ?? 0
+      pointerDownRef.current = true
+      startXRef.current = clientX
+      lastXRef.current = clientX
+    }, [])
+
+    const onPointerMove = useCallback((ev) => {
+      if (!pointerDownRef.current) return
+      const clientX = ev.clientX ?? (ev.touches && ev.touches[0]?.clientX) ?? lastXRef.current
+      lastXRef.current = clientX
+    }, [])
+
+    const onPointerUp = useCallback((ev) => {
+      if (!pointerDownRef.current) return
+      pointerDownRef.current = false
+      const clientX = ev.clientX ?? (ev.changedTouches && ev.changedTouches[0]?.clientX) ?? lastXRef.current
+      const dx = clientX - startXRef.current
+      const threshold = 50
+      if (Math.abs(dx) > threshold) {
+        if (dx < 0) next()
+        else prev()
+      }
+    }, [next, prev])
+
+    useEffect(() => {
+      setIndex(0)
+    }, [images])
+
+    if (imgLen === 0) return null
+
+    return (
+      <div
+        className={styles.postImage}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onTouchStart={onPointerDown}
+        onTouchMove={onPointerMove}
+        onTouchEnd={onPointerUp}
+      >
+        <Image src={images[index].url} alt={images[index]?.alt || `post-${index}`} fill sizes="(max-width: 760px) 100vw, 640px" style={{ objectFit: 'cover', objectPosition: 'center' }} />
+        {imgLen > 1 && (
+          <div className={styles.postCarouselControls}>
+            <button type="button" aria-label="Previous image" onClick={prev} className={styles.carouselBtn}>
+              ‹
+            </button>
+            <button type="button" aria-label="Next image" onClick={next} className={styles.carouselBtn}>
+              ›
+            </button>
+            <div className={styles.carouselDots}>
+              {images.map((_, i) => (
+                <button key={i} type="button" className={`${styles.carouselDot} ${i === index ? styles.activeDot : ''}`} onClick={() => setIndex(i)} aria-label={`View image ${i + 1}`} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
   const [postBody, setPostBody] = useState("")
   const [postImages, setPostImages] = useState([])
   const [posting, setPosting] = useState(false)
@@ -147,7 +250,8 @@ export default function SecureHomePage() {
   const commentOpenRef = useRef(false)
   const aiInputRef = useRef(null)
   const aiThreadRef = useRef(null)
-  const currentUserId = doctorId || patientId || null
+  const currentUserId = doctorId || nurseId || patientId || null
+  const isProvider = userRole === "doctor" || userRole === "nurse"
 
   useEffect(() => {
     commentOpenRef.current = Boolean(commentingPostId)
@@ -174,39 +278,7 @@ export default function SecureHomePage() {
       document.removeEventListener("mousedown", handleOutsideClick)
       document.removeEventListener("touchstart", handleOutsideClick)
     }
-  }, [])
-
-  useEffect(() => {
-    if (userRole !== "doctor" || !doctorId) return
-
-    let active = true
-
-    async function loadDoctorDetails() {
-      try {
-        const headers = {}
-        const token = getStoredToken()
-        if (token) headers.authorization = `Bearer ${token}`
-        const response = await fetch(`/api/doctors/${encodeURIComponent(doctorId)}/dashboard`, { cache: "no-store", headers })
-        const data = await response.json().catch(() => ({}))
-        if (!response.ok) {
-          throw new Error(data?.message || "Could not load doctor details.")
-        }
-
-        if (!active) return
-        setDoctorDetails(data?.doctor || null)
-      } catch (err) {
-        if (active) {
-          console.error("Failed to load doctor details", err)
-        }
-      }
-    }
-
-    loadDoctorDetails()
-
-    return () => {
-      active = false
-    }
-  }, [doctorId, userRole])
+  }, [userRole])
 
   // Load public posts feed (visible to all users)
   useEffect(() => {
@@ -228,7 +300,7 @@ export default function SecureHomePage() {
 
     loadPosts()
     return () => { active = false }
-  }, [])
+  }, [userRole])
 
   const router = useRouter()
 
@@ -266,6 +338,23 @@ export default function SecureHomePage() {
         setDoctorId(null)
         setUserRole("doctor")
       }
+      return
+    }
+
+    const nurseAuthStr = window.localStorage.getItem("nurseAuth")
+    if (nurseAuthStr) {
+      try {
+        const auth = JSON.parse(nurseAuthStr)
+        setNurseId(auth.nurseId || auth.id || auth._id || null)
+        setPatientId(null)
+        setUserRole("nurse")
+        if (auth.profileImage && auth.profileImage.url) {
+          setProfileImage(auth.profileImage)
+        }
+      } catch {
+        setNurseId(null)
+        setUserRole("nurse")
+      }
     }
   }, [])
 
@@ -292,18 +381,6 @@ export default function SecureHomePage() {
     }
   }
 
-  function getStoredToken() {
-    if (typeof window === 'undefined') return null
-    try {
-      const patientAuth = window.localStorage.getItem('patientAuth')
-      const doctorAuth = window.localStorage.getItem('doctorAuth')
-      const parsed = patientAuth ? JSON.parse(patientAuth) : doctorAuth ? JSON.parse(doctorAuth) : null
-      return parsed?.token || parsed?.accessToken || null
-    } catch {
-      return null
-    }
-  }
-
   const patchPatientStatus = useCallback(async (updates = {}) => {
     const auth = getStoredAuth()
     const id = auth?.patientId || auth?.id || auth?._id || auth?.patientEmail
@@ -312,7 +389,7 @@ export default function SecureHomePage() {
     const encodedId = encodeURIComponent(id)
     try {
       const headers = { "Content-Type": "application/json" }
-      const token = getStoredToken()
+      const token = getStoredTokenForRole(userRole)
       if (token) headers.authorization = `Bearer ${token}`
       await fetch(`/api/patients/status/${encodedId}`, {
         method: "PATCH",
@@ -322,7 +399,7 @@ export default function SecureHomePage() {
     } catch (err) {
       console.error("Failed to update patient status", err)
     }
-  }, [])
+  }, [userRole])
 
   // Mark user as online while this page is mounted (patients only)
   useEffect(() => {
@@ -352,7 +429,7 @@ export default function SecureHomePage() {
       if (id) {
         try {
           const headers = { "Content-Type": "application/json" }
-          const token = getStoredToken()
+          const token = getStoredTokenForRole(userRole)
           if (token) headers.authorization = `Bearer ${token}`
           await fetch(`/api/patients/status/${encodeURIComponent(id)}`, {
             method: "PATCH",
@@ -374,42 +451,102 @@ export default function SecureHomePage() {
     router.push("/login")
   }
 
+  useEffect(() => {
+    let active = true
+    if ((userRole !== "doctor" && userRole !== "nurse") || (!doctorId && !nurseId)) return
+
+    async function loadProviderDetails() {
+      try {
+        const headers = {}
+        const token = getStoredTokenForRole(userRole)
+        if (token) headers.authorization = `Bearer ${token}`
+
+        if (userRole === "doctor" && doctorId) {
+          const response = await fetch(`/api/doctors/${encodeURIComponent(doctorId)}/dashboard`, { cache: "no-store", headers })
+          const data = await response.json().catch(() => ({}))
+          if (!response.ok) {
+            console.warn('Doctor dashboard request failed', { status: response.status, message: data?.message })
+          } else {
+            if (!active) return
+            setDoctorDetails(data?.doctor || null)
+          }
+        }
+
+        if (userRole === "nurse" && nurseId) {
+          const response = await fetch(`/api/nurses/${encodeURIComponent(nurseId)}/dashboard`, { cache: "no-store", headers })
+          const data = await response.json().catch(() => ({}))
+          if (!response.ok) {
+            console.warn('Nurse dashboard request failed', { status: response.status, message: data?.message })
+          } else {
+            if (!active) return
+            const nurse = data?.nurse || null
+            setNurseDetails(nurse)
+            setDoctorDetails(
+              nurse
+                ? {
+                    doctorId: nurse.nurseId || nurse.uid || nurseId,
+                    doctorFirstName: nurse.nurseFirstName,
+                    doctorLastName: nurse.nurseLastName,
+                    doctorEmail: nurse.nurseEmail,
+                    doctorPhone: nurse.nursePhone,
+                    doctorAddress: nurse.nurseAddress,
+                    specialization: nurse.specialization,
+                    yearsOfExperience: nurse.yearsOfExperience,
+                    profileImage: nurse.profileImage,
+                    isVerified: nurse.isVerified,
+                    isAvailable: nurse.isAvailable,
+                  }
+                : null,
+            )
+          }
+        }
+      } catch (err) {
+        if (active) console.error("Failed to load provider details", err)
+      }
+    }
+
+    loadProviderDetails()
+    return () => { active = false }
+  }, [doctorId, nurseId, userRole])
+
   const userName = useSyncExternalStore(
     () => () => {},
     () => {
-      if (typeof window === "undefined") {
-        return "User"
-      }
-
-      const patientAuth = window.localStorage.getItem("patientAuth")
-      if (patientAuth) {
-        try {
-          const auth = JSON.parse(patientAuth)
-          return [auth.patientFirstName, auth.patientLastName].filter(Boolean).join(" ").trim() || auth.patientFirstName || "Patient"
-        } catch {
-          return "User"
+      if (typeof window === "undefined") return "User"
+      try {
+        const patientAuth = window.localStorage.getItem("patientAuth")
+        if (patientAuth) {
+          const parsed = JSON.parse(patientAuth)
+          return ([parsed.patientFirstName, parsed.patientLastName].filter(Boolean).join(" ") || parsed.patientFirstName || "Patient")
         }
-      }
+      } catch { /* ignore parse error for patientAuth */ }
 
-      const doctorAuth = window.localStorage.getItem("doctorAuth")
-      if (doctorAuth) {
-        try {
-          const auth = JSON.parse(doctorAuth)
-          return [auth.firstName, auth.lastName].filter(Boolean).join(" ").trim() || auth.firstName || "Doctor"
-        } catch {
-          return "User"
+      try {
+        const doctorAuth = window.localStorage.getItem("doctorAuth")
+        if (doctorAuth) {
+          const parsed = JSON.parse(doctorAuth)
+          return ([parsed.firstName, parsed.lastName].filter(Boolean).join(" ") || parsed.firstName || "Doctor")
         }
-      }
+      } catch { /* ignore parse error for doctorAuth */ }
+
+      try {
+        const nurseAuth = window.localStorage.getItem("nurseAuth")
+        if (nurseAuth) {
+          const parsed = JSON.parse(nurseAuth)
+          return ([parsed.nurseFirstName || parsed.firstName, parsed.nurseLastName || parsed.lastName].filter(Boolean).join(" ") || parsed.nurseFirstName || "Nurse")
+        }
+      } catch { /* ignore parse error for nurseAuth */ }
 
       return "User"
     },
     () => "User",
   )
 
+  const providerPrefix = userRole === "nurse" ? "Nurse" : "Dr."
   const doctorDisplayName = doctorDetails?.doctorFirstName || doctorDetails?.doctorLastName
-    ? `Dr. ${[doctorDetails?.doctorFirstName, doctorDetails?.doctorLastName].filter(Boolean).join(" ")}`
+    ? `${providerPrefix} ${[doctorDetails?.doctorFirstName, doctorDetails?.doctorLastName].filter(Boolean).join(" ")}`
     : userName
-  const doctorDisplayId = doctorDetails?.doctorId || doctorId || "--"
+  const doctorDisplayId = doctorDetails?.doctorId || doctorId || nurseId || "--"
   const doctorDisplaySpecialization = doctorDetails?.specialization || "Not provided"
   const doctorDisplayYears = Number.isFinite(Number(doctorDetails?.yearsOfExperience))
     ? Number(doctorDetails.yearsOfExperience)
@@ -468,7 +605,7 @@ export default function SecureHomePage() {
       }
 
       const headers = { "Content-Type": "application/json" }
-      const token = getStoredToken()
+      const token = getStoredTokenForRole(userRole)
       if (token) headers.authorization = `Bearer ${token}`
 
       const response = await fetch("/api/ai/chat", {
@@ -480,7 +617,7 @@ export default function SecureHomePage() {
           userId,
           patientId: String(patientId || ""),
           doctorId: String(doctorId || ""),
-          userRole: doctorId ? "doctor" : patientId ? "patient" : "",
+          userRole: doctorId ? "doctor" : nurseId ? "nurse" : patientId ? "patient" : "",
           conversationId: aiConversationId || undefined,
         }),
       })
@@ -520,7 +657,7 @@ export default function SecureHomePage() {
 
         try {
           const headers = { "Content-Type": "application/json" }
-          const token = getStoredToken()
+          const token = getStoredTokenForRole(userRole)
           if (token) headers.authorization = `Bearer ${token}`
 
           const bookingResponse = await fetch("/api/doctors/auto-assign", {
@@ -720,7 +857,7 @@ export default function SecureHomePage() {
       formData.append('reference', ownerRef)
 
       const headers = {}
-      const token = getStoredToken()
+      const token = getStoredTokenForRole(userRole)
       if (token) headers.authorization = `Bearer ${token}`
 
       const response = await fetch('/api/uploads', { method: 'POST', headers, body: formData })
@@ -745,7 +882,7 @@ export default function SecureHomePage() {
         visibility: 'public',
       }
       const headers = { 'Content-Type': 'application/json' }
-      const token = getStoredToken()
+      const token = getStoredTokenForRole(userRole)
       if (token) headers.authorization = `Bearer ${token}`
 
       const response = await fetch('/api/posts', { method: 'POST', headers, body: JSON.stringify(body) })
@@ -765,7 +902,7 @@ export default function SecureHomePage() {
   async function handleLikePost(postId) {
     try {
       const headers = { 'Content-Type': 'application/json' }
-      const token = getStoredToken()
+      const token = getStoredTokenForRole(userRole)
       if (token) headers.authorization = `Bearer ${token}`
 
       const response = await fetch(`/api/posts/${encodeURIComponent(postId)}/like`, { method: 'PATCH', headers, body: JSON.stringify({}) })
@@ -786,7 +923,7 @@ export default function SecureHomePage() {
     setSubmittingComment(true)
     try {
       const headers = { 'Content-Type': 'application/json' }
-      const token = getStoredToken()
+      const token = getStoredTokenForRole(userRole)
       if (token) headers.authorization = `Bearer ${token}`
 
       const response = await fetch(`/api/posts/${encodeURIComponent(postId)}/comments`, {
@@ -815,7 +952,7 @@ export default function SecureHomePage() {
   async function handleDeleteComment(postId, commentId) {
     try {
       const headers = {}
-      const token = getStoredToken()
+      const token = getStoredTokenForRole(userRole)
       if (token) headers.authorization = `Bearer ${token}`
 
       const response = await fetch(`/api/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}`, {
@@ -840,7 +977,7 @@ export default function SecureHomePage() {
 
     try {
       const headers = {}
-      const token = getStoredToken()
+      const token = getStoredTokenForRole(userRole)
       if (token) headers.authorization = `Bearer ${token}`
 
       const response = await fetch(`/api/posts/${encodeURIComponent(postId)}`, {
@@ -869,7 +1006,7 @@ export default function SecureHomePage() {
     try {
       setLoadingComments((cur) => ({ ...cur, [postId]: true }))
       const headers = {}
-      const token = getStoredToken()
+      const token = getStoredTokenForRole(userRole)
       if (token) headers.authorization = `Bearer ${token}`
 
       const response = await fetch(`/api/posts/${encodeURIComponent(postId)}/comments`, {
@@ -955,7 +1092,7 @@ export default function SecureHomePage() {
             <span className={styles.sosLabel}>SOS</span>
           </Link>
           <NotificationsPanel variant="header" />
-          <Link href={userRole === "doctor" ? "/secure/doctor" : "/secure/dashboard"} className={`${styles.action} ${styles.actionGhost} ${styles.desktopOnlyAction}`}>
+          <Link href={isProvider ? (userRole === "nurse" ? "/secure/nurse" : "/secure/doctor") : "/secure/dashboard"} className={`${styles.action} ${styles.actionGhost} ${styles.desktopOnlyAction}`}>
             Dashboard
           </Link>
 
@@ -976,7 +1113,7 @@ export default function SecureHomePage() {
 
         {menuOpen && (
           <nav className={styles.headerDropdown} aria-label="Mobile menu">
-            <Link href={userRole === "doctor" ? "/secure/doctor" : "/secure/dashboard"} className={styles.dropdownItem}>
+            <Link href={isProvider ? (userRole === "nurse" ? "/secure/nurse" : "/secure/doctor") : "/secure/dashboard"} className={styles.dropdownItem}>
               <span>📊</span>
               <span>Dashboard</span>
             </Link>
@@ -992,7 +1129,7 @@ export default function SecureHomePage() {
               <span>📋</span>
               <span>Records</span>
             </Link>
-            {userRole !== "doctor" && (
+            {!isProvider && (
               <Link href="/secure/patient/consents" className={styles.dropdownItem}>
                 <span>✅</span>
                 <span>Consent Requests</span>
@@ -1019,7 +1156,7 @@ export default function SecureHomePage() {
           <span>🏠</span>
           <span>Home</span>
         </Link>
-        <Link href={userRole === "doctor" ? "/secure/doctor" : "/secure/dashboard"} className={styles.menuButton}>
+        <Link href={isProvider ? (userRole === "nurse" ? "/secure/nurse" : "/secure/doctor") : "/secure/dashboard"} className={styles.menuButton}>
           <span>📊</span>
           <span>Dashboard</span>
         </Link>
@@ -1035,7 +1172,7 @@ export default function SecureHomePage() {
           <span>📋</span>
           <span>Records</span>
         </Link>
-        {userRole !== "doctor" && (
+        {!isProvider && (
           <Link href="/secure/patient/consents" className={styles.menuButton}>
             <span>✅</span>
             <span>Consents</span>
@@ -1176,7 +1313,7 @@ export default function SecureHomePage() {
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                         <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>{post.author?.name}</h3>
-                        <VerifiedDoctorBadge doctor={post.author} style={{ fontSize: '0.72rem' }} />
+                        <VerifiedDoctorBadge doctor={post.author} role={post.author?.role} style={{ fontSize: '0.72rem' }} />
                       </div>
                       <p style={{ margin: 0, fontSize: '0.875rem', color: '#666' }}>{post.author?.role}</p>
                     </div>
@@ -1211,10 +1348,8 @@ export default function SecureHomePage() {
                   {/* Post content */}
                   {post.body ? <p className={styles.feedBody}>{post.body}</p> : null}
                   {Array.isArray(post.images) && post.images.length > 0 && (
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.75rem', marginBottom: '0.75rem' }}>
-                      {post.images.map((img, i) => (
-                        <Image key={i} src={img.url} alt={`post-${i}`} width={200} height={150} style={{ objectFit: 'cover', borderRadius: '0.5rem' }} />
-                      ))}
+                    <div style={{ marginTop: '0.75rem', marginBottom: '0.75rem' }}>
+                      <PostImageCarousel images={post.images} />
                     </div>
                   )}
 
@@ -1321,7 +1456,7 @@ export default function SecureHomePage() {
                             return (
                               <div key={comment.commentId} style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #f0f0f0' }}>
                                 <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.3rem', alignItems: 'center' }}>
-                                  <strong style={{ fontSize: '0.875rem' }}>{comment.author?.name || 'Unknown'}</strong>
+                                  <strong style={{ fontSize: '0.875rem' }}>{comment.author?.name || (comment.author?.role === 'nurse' ? 'Unknown nurse' : comment.author?.role === 'doctor' ? 'Unknown doctor' : 'Unknown user')}</strong>
                                   <span style={{ color: '#999', fontSize: '0.75rem' }}>· {comment.author?.role || 'user'}</span>
                                   {canDeleteComment ? (
                                     <button
@@ -1449,7 +1584,7 @@ export default function SecureHomePage() {
             </aside>
           </>
         )}
-        {userRole === "doctor" && (
+        {isProvider && (
           <>
             <aside className={styles.leftRail}>
               <section className={styles.profileCard}>
@@ -1463,12 +1598,12 @@ export default function SecureHomePage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'center' }}>
                   <h1>{doctorDisplayName}</h1>
                 </div>
-                <p>Doctor profile</p>
+                <p>{userRole === "nurse" ? "Nurse profile" : "Doctor profile"}</p>
               </section>
 
               <section className={styles.sideCard}>
                 <div className={styles.sideHeader}>
-                  <h3>Doctor details</h3>
+                  <h3>{userRole === "nurse" ? "Nurse details" : "Doctor details"}</h3>
                 </div>
                 <div style={{ display: "grid", gap: "0.5rem" }}>
                   <div>
@@ -1492,7 +1627,7 @@ export default function SecureHomePage() {
                     <p style={{ margin: 0, fontWeight: "500" }}>{doctorDetails?.doctorAddress || "No address"}</p>
                   </div>
                   <div>
-                    <p style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 0.25rem" }}>Doctor ID</p>
+                    <p style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 0.25rem" }}>{userRole === "nurse" ? "Nurse ID" : "Doctor ID"}</p>
                     <p style={{ margin: 0, fontWeight: "500" }}>{doctorDisplayId || "No ID"}</p>
                   </div>
                 </div>
@@ -1640,7 +1775,7 @@ export default function SecureHomePage() {
                         <div style={{ flex: 1 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>{post.author?.name}</h3>
-                            <VerifiedDoctorBadge doctor={post.author} style={{ fontSize: '0.72rem' }} />
+                            <VerifiedDoctorBadge doctor={post.author} role={post.author?.role} style={{ fontSize: '0.72rem' }} />
                           </div>
                           <p style={{ margin: 0, fontSize: '0.875rem', color: '#666' }}>{post.author?.role}</p>
                         </div>
@@ -1785,7 +1920,7 @@ export default function SecureHomePage() {
                                 return (
                                   <div key={comment.commentId} style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #f0f0f0' }}>
                                     <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.3rem', alignItems: 'center' }}>
-                                      <strong style={{ fontSize: '0.875rem' }}>{comment.author?.name || 'Unknown'}</strong>
+                                      <strong style={{ fontSize: '0.875rem' }}>{comment.author?.name || (comment.author?.role === 'nurse' ? 'Unknown nurse' : comment.author?.role === 'doctor' ? 'Unknown doctor' : 'Unknown user')}</strong>
                                       <span style={{ color: '#999', fontSize: '0.75rem' }}>· {comment.author?.role || 'user'}</span>
                                       {canDeleteComment ? (
                                         <button

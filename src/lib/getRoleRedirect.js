@@ -1,6 +1,6 @@
 /**
  * Determines the redirect path based on user role
- * @param {string} role - The user's role ('doctor' or 'patient')
+ * @param {string} role - The user's role ('doctor', 'nurse' or 'patient')
  * @returns {string} The redirect path
  */
 export function getRoleRedirect(role) {
@@ -9,6 +9,8 @@ export function getRoleRedirect(role) {
       return '/admin';
     case 'doctor':
       return '/secure/doctor';
+    case 'nurse':
+      return '/secure/nurse';
     case 'patient':
     default:
       return '/secure/home';
@@ -24,6 +26,7 @@ export function getCurrentUserRole() {
 
   const patientAuth = localStorage.getItem('patientAuth');
   const doctorAuth = localStorage.getItem('doctorAuth');
+  const nurseAuth = localStorage.getItem('nurseAuth');
   const adminAuth = localStorage.getItem('adminAuth');
 
   if (adminAuth) {
@@ -50,6 +53,15 @@ export function getCurrentUserRole() {
       return user.role || 'doctor';
     } catch {
       return 'doctor';
+    }
+  }
+
+  if (nurseAuth) {
+    try {
+      const user = JSON.parse(nurseAuth);
+      return user.role || 'nurse';
+    } catch {
+      return 'nurse';
     }
   }
 

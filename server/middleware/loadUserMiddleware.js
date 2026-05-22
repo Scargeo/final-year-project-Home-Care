@@ -1,5 +1,6 @@
 const Patient = require('../models/patient/patientRegistration')
 const Doctor = require('../models/privateHealthWorker/doctor/doctorRegistration')
+const Nurse = require('../models/privateHealthWorker/nurse/privateNurseRegistration')
 const Admin = require('../models/admin/adminUser')
 const { verifyToken } = require('./jwtAuth')
 
@@ -25,6 +26,9 @@ module.exports.loadUser = async function (req, res, next) {
           } else if (payload.role === 'doctor') {
             const doctor = await Doctor.findOne({ doctorId: payload.id })
             if (doctor) req.user = { id: payload.id, role: 'doctor', record: doctor }
+          } else if (payload.role === 'nurse') {
+            const nurse = await Nurse.findOne({ uid: payload.id })
+            if (nurse) req.user = { id: payload.id, role: 'nurse', record: nurse }
           } else if (payload.role === 'admin') {
             const admin = await Admin.findOne({ adminId: payload.id })
             if (admin) req.user = { id: payload.id, role: 'admin', record: admin }
@@ -59,6 +63,15 @@ module.exports.loadUser = async function (req, res, next) {
         }
       } catch (e) {
         console.warn('Failed to load doctor record in loadUser middleware', e.message)
+      }
+    } else if (userRole === 'nurse') {
+      try {
+        const nurse = await Nurse.findOne({ uid: userId })
+        if (nurse) {
+          req.user = { id: userId, role: 'nurse', record: nurse }
+        }
+      } catch (e) {
+        console.warn('Failed to load nurse record in loadUser middleware', e.message)
       }
     } else if (userRole === 'admin') {
       try {

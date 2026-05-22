@@ -6,6 +6,7 @@ import styles from "./page.module.css"
 
 const resourceOptions = [
   { value: "doctor", label: "Doctors", path: "doctors" },
+  { value: "nurse", label: "Nurses", path: "nurses" },
   { value: "patient", label: "Patients", path: "patients" },
   { value: "post", label: "Posts", path: "posts" },
 ]
@@ -20,6 +21,18 @@ const defaultCreatePayloads = {
     doctorAddress: "",
     specialization: "general",
     licenseNumber: "",
+    yearsOfExperience: 0,
+    isVerified: false,
+    isAvailable: true,
+  },
+  nurse: {
+    nurseFirstName: "",
+    nurseLastName: "",
+    nurseEmail: "",
+    nursePhone: "",
+    nursePassword: "",
+    nurseAddress: "",
+    specialization: "",
     yearsOfExperience: 0,
     isVerified: false,
     isAvailable: true,
@@ -48,6 +61,17 @@ const defaultUpdatePayloads = {
     doctorAddress: "",
     specialization: "",
     licenseNumber: "",
+    yearsOfExperience: 0,
+    isVerified: true,
+    isAvailable: true,
+  },
+  nurse: {
+    nurseFirstName: "",
+    nurseLastName: "",
+    nurseEmail: "",
+    nursePhone: "",
+    nurseAddress: "",
+    specialization: "",
     yearsOfExperience: 0,
     isVerified: true,
     isAvailable: true,
@@ -97,8 +121,9 @@ export default function AdminPage() {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
-  const [summary, setSummary] = useState({ doctors: 0, pendingDoctors: 0, patients: 0, posts: 0, admins: 0 })
+  const [summary, setSummary] = useState({ doctors: 0, nurses: 0, pendingDoctors: 0, patients: 0, posts: 0, admins: 0 })
   const [doctors, setDoctors] = useState([])
+  const [nurses, setNurses] = useState([])
   const [pendingDoctors, setPendingDoctors] = useState([])
   const [patients, setPatients] = useState([])
   const [posts, setPosts] = useState([])
@@ -195,17 +220,19 @@ export default function AdminPage() {
     try {
       setBusy(true)
       setError("")
-      const [summaryRes, doctorsRes, pendingRes, patientsRes, postsRes] = await Promise.all([
+      const [summaryRes, doctorsRes, nursesRes, pendingRes, patientsRes, postsRes] = await Promise.all([
         apiFetch("/summary", { method: "GET" }, activeToken),
         apiFetch("/doctors", { method: "GET" }, activeToken),
+        apiFetch("/nurses", { method: "GET" }, activeToken),
         apiFetch("/doctors/pending", { method: "GET" }, activeToken),
         apiFetch("/patients", { method: "GET" }, activeToken),
         apiFetch("/posts", { method: "GET" }, activeToken),
       ])
 
-      const [summaryData, doctorsData, pendingData, patientsData, postsData] = await Promise.all([
+      const [summaryData, doctorsData, nursesData, pendingData, patientsData, postsData] = await Promise.all([
         summaryRes.json().catch(() => ({})),
         doctorsRes.json().catch(() => ({})),
+        nursesRes.json().catch(() => ({})),
         pendingRes.json().catch(() => ({})),
         patientsRes.json().catch(() => ({})),
         postsRes.json().catch(() => ({})),
@@ -213,12 +240,14 @@ export default function AdminPage() {
 
       if (!summaryRes.ok) throw new Error(summaryData?.message || "Failed to load admin summary")
       if (!doctorsRes.ok) throw new Error(doctorsData?.message || "Failed to load doctors")
+      if (!nursesRes.ok) throw new Error(nursesData?.message || "Failed to load nurses")
       if (!pendingRes.ok) throw new Error(pendingData?.message || "Failed to load pending doctors")
       if (!patientsRes.ok) throw new Error(patientsData?.message || "Failed to load patients")
       if (!postsRes.ok) throw new Error(postsData?.message || "Failed to load posts")
 
-      setSummary(summaryData?.counts || { doctors: 0, pendingDoctors: 0, patients: 0, posts: 0, admins: 0 })
+      setSummary(summaryData?.counts || { doctors: 0, nurses: 0, pendingDoctors: 0, patients: 0, posts: 0, admins: 0 })
       setDoctors(Array.isArray(doctorsData?.doctors) ? doctorsData.doctors : [])
+      setNurses(Array.isArray(nursesData?.nurses) ? nursesData.nurses : [])
       setPendingDoctors(Array.isArray(pendingData?.doctors) ? pendingData.doctors : [])
       setPatients(Array.isArray(patientsData?.patients) ? patientsData.patients : [])
       setPosts(Array.isArray(postsData?.posts) ? postsData.posts : [])
@@ -321,10 +350,11 @@ export default function AdminPage() {
     setAdmin(null)
     setToken("")
     setDoctors([])
+    setNurses([])
     setPatients([])
     setPosts([])
     setPendingDoctors([])
-    setSummary({ doctors: 0, pendingDoctors: 0, patients: 0, posts: 0, admins: 0 })
+    setSummary({ doctors: 0, nurses: 0, pendingDoctors: 0, patients: 0, posts: 0, admins: 0 })
     setMessage("Logged out.")
   }
 
@@ -352,6 +382,30 @@ export default function AdminPage() {
     }
   }
 
+  async function verifyNurse(nurseId, nextVerified = true) {
+    const action = nextVerified ? "verify" : "unverify"
+    if (!window.confirm(`Are you sure you want to ${action} this nurse?`)) {
+      return
+    }
+
+    setBusy(true)
+    setError("")
+    try {
+      const response = await apiFetch(`/nurses/${encodeURIComponent(nurseId)}/verify`, {
+        method: "PATCH",
+        body: JSON.stringify({ isVerified: nextVerified }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data?.message || "Could not update nurse verification")
+      setMessage(`Nurse ${nurseId} updated.`)
+      await refreshDashboard()
+    } catch (err) {
+      setError(err?.message || "Failed to update nurse")
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function deleteRecord(resource, identifier) {
     if (!window.confirm(`Are you sure you want to delete this ${resource}? This action is permanent and cannot be undone.`)) {
       return
@@ -360,7 +414,7 @@ export default function AdminPage() {
     setBusy(true)
     setError("")
     try {
-      const path = resource === "doctor" ? `/doctors/${encodeURIComponent(identifier)}` : resource === "patient" ? `/patients/${encodeURIComponent(identifier)}` : `/posts/${encodeURIComponent(identifier)}`
+      const path = resource === "doctor" ? `/doctors/${encodeURIComponent(identifier)}` : resource === "nurse" ? `/nurses/${encodeURIComponent(identifier)}` : resource === "patient" ? `/patients/${encodeURIComponent(identifier)}` : `/posts/${encodeURIComponent(identifier)}`
       const response = await apiFetch(path, { method: "DELETE" })
       const data = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(data?.message || `Could not delete ${resource}`)
@@ -567,6 +621,10 @@ export default function AdminPage() {
             <strong className={styles.cardValue}>{summary.doctors}</strong>
           </article>
           <article className={styles.dashCard}>
+            <span className={styles.cardLabel}>Nurses</span>
+            <strong className={styles.cardValue}>{summary.nurses}</strong>
+          </article>
+          <article className={styles.dashCard}>
             <span className={styles.cardLabel}>Pending Approvals</span>
             <strong className={styles.cardValue}>{summary.pendingDoctors}</strong>
           </article>
@@ -766,6 +824,37 @@ export default function AdminPage() {
                 </div>
                 <div className={styles.rowActions}>
                   <button type="button" className={styles.danger} onClick={() => deleteRecord('patient', patient.patientId)} disabled={busy}>
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <div>
+              <p className={styles.panelLabel}>Nurses</p>
+              <h2>All nurses</h2>
+            </div>
+          </div>
+          <div className={styles.tableList}>
+            {nurses.map((nurse) => (
+              <div key={nurse.nurseId} className={styles.rowCard}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                    <strong>{formatName(nurse.nurseFirstName, nurse.nurseLastName, nurse.nurseId)}</strong>
+                    <VerifiedDoctorBadge doctor={nurse} role="nurse" label="Verified nurse" style={{ fontSize: '0.7rem' }} />
+                  </div>
+                  <p>{nurse.nurseEmail}</p>
+                  <p>{nurse.specialization || 'Unspecified'} · {nurse.isAvailable ? 'Available' : 'Unavailable'}</p>
+                </div>
+                <div className={styles.rowActions}>
+                  <button type="button" className={styles.actionButton} onClick={() => verifyNurse(nurse.nurseId, !nurse.isVerified)} disabled={busy}>
+                    {nurse.isVerified ? 'Unverify' : 'Verify'}
+                  </button>
+                  <button type="button" className={styles.danger} onClick={() => deleteRecord('nurse', nurse.nurseId)} disabled={busy}>
                     Delete
                   </button>
                 </div>

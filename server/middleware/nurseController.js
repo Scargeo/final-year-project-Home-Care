@@ -6,7 +6,7 @@ const bcrypt = require('bcrypt');
 const registerNurse = async (req, res) => {
     try {
         const {nurseFirstName, nurseLastName, nurseEmail,
-            nursePhone, nursePassword, nurseAddress} = req.body;
+            nursePhone, nursePassword, nurseAddress, specialization, yearsOfExperience} = req.body;
 
         // Create a new qualification document for the nurse
         const {nurseId} = req.body;
@@ -27,6 +27,8 @@ const registerNurse = async (req, res) => {
                 nursePhone,
                 nursePassword: hash,
                 nurseAddress,
+                specialization,
+                yearsOfExperience: Number.isFinite(Number(yearsOfExperience)) ? Number(yearsOfExperience) : 0,
             });
             newNurse.save().then((savedNurse) => {
                 res.status(201).json({message: "Account Created", user: savedNurse});

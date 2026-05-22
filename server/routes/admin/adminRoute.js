@@ -6,6 +6,7 @@ const { loadUser } = require('../../middleware/loadUserMiddleware')
 const { signToken } = require('../../middleware/jwtAuth')
 const Admin = require('../../models/admin/adminUser')
 const Doctor = require('../../models/privateHealthWorker/doctor/doctorRegistration')
+const Nurse = require('../../models/privateHealthWorker/nurse/privateNurseRegistration')
 const Patient = require('../../models/patient/patientRegistration')
 const Post = require('../../models/posts/post')
 
@@ -47,6 +48,26 @@ function stripDoctor(doctor) {
     role: doctor.role || 'doctor',
     createdAt: doctor.createdAt,
     updatedAt: doctor.updatedAt,
+  }
+}
+
+function stripNurse(nurse) {
+  if (!nurse) return null
+  return {
+    nurseId: nurse.uid,
+    nurseFirstName: nurse.nurseFirstName,
+    nurseLastName: nurse.nurseLastName,
+    nurseEmail: nurse.nurseEmail,
+    nursePhone: nurse.nursePhone,
+    nurseAddress: nurse.nurseAddress,
+    specialization: nurse.specialization,
+    yearsOfExperience: nurse.yearsOfExperience || 0,
+    profileImage: nurse.profileImage || null,
+    isVerified: Boolean(nurse.isVerified),
+    isAvailable: nurse.isAvailable !== false,
+    role: nurse.role || 'nurse',
+    createdAt: nurse.createdAt,
+    updatedAt: nurse.updatedAt,
   }
 }
 
@@ -171,9 +192,10 @@ router.get('/me', async (req, res) => {
 
 router.get('/summary', async (_req, res) => {
   try {
-    const [doctorCount, pendingDoctorCount, patientCount, postCount, adminCount] = await Promise.all([
+    const [doctorCount, pendingDoctorCount, nurseCount, patientCount, postCount, adminCount] = await Promise.all([
       Doctor.countDocuments(),
       Doctor.countDocuments({ isVerified: false }),
+      Nurse.countDocuments(),
       Patient.countDocuments(),
       Post.countDocuments(),
       Admin.countDocuments(),
@@ -182,6 +204,7 @@ router.get('/summary', async (_req, res) => {
     return res.status(200).json({
       counts: {
         doctors: doctorCount,
+        nurses: nurseCount,
         pendingDoctors: pendingDoctorCount,
         patients: patientCount,
         posts: postCount,
@@ -208,6 +231,109 @@ router.get('/doctors/pending', async (_req, res) => {
     return res.status(200).json({ doctors: doctors.map(stripDoctor) })
   } catch (error) {
     return res.status(500).json({ message: 'Failed to fetch pending doctors', error: error.message })
+  }
+})
+
+router.get('/nurses', async (_req, res) => {
+  try {
+    const nurses = await Nurse.find().sort({ createdAt: -1 }).lean()
+    return res.status(200).json({ nurses: nurses.map(stripNurse) })
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to fetch nurses', error: error.message })
+  }
+})
+
+router.post('/nurses', async (req, res) => {
+  try {
+    const {
+      nurseFirstName,
+      nurseLastName,
+      nurseEmail,
+      nursePhone,
+      nursePassword,
+      nurseAddress,
+      specialization,
+      yearsOfExperience,
+      isVerified = false,
+      isAvailable = true,
+    } = req.body || {}
+
+    if (!nurseFirstName || !nurseLastName || !nurseEmail || !nursePhone || !nursePassword || !nurseAddress) {
+      return res.status(400).json({ message: 'nurseFirstName, nurseLastName, nurseEmail, nursePhone, nursePassword, and nurseAddress are required.' })
+    }
+
+    const nurse = await Nurse.create({
+      uid: `PNUR-${nanoid(8).toUpperCase()}`,
+      nurseFirstName: String(nurseFirstName).trim(),
+      nurseLastName: String(nurseLastName).trim(),
+      nurseEmail: String(nurseEmail).trim().toLowerCase(),
+      nursePhone: String(nursePhone).trim(),
+      nursePassword: await hashPassword(nursePassword),
+      nurseAddress: String(nurseAddress).trim(),
+      specialization: specialization ? String(specialization).trim() : '',
+      yearsOfExperience: Number(yearsOfExperience) || 0,
+      isVerified: normalizeBoolean(isVerified, false),
+      isAvailable: normalizeBoolean(isAvailable, true),
+      role: 'nurse',
+    })
+
+    return res.status(201).json({ message: 'Nurse created', nurse: stripNurse(nurse) })
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to create nurse', error: error.message })
+  }
+})
+
+router.patch('/nurses/:nurseId', async (req, res) => {
+  try {
+    const { nurseId } = req.params
+    const updates = { ...(req.body || {}) }
+
+    if (updates.nursePassword) updates.nursePassword = await hashPassword(updates.nursePassword)
+    if (updates.nurseEmail !== undefined) updates.nurseEmail = String(updates.nurseEmail).trim().toLowerCase()
+    if (updates.nurseFirstName !== undefined) updates.nurseFirstName = String(updates.nurseFirstName).trim()
+    if (updates.nurseLastName !== undefined) updates.nurseLastName = String(updates.nurseLastName).trim()
+    if (updates.nursePhone !== undefined) updates.nursePhone = String(updates.nursePhone).trim()
+    if (updates.nurseAddress !== undefined) updates.nurseAddress = String(updates.nurseAddress).trim()
+    if (updates.specialization !== undefined) updates.specialization = String(updates.specialization).trim()
+    if (updates.yearsOfExperience !== undefined) updates.yearsOfExperience = Number(updates.yearsOfExperience) || 0
+    if (updates.isVerified !== undefined) updates.isVerified = normalizeBoolean(updates.isVerified, false)
+    if (updates.isAvailable !== undefined) updates.isAvailable = normalizeBoolean(updates.isAvailable, true)
+
+    const nurse = await Nurse.findOneAndUpdate({ uid: nurseId }, { $set: updates }, { new: true }).lean()
+    if (!nurse) return res.status(404).json({ message: 'Nurse not found' })
+
+    return res.status(200).json({ message: 'Nurse updated', nurse: stripNurse(nurse) })
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to update nurse', error: error.message })
+  }
+})
+
+router.delete('/nurses/:nurseId', async (req, res) => {
+  try {
+    const { nurseId } = req.params
+    const result = await Nurse.deleteOne({ uid: nurseId })
+    if (!result.deletedCount) return res.status(404).json({ message: 'Nurse not found' })
+    return res.status(200).json({ message: 'Nurse deleted', nurseId })
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to delete nurse', error: error.message })
+  }
+})
+
+router.patch('/nurses/:nurseId/verify', async (req, res) => {
+  try {
+    const { nurseId } = req.params
+    const nextVerified = normalizeBoolean(req.body?.isVerified, true)
+
+    const nurse = await Nurse.findOneAndUpdate(
+      { uid: nurseId },
+      { $set: { isVerified: nextVerified } },
+      { new: true },
+    ).lean()
+    if (!nurse) return res.status(404).json({ message: 'Nurse not found' })
+
+    return res.status(200).json({ message: 'Nurse updated', nurse: stripNurse(nurse) })
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to update nurse', error: error.message })
   }
 })
 

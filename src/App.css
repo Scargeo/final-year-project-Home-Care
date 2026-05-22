@@ -2,7 +2,6 @@
   min-height: 100svh;
   background: linear-gradient(180deg, #ffffff 0%, #f6fdff 38%, #f9fcff 100%);
   color: #0f172a;
-  overflow-x: clip;
 }
 
 .hc-container {

@@ -54,8 +54,15 @@ export default function LoginPage() {
       if (typeof window !== 'undefined' && data?.user) {
         // store token and refreshToken alongside user data for future requests
         const payload = { ...data.user, token: data.token, refreshToken: data.refreshToken }
+
+        localStorage.removeItem('patientAuth')
+        localStorage.removeItem('doctorAuth')
+        localStorage.removeItem('nurseAuth')
+
         if (data.user.role === 'doctor') {
           localStorage.setItem('doctorAuth', JSON.stringify(payload))
+        } else if (data.user.role === 'nurse') {
+          localStorage.setItem('nurseAuth', JSON.stringify(payload))
         } else {
           localStorage.setItem('patientAuth', JSON.stringify(payload))
         }
@@ -87,10 +94,10 @@ export default function LoginPage() {
         <AuthShowcase />
 
         <div className={styles.authIntro}>
-          <p className={styles.authKicker}>Patient access only</p>
+          <p className={styles.authKicker}>Role-based access</p>
           <h1>Return to your care space.</h1>
           <p>
-            Log in to manage appointments, view services, and continue care requests as a patient.
+            Log in as a patient, doctor, or nurse to access your workspace.
           </p>
 
         </div>

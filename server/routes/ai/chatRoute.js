@@ -134,7 +134,7 @@ const hasAppointmentConfirmationIntent = (queryText) =>
   /\b(confirm(?:\s+the)?(?:\s+previous)?\s+appointment|confirm\s+it|yes\s+book\s+it|go\s+ahead|proceed)\b/i.test(queryText)
 
 const hasDateOrTimeHint = (queryText) =>
-  /\b(today|tomorrow|tonight|\d{1,2}(?::\d{2})?\s*(?:am|pm)|\d{1,2}:\d{2}|\d{4}-\d{2}-\d{2}|\d{1,2}[\/-]\d{1,2}(?:[\/-]\d{2,4})?|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(
+  /\b(today|tomorrow|tonight|\d{1,2}(?::\d{2})?\s*(?:am|pm)|\d{1,2}:\d{2}|\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(
     queryText
   )
 
@@ -147,7 +147,7 @@ const parseAppointmentFromText = (queryText) => {
   let matchedWeekday = null
 
   const explicitIso = text.match(/\b(\d{4})-(\d{2})-(\d{2})\b/)
-  const slashDate = text.match(/\b(\d{1,2})[\/-](\d{1,2})(?:[\/-](\d{2,4}))?\b/)
+  const slashDate = text.match(/\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/)
   const monthDate = text.match(/\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})(?:,?\s*(\d{4}))?\b/)
   const weekdayMatch = text.match(/\b(sun(?:day)?|mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:r?s(?:day)?)?|fri(?:day)?|sat(?:urday)?)\b/)
 
