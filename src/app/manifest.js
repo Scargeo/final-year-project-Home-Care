@@ -11,22 +11,10 @@ export default function manifest() {
     orientation: 'portrait-primary',
     icons: [
       {
-        src: '/pwa/icon-192.svg',
-        sizes: '192x192',
-        type: 'image/svg+xml',
-        purpose: 'any',
-      },
-      {
-        src: '/pwa/icon-512.svg',
+        src: '/homeCare.png',
         sizes: '512x512',
-        type: 'image/svg+xml',
-        purpose: 'any',
-      },
-      {
-        src: '/pwa/icon-maskable.svg',
-        sizes: '512x512',
-        type: 'image/svg+xml',
-        purpose: 'maskable any',
+        type: 'image/png',
+        purpose: 'any maskable',
       },
     ],
   }

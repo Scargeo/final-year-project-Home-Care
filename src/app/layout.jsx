@@ -23,16 +23,12 @@ export const metadata = {
   formatDetection: {
     telephone: false,
   },
-  icons: {
-    icon: [
-      { url: '/pwa/icon-192.svg', type: 'image/svg+xml' },
-      { url: '/pwa/icon-512.svg', type: 'image/svg+xml' },
-    ],
-    apple: [{ url: '/apple-touch-icon.svg', type: 'image/svg+xml' }],
-    other: [
-      { rel: 'mask-icon', url: '/safari-pinned-tab.svg', color: '#0f766e' },
-    ],
-  },
+    icons: {
+      icon: [
+        { url: '/homeCare.png', type: 'image/png' },
+      ],
+      apple: [{ url: '/homeCare.png', type: 'image/png' }],
+    },
 }
 
 export default function RootLayout({ children }) {
