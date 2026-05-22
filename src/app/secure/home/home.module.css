@@ -1877,6 +1877,25 @@
     overflow: auto;
   }
 
+  .topBar {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.65rem 0.7rem;
+  }
+
+  .brand {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .topActions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
   .topBar,
   .layout {
     padding-left: 0.75rem;
@@ -1885,6 +1904,26 @@
 
   .notificationHeaderButtonText {
     display: none;
+  }
+
+  .notificationHeaderButton {
+    width: 2.35rem;
+    height: 2.35rem;
+    padding: 0;
+    border-radius: 999px;
+    flex: 0 0 auto;
+  }
+
+  .notificationHeaderButtonIcon {
+    width: 1.05rem;
+    height: 1.05rem;
+  }
+
+  .notificationHeaderCount {
+    min-width: 1.35rem;
+    height: 1.35rem;
+    padding: 0 0.3rem;
+    font-size: 0.7rem;
   }
 
   .action {
@@ -1896,6 +1935,12 @@
   .aiHeaderButton {
     width: 2.35rem;
     height: 2.35rem;
+  }
+
+  .menuToggle {
+    width: 2.35rem;
+    height: 2.35rem;
+    flex-shrink: 0;
   }
 
   .composerActions,
