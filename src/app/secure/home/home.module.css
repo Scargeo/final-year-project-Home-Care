@@ -1949,6 +1949,11 @@
     height: 2.35rem;
   }
 
+  /* Hide the search button on very small screens to save space */
+  .searchButton {
+    display: none;
+  }
+
   .menuToggle {
     width: 2.35rem;
     height: 2.35rem;
