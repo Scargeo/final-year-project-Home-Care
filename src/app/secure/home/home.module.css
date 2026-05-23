@@ -508,7 +508,7 @@
 
 .layout {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr) 340px;
+  grid-template-columns: 260px minmax(0, 0.88fr) 380px;
   gap: 1.25rem;
   max-width: 1440px;
   margin: 0 auto;

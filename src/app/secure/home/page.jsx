@@ -3,7 +3,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import aiAssistantLogo from "../../../assets/homecare_ai_assistant_logo.png"
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -154,6 +154,7 @@ export default function SecureHomePage() {
   const [doctorId, setDoctorId] = useState(null)
   const [nurseId, setNurseId] = useState(null)
   const [patientId, setPatientId] = useState(null)
+  const [storedAuth, setStoredAuth] = useState(null)
   const [doctorDetails, setDoctorDetails] = useState(null)
   const [_nurseDetails, setNurseDetails] = useState(null)
   const [userRole, setUserRole] = useState(null)
@@ -311,6 +312,7 @@ export default function SecureHomePage() {
     if (patientAuthStr) {
       try {
         const auth = JSON.parse(patientAuthStr)
+        setStoredAuth(auth)
         setPatientId(auth.patientId || auth.id || auth._id || null)
         setDoctorId(null)
         setDoctorDetails(null)
@@ -328,6 +330,7 @@ export default function SecureHomePage() {
     if (doctorAuthStr) {
       try {
         const auth = JSON.parse(doctorAuthStr)
+        setStoredAuth(auth)
         setDoctorId(auth.doctorId || auth.id || auth._id || null)
         setPatientId(null)
         setUserRole("doctor")
@@ -345,6 +348,7 @@ export default function SecureHomePage() {
     if (nurseAuthStr) {
       try {
         const auth = JSON.parse(nurseAuthStr)
+        setStoredAuth(auth)
         setNurseId(auth.nurseId || auth.id || auth._id || null)
         setPatientId(null)
         setUserRole("nurse")
@@ -509,38 +513,13 @@ export default function SecureHomePage() {
     return () => { active = false }
   }, [doctorId, nurseId, userRole])
 
-  const userName = useSyncExternalStore(
-    () => () => {},
-    () => {
-      if (typeof window === "undefined") return "User"
-      try {
-        const patientAuth = window.localStorage.getItem("patientAuth")
-        if (patientAuth) {
-          const parsed = JSON.parse(patientAuth)
-          return ([parsed.patientFirstName, parsed.patientLastName].filter(Boolean).join(" ") || parsed.patientFirstName || "Patient")
-        }
-      } catch { /* ignore parse error for patientAuth */ }
-
-      try {
-        const doctorAuth = window.localStorage.getItem("doctorAuth")
-        if (doctorAuth) {
-          const parsed = JSON.parse(doctorAuth)
-          return ([parsed.firstName, parsed.lastName].filter(Boolean).join(" ") || parsed.firstName || "Doctor")
-        }
-      } catch { /* ignore parse error for doctorAuth */ }
-
-      try {
-        const nurseAuth = window.localStorage.getItem("nurseAuth")
-        if (nurseAuth) {
-          const parsed = JSON.parse(nurseAuth)
-          return ([parsed.nurseFirstName || parsed.firstName, parsed.nurseLastName || parsed.lastName].filter(Boolean).join(" ") || parsed.nurseFirstName || "Nurse")
-        }
-      } catch { /* ignore parse error for nurseAuth */ }
-
-      return "User"
-    },
-    () => "User",
-  )
+  const userName = storedAuth
+    ? userRole === "doctor"
+      ? ([storedAuth.firstName, storedAuth.lastName].filter(Boolean).join(" ") || storedAuth.firstName || "Doctor")
+      : userRole === "nurse"
+        ? ([storedAuth.nurseFirstName || storedAuth.firstName, storedAuth.nurseLastName || storedAuth.lastName].filter(Boolean).join(" ") || storedAuth.nurseFirstName || "Nurse")
+        : ([storedAuth.patientFirstName, storedAuth.patientLastName].filter(Boolean).join(" ") || storedAuth.patientFirstName || "Patient")
+    : "User"
 
   const providerPrefix = userRole === "nurse" ? "Nurse" : "Dr."
   const doctorDisplayName = doctorDetails?.doctorFirstName || doctorDetails?.doctorLastName
@@ -1052,35 +1031,33 @@ export default function SecureHomePage() {
         </Link>
 
         <div className={styles.topActions}>
-          {userRole === "patient" && (
-            <div className={`${styles.searchContainer} ${searchOpen ? styles.searchActive : ''}`}>
-              {!searchOpen && (
-                <button 
-                  type="button" 
-                  className={`${styles.action} ${styles.actionGhost} ${styles.searchButton}`}
-                  onClick={() => setSearchOpen(true)}
-                  aria-label="Search health tips and channels"
-                  title="Search"
-                >
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="2" />
-                    <path d="M15.5 15.5L20 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
-                  <span className={styles.searchLabel}>Search</span>
-                </button>
-              )}
-              {searchOpen && (
-                <input
-                  type="text"
-                  placeholder="Search health tips and channels..."
-                  className={styles.searchInput}
-                  autoFocus
-                  onBlur={() => setSearchOpen(false)}
-                  onKeyDown={(e) => e.key === 'Escape' && setSearchOpen(false)}
-                />
-              )}
-            </div>
-          )}
+          <div className={`${styles.searchContainer} ${searchOpen ? styles.searchActive : ''}`}>
+            {!searchOpen && (
+              <button 
+                type="button" 
+                className={`${styles.action} ${styles.actionGhost} ${styles.searchButton}`}
+                onClick={() => setSearchOpen(true)}
+                aria-label="Search health tips and channels"
+                title="Search"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="2" />
+                  <path d="M15.5 15.5L20 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+                <span className={styles.searchLabel}>Search</span>
+              </button>
+            )}
+            {searchOpen && (
+              <input
+                type="text"
+                placeholder="Search health tips and channels..."
+                className={styles.searchInput}
+                autoFocus
+                onBlur={() => setSearchOpen(false)}
+                onKeyDown={(e) => e.key === 'Escape' && setSearchOpen(false)}
+              />
+            )}
+          </div>
 
           <button type="button" className={styles.aiHeaderButton} onClick={() => setAiOpen(true)} aria-label="Open Health Assistant" title="Health Assistant">
             <Image src={aiAssistantLogoSrc} alt="" width={22} height={22} className={styles.aiHeaderIcon} />
@@ -1224,8 +1201,8 @@ export default function SecureHomePage() {
                 </div>
                 <div style={{ display: "grid", gap: "0.5rem" }}>
                   {(() => {
-                    const auth = getStoredAuth()
-                    const name = auth ? ([auth.patientFirstName, auth.patientLastName].filter(Boolean).join(" ") || auth.patientFirstName || userName) : userName
+                    const auth = storedAuth
+                    const name = auth ? ([auth.patientFirstName, auth.patientLastName].filter(Boolean).join(" ").trim() || auth.patientFirstName || userName) : userName
                     const email = auth?.patientEmail || auth?.email || "No email"
                     const phone = auth?.patientPhone || auth?.phone || "No phone"
                     const address = auth?.patientAddress || auth?.address || "No address"
@@ -1348,8 +1325,17 @@ export default function SecureHomePage() {
                   {/* Post content */}
                   {post.body ? <p className={styles.feedBody}>{post.body}</p> : null}
                   {Array.isArray(post.images) && post.images.length > 0 && (
-                    <div style={{ marginTop: '0.75rem', marginBottom: '0.75rem' }}>
-                      <PostImageCarousel images={post.images} />
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.75rem', marginBottom: '0.75rem' }}>
+                      {post.images.map((img, i) => (
+                        <Image
+                          key={i}
+                          src={img.url}
+                          alt={`post-${i}`}
+                          width={200}
+                          height={150}
+                          style={{ objectFit: 'cover', borderRadius: '0.5rem' }}
+                        />
+                      ))}
                     </div>
                   )}
 

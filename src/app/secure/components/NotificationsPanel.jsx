@@ -348,7 +348,8 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
   const [items, setItems] = useState([])
   const [appointments, setAppointments] = useState([])
   const [patientNotifications, setPatientNotifications] = useState([])
-  const [readIds, setReadIds] = useState(() => loadReadIds())
+  const [readIds, setReadIds] = useState(() => new Set())
+  const [userType, setUserType] = useState(null)
   const [expanded, setExpanded] = useState(() => new Set())
   const prevStatusRef = useRef(new Map())
 
@@ -423,6 +424,11 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
       document.removeEventListener("mousedown", handleOutsideClick)
       document.removeEventListener("touchstart", handleOutsideClick)
     }
+  }, [])
+
+  useEffect(() => {
+    setReadIds(loadReadIds())
+    setUserType(getUserType())
   }, [])
 
   useEffect(() => {
@@ -616,7 +622,6 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
   const unreadEntries = entries.filter((entry) => !readIds.has(entry.id))
   const unreadCount = unreadEntries.length
   const latestEntry = entries[0] || null
-  const userType = getUserType()
 
   if (variant === "header") {
     return (
@@ -665,7 +670,7 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
                   isExpanded={isExpanded}
                   onToggle={toggleExpanded}
                   onMarkRead={markAsRead}
-                  userType={userType}
+                  userType={userType || "patient"}
                   onRebooked={upsertAppointment}
                 />
               )
@@ -676,7 +681,7 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
     )
   }
 
-  const sidebarSummary = userType === "doctor"
+  const sidebarSummary = (userType || "patient") === "doctor"
     ? (latestEntry 
       ? `${latestEntry.emergency?.patientName || "Patient"} — ${buildEntryPreview(latestEntry).summaryText}`
       : `${unreadCount} pending emergency request${unreadCount !== 1 ? 's' : ''} waiting for response.`)
