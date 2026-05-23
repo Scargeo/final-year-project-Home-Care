@@ -1887,6 +1887,28 @@
     display: none;
   }
 
+  .notificationHeaderButton {
+    position: relative;
+  }
+
+  .notificationHeaderButtonIcon {
+    width: 1.05rem;
+    height: 1.05rem;
+  }
+
+  .notificationHeaderCount {
+    position: absolute;
+    top: -0.35rem;
+    right: -0.35rem;
+    min-width: 1.2rem;
+    height: 1.2rem;
+    padding: 0 0.2rem;
+    font-size: 0.68rem;
+    line-height: 1;
+    box-shadow: 0 6px 14px rgba(10, 102, 194, 0.18);
+    transform: translateZ(0);
+  }
+
   .action {
     padding: 0.5rem 0.7rem;
     font-size: 0.86rem;
