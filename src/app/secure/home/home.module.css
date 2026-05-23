@@ -1914,6 +1914,10 @@
     font-size: 0.86rem;
   }
 
+  .searchButton {
+    display: none;
+  }
+
   .searchButton,
   .aiHeaderButton {
     width: 2.35rem;

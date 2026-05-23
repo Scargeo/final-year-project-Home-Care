@@ -1052,35 +1052,33 @@ export default function SecureHomePage() {
         </Link>
 
         <div className={styles.topActions}>
-          {userRole === "patient" && (
-            <div className={`${styles.searchContainer} ${searchOpen ? styles.searchActive : ''}`}>
-              {!searchOpen && (
-                <button 
-                  type="button" 
-                  className={`${styles.action} ${styles.actionGhost} ${styles.searchButton}`}
-                  onClick={() => setSearchOpen(true)}
-                  aria-label="Search health tips and channels"
-                  title="Search"
-                >
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="2" />
-                    <path d="M15.5 15.5L20 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
-                  <span className={styles.searchLabel}>Search</span>
-                </button>
-              )}
-              {searchOpen && (
-                <input
-                  type="text"
-                  placeholder="Search health tips and channels..."
-                  className={styles.searchInput}
-                  autoFocus
-                  onBlur={() => setSearchOpen(false)}
-                  onKeyDown={(e) => e.key === 'Escape' && setSearchOpen(false)}
-                />
-              )}
-            </div>
-          )}
+          <div className={`${styles.searchContainer} ${searchOpen ? styles.searchActive : ''}`}>
+            {!searchOpen && (
+              <button 
+                type="button" 
+                className={`${styles.action} ${styles.actionGhost} ${styles.searchButton}`}
+                onClick={() => setSearchOpen(true)}
+                aria-label="Search health tips and channels"
+                title="Search"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="2" />
+                  <path d="M15.5 15.5L20 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+                <span className={styles.searchLabel}>Search</span>
+              </button>
+            )}
+            {searchOpen && (
+              <input
+                type="text"
+                placeholder="Search health tips and channels..."
+                className={styles.searchInput}
+                autoFocus
+                onBlur={() => setSearchOpen(false)}
+                onKeyDown={(e) => e.key === 'Escape' && setSearchOpen(false)}
+              />
+            )}
+          </div>
 
           <button type="button" className={styles.aiHeaderButton} onClick={() => setAiOpen(true)} aria-label="Open Health Assistant" title="Health Assistant">
             <Image src={aiAssistantLogoSrc} alt="" width={22} height={22} className={styles.aiHeaderIcon} />
