@@ -141,6 +141,7 @@ function getStoredTokenForRole(role) {
 
 export default function SecureHomePage() {
   const aiAssistantLogoSrc = aiAssistantLogo?.src || aiAssistantLogo
+  const [mounted, setMounted] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
@@ -160,9 +161,17 @@ export default function SecureHomePage() {
   const [userRole, setUserRole] = useState(null)
   // Posts (doctor feed)
 
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   function PostImageCarousel({ images = [] }) {
     const [index, setIndex] = useState(0)
     const imgLen = images?.length || 0
+    const normalizedImages = images.map((image) => ({
+      ...image,
+      url: image?.url || image?.secure_url || image?.path || "",
+    })).filter((image) => Boolean(image.url))
 
     // stable refs and callbacks must be declared unconditionally
     const pointerDownRef = useRef(false)
@@ -201,7 +210,7 @@ export default function SecureHomePage() {
       setIndex(0)
     }, [images])
 
-    if (imgLen === 0) return null
+    if (normalizedImages.length === 0) return null
 
     return (
       <div
@@ -213,8 +222,8 @@ export default function SecureHomePage() {
         onTouchMove={onPointerMove}
         onTouchEnd={onPointerUp}
       >
-        <Image src={images[index].url} alt={images[index]?.alt || `post-${index}`} fill sizes="(max-width: 760px) 100vw, 640px" style={{ objectFit: 'cover', objectPosition: 'center' }} />
-        {imgLen > 1 && (
+        <Image src={normalizedImages[index].url} alt={normalizedImages[index]?.alt || `post-${index}`} fill sizes="(max-width: 760px) 100vw, 640px" style={{ objectFit: 'cover', objectPosition: 'center' }} />
+        {normalizedImages.length > 1 && (
           <div className={styles.postCarouselControls}>
             <button type="button" aria-label="Previous image" onClick={prev} className={styles.carouselBtn}>
               ‹
@@ -223,7 +232,7 @@ export default function SecureHomePage() {
               ›
             </button>
             <div className={styles.carouselDots}>
-              {images.map((_, i) => (
+              {normalizedImages.map((_, i) => (
                 <button key={i} type="button" className={`${styles.carouselDot} ${i === index ? styles.activeDot : ''}`} onClick={() => setIndex(i)} aria-label={`View image ${i + 1}`} />
               ))}
             </div>
@@ -1031,61 +1040,67 @@ export default function SecureHomePage() {
         </Link>
 
         <div className={styles.topActions}>
-          <div className={`${styles.searchContainer} ${searchOpen ? styles.searchActive : ''}`}>
-            {!searchOpen && (
-              <button 
-                type="button" 
-                className={`${styles.action} ${styles.actionGhost} ${styles.searchButton}`}
-                onClick={() => setSearchOpen(true)}
-                aria-label="Search health tips and channels"
-                title="Search"
-              >
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="2" />
-                  <path d="M15.5 15.5L20 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-                <span className={styles.searchLabel}>Search</span>
+          {!mounted ? (
+            <div aria-hidden="true" style={{ minWidth: '18rem', minHeight: '2.5rem' }} />
+          ) : (
+            <>
+              <div className={`${styles.searchContainer} ${searchOpen ? styles.searchActive : ''}`}>
+                {!searchOpen && (
+                  <button 
+                    type="button" 
+                    className={`${styles.action} ${styles.actionGhost} ${styles.searchButton}`}
+                    onClick={() => setSearchOpen(true)}
+                    aria-label="Search health tips and channels"
+                    title="Search"
+                  >
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                      <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="2" />
+                      <path d="M15.5 15.5L20 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                    <span className={styles.searchLabel}>Search</span>
+                  </button>
+                )}
+                {searchOpen && (
+                  <input
+                    type="text"
+                    placeholder="Search health tips and channels..."
+                    className={styles.searchInput}
+                    autoFocus
+                    onBlur={() => setSearchOpen(false)}
+                    onKeyDown={(e) => e.key === 'Escape' && setSearchOpen(false)}
+                  />
+                )}
+              </div>
+
+              <button type="button" className={styles.aiHeaderButton} onClick={() => setAiOpen(true)} aria-label="Open Health Assistant" title="Health Assistant">
+                <Image src={aiAssistantLogoSrc} alt="" width={22} height={22} className={styles.aiHeaderIcon} />
+                <span className={styles.aiLabel}>Health Assistant</span>
               </button>
-            )}
-            {searchOpen && (
-              <input
-                type="text"
-                placeholder="Search health tips and channels..."
-                className={styles.searchInput}
-                autoFocus
-                onBlur={() => setSearchOpen(false)}
-                onKeyDown={(e) => e.key === 'Escape' && setSearchOpen(false)}
-              />
-            )}
-          </div>
 
-          <button type="button" className={styles.aiHeaderButton} onClick={() => setAiOpen(true)} aria-label="Open Health Assistant" title="Health Assistant">
-            <Image src={aiAssistantLogoSrc} alt="" width={22} height={22} className={styles.aiHeaderIcon} />
-            <span className={styles.aiLabel}>Health Assistant</span>
-          </button>
+              <Link href="/secure/emergency" className={`${styles.action} ${styles.actionDanger}`}>
+                <span className={styles.emergencyLabel}>Emergency</span>
+                <span className={styles.sosLabel}>SOS</span>
+              </Link>
+              <NotificationsPanel variant="header" />
+              <Link href={isProvider ? (userRole === "nurse" ? "/secure/nurse" : "/secure/doctor") : "/secure/dashboard"} className={`${styles.action} ${styles.actionGhost} ${styles.desktopOnlyAction}`}>
+                Dashboard
+              </Link>
 
-          <Link href="/secure/emergency" className={`${styles.action} ${styles.actionDanger}`}>
-            <span className={styles.emergencyLabel}>Emergency</span>
-            <span className={styles.sosLabel}>SOS</span>
-          </Link>
-          <NotificationsPanel variant="header" />
-          <Link href={isProvider ? (userRole === "nurse" ? "/secure/nurse" : "/secure/doctor") : "/secure/dashboard"} className={`${styles.action} ${styles.actionGhost} ${styles.desktopOnlyAction}`}>
-            Dashboard
-          </Link>
+              <button type="button" className={`${styles.action} ${styles.actionGhost} ${styles.desktopOnlyAction}`} onClick={() => handleLogout()}>
+                Logout
+              </button>
 
-          <button type="button" className={`${styles.action} ${styles.actionGhost} ${styles.desktopOnlyAction}`} onClick={() => handleLogout()}>
-            Logout
-          </button>
-
-          <button
-            type="button"
-            className={styles.menuToggle}
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label="Toggle menu"
-            aria-expanded={menuOpen}
-          >
-            <span aria-hidden="true">☰</span>
-          </button>
+              <button
+                type="button"
+                className={styles.menuToggle}
+                onClick={() => setMenuOpen(!menuOpen)}
+                aria-label="Toggle menu"
+                aria-expanded={menuOpen}
+              >
+                <span aria-hidden="true">☰</span>
+              </button>
+            </>
+          )}
         </div>
 
         {menuOpen && (
@@ -1292,7 +1307,7 @@ export default function SecureHomePage() {
                         <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>{post.author?.name}</h3>
                         <VerifiedDoctorBadge doctor={post.author} role={post.author?.role} style={{ fontSize: '0.72rem' }} />
                       </div>
-                      <p style={{ margin: 0, fontSize: '0.875rem', color: '#666' }}>{post.author?.role}</p>
+                      <p style={{ margin: 0, fontSize: '0.875rem', color: '#111827' }}>{post.author?.role}</p>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.15rem' }}>
                       <span style={{ color: '#0a66c2', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{postLabel}</span>
@@ -1325,17 +1340,8 @@ export default function SecureHomePage() {
                   {/* Post content */}
                   {post.body ? <p className={styles.feedBody}>{post.body}</p> : null}
                   {Array.isArray(post.images) && post.images.length > 0 && (
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.75rem', marginBottom: '0.75rem' }}>
-                      {post.images.map((img, i) => (
-                        <Image
-                          key={i}
-                          src={img.url}
-                          alt={`post-${i}`}
-                          width={200}
-                          height={150}
-                          style={{ objectFit: 'cover', borderRadius: '0.5rem' }}
-                        />
-                      ))}
+                    <div style={{ marginTop: '0.75rem', marginBottom: '0.75rem' }}>
+                      <PostImageCarousel images={post.images} />
                     </div>
                   )}
 
@@ -1344,7 +1350,7 @@ export default function SecureHomePage() {
 
                   {/* Reaction counts and buttons row */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                    <div style={{ fontSize: '0.875rem', color: '#666' }}>
+                    <div style={{ fontSize: '0.875rem', color: '#111827' }}>
                       <span>❤️ {post.likes?.count || 0} reaction{(post.likes?.count || 0) !== 1 ? 's' : ''}</span>
                       <span style={{ margin: '0 0.5rem' }}>·</span>
                       <span>{post.comments?.count || 0} comment{(post.comments?.count || 0) !== 1 ? 's' : ''}</span>
@@ -1763,7 +1769,7 @@ export default function SecureHomePage() {
                             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>{post.author?.name}</h3>
                             <VerifiedDoctorBadge doctor={post.author} role={post.author?.role} style={{ fontSize: '0.72rem' }} />
                           </div>
-                          <p style={{ margin: 0, fontSize: '0.875rem', color: '#666' }}>{post.author?.role}</p>
+                          <p style={{ margin: 0, fontSize: '0.875rem', color: '#111827' }}>{post.author?.role}</p>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.15rem' }}>
                           <span style={{ color: '#0a66c2', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{postLabel}</span>
@@ -1796,10 +1802,8 @@ export default function SecureHomePage() {
                       {/* Post content */}
                       {post.body ? <p className={styles.feedBody}>{post.body}</p> : null}
                       {Array.isArray(post.images) && post.images.length > 0 && (
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.75rem', marginBottom: '0.75rem' }}>
-                          {post.images.map((img, i) => (
-                            <Image key={i} src={img.url} alt={`post-${i}`} width={200} height={150} style={{ objectFit: 'cover', borderRadius: '0.5rem' }} />
-                          ))}
+                        <div style={{ marginTop: '0.75rem', marginBottom: '0.75rem' }}>
+                          <PostImageCarousel images={post.images} />
                         </div>
                       )}
 
