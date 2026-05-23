@@ -1779,6 +1779,101 @@
   }
 }
 
+/* Treat phone landscape/short-height touch devices as mobile layout. */
+@media (hover: none) and (pointer: coarse) and (orientation: landscape),
+  (hover: none) and (pointer: coarse) and (max-height: 520px) {
+  .page {
+    height: auto;
+    min-height: 100dvh;
+    overflow: auto;
+  }
+
+  .topActions {
+    gap: 0.45rem;
+  }
+
+  .desktopOnlyAction {
+    display: none;
+  }
+
+  .notificationHeaderButton {
+    display: inline-flex;
+    position: relative;
+  }
+
+  .notificationHeaderButtonText {
+    display: none;
+  }
+
+  .searchButton {
+    display: none;
+  }
+
+  .action {
+    padding: 0.55rem 0.8rem;
+  }
+
+  .aiHeaderButton {
+    width: 2.35rem;
+    height: 2.35rem;
+    justify-content: center;
+  }
+
+  .searchButton,
+  .aiHeaderButton {
+    width: 2.35rem;
+    height: 2.35rem;
+  }
+
+  .brandText {
+    font-size: 1rem;
+  }
+
+  .emergencyLabel {
+    display: none;
+  }
+
+  .sosLabel {
+    display: inline;
+  }
+
+  .menuToggle {
+    display: flex;
+  }
+
+  .topBar,
+  .layout {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .layout {
+    grid-template-columns: 1fr;
+    height: auto;
+    overflow: visible;
+  }
+
+  .leftRail,
+  .rightRail {
+    grid-column: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .leftRail {
+    display: none;
+  }
+
+  .rightRail {
+    grid-template-columns: 1fr;
+  }
+
+  .feedColumn {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
 @media (max-width: 900px) {
   .topActions {
     gap: 0.45rem;
