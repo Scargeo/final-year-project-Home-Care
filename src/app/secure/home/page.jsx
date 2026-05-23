@@ -140,7 +140,6 @@ function getStoredTokenForRole(role) {
 }
 
 export default function SecureHomePage() {
-  const aiAssistantLogoSrc = aiAssistantLogo?.src || aiAssistantLogo
   const [mounted, setMounted] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -1073,7 +1072,7 @@ export default function SecureHomePage() {
               </div>
 
               <button type="button" className={styles.aiHeaderButton} onClick={() => setAiOpen(true)} aria-label="Open Health Assistant" title="Health Assistant">
-                <Image src={aiAssistantLogoSrc} alt="" width={22} height={22} className={styles.aiHeaderIcon} />
+                <img src={aiAssistantLogo?.src || aiAssistantLogo} alt="" width={22} height={22} className={styles.aiHeaderIcon} loading="eager" />
                 <span className={styles.aiLabel}>Health Assistant</span>
               </button>
 
