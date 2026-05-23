@@ -1887,26 +1887,6 @@
     display: none;
   }
 
-  .notificationHeaderButton {
-    width: 2.35rem;
-    height: 2.35rem;
-    padding: 0;
-    border-radius: 999px;
-    flex: 0 0 auto;
-  }
-
-  .notificationHeaderButtonIcon {
-    width: 1.05rem;
-    height: 1.05rem;
-  }
-
-  .notificationHeaderCount {
-    min-width: 1.35rem;
-    height: 1.35rem;
-    padding: 0 0.3rem;
-    font-size: 0.7rem;
-  }
-
   .action {
     padding: 0.5rem 0.7rem;
     font-size: 0.86rem;
@@ -1916,12 +1896,6 @@
   .aiHeaderButton {
     width: 2.35rem;
     height: 2.35rem;
-  }
-
-  .menuToggle {
-    width: 2.35rem;
-    height: 2.35rem;
-    flex-shrink: 0;
   }
 
   .composerActions,
