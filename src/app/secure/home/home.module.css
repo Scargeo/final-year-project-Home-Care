@@ -1877,25 +1877,6 @@
     overflow: auto;
   }
 
-  .topBar {
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 0.65rem 0.7rem;
-  }
-
-  .brand {
-    min-width: 0;
-    flex: 1 1 auto;
-  }
-
-  .topActions {
-    width: 100%;
-    margin-left: 0;
-    justify-content: flex-end;
-    flex-wrap: wrap;
-    gap: 0.45rem;
-  }
-
   .topBar,
   .layout {
     padding-left: 0.75rem;
@@ -1912,7 +1893,6 @@
     padding: 0;
     border-radius: 999px;
     flex: 0 0 auto;
-    position: relative;
   }
 
   .notificationHeaderButtonIcon {
@@ -1921,21 +1901,10 @@
   }
 
   .notificationHeaderCount {
-    position: absolute;
-    top: -6px;
-    right: -6px;
-    min-width: 1.25rem;
-    height: 1.25rem;
-    padding: 0 0.25rem;
-    font-size: 0.68rem;
-    line-height: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 999px;
-    box-shadow: 0 6px 12px rgba(10,16,30,0.12);
-    background: #0a66c2;
-    color: #fff;
+    min-width: 1.35rem;
+    height: 1.35rem;
+    padding: 0 0.3rem;
+    font-size: 0.7rem;
   }
 
   .action {
@@ -1947,11 +1916,6 @@
   .aiHeaderButton {
     width: 2.35rem;
     height: 2.35rem;
-  }
-
-  /* Hide the search button on very small screens to save space */
-  .searchButton {
-    display: none;
   }
 
   .menuToggle {
