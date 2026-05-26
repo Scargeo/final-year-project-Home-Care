@@ -586,7 +586,9 @@ function ChatPageContent() {
         wsRef.current = ws
 
         ws.onopen = () => {
-          sendJson({ type: "join", roomId, peerId: id })
+          const session = getStoredSession()
+          const token = session?.token || null
+          sendJson({ type: "join", roomId, peerId: id, token })
         }
 
         ws.onmessage = async (evt) => {

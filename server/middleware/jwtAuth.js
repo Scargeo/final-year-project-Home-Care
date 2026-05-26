@@ -6,6 +6,11 @@ const DEFAULT_REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRES_IN || '30d'
 const RefreshToken = require('../models/token/refreshToken')
 const crypto = require('crypto')
 
+// Fail fast in production if a real secret is not provided
+if (String(process.env.NODE_ENV || '').toLowerCase() === 'production' && JWT_SECRET === 'dev-secret-change-me') {
+  throw new Error('JWT_SECRET must be set in production environment')
+}
+
 function signToken(payload, opts = {}) {
   const toSign = typeof payload === 'object' ? payload : { id: payload }
   return jwt.sign(toSign, JWT_SECRET, { expiresIn: opts.expiresIn || DEFAULT_EXPIRY })

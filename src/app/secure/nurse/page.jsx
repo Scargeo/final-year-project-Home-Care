@@ -5,6 +5,7 @@ import Image from "next/image"
 import { useEffect, useState, useCallback, useRef } from "react"
 import { io } from "socket.io-client"
 import styles from "./nurse.module.css"
+import homeStyles from "../home/home.module.css"
 import LoadingCanvas from "../components/LoadingCanvas"
 import VerifiedDoctorBadge from "../components/VerifiedDoctorBadge"
 import { getBackendBaseUrl } from "../../../lib/backend-url"
@@ -71,10 +72,17 @@ function readStoredNurseAuth() {
   }
 }
 
+function resolveProfileImageSource(profileImage) {
+  if (!profileImage) return ""
+  if (typeof profileImage === "string") return profileImage
+  return profileImage.url || profileImage.secure_url || profileImage.path || profileImage.src || ""
+}
+
 export default function NurseDashboard() {
   const [nurseId, setNurseId] = useState("nurse")
   const [nurseName, setNurseName] = useState("Nurse")
   const [profileImage, setProfileImage] = useState(null)
+  const profileImageSrc = resolveProfileImageSource(profileImage)
   const [specialization, setSpecialization] = useState("")
   const [yearsOfExperience, setYearsOfExperience] = useState(0)
   const [dashboardData, setDashboardData] = useState(null)
@@ -85,7 +93,7 @@ export default function NurseDashboard() {
   const fileInputRef = useRef(null)
 
   const handleProfileImageUpload = useCallback((uploaded) => {
-    const nextProfileImage = uploaded?.profileImage || (uploaded?.url ? { url: uploaded.url, publicId: uploaded.publicId, mimeType: uploaded.mimeType } : uploaded)
+    const nextProfileImage = uploaded?.profileImage || (uploaded?.url || uploaded?.secure_url || uploaded?.path ? { url: uploaded.url || uploaded.secure_url || uploaded.path, publicId: uploaded.publicId || uploaded.filename || uploaded.filename || '', mimeType: uploaded.mimeType } : uploaded)
     setProfileImage(nextProfileImage)
     try {
       const stored = window.localStorage.getItem('nurseAuth') || '{}'
@@ -136,7 +144,7 @@ export default function NurseDashboard() {
 
         if (uploadedNurse?.profileImage) {
           handleProfileImageUpload(uploadedNurse)
-        } else if (uploadedFile?.url) {
+        } else if (uploadedFile?.url || uploadedFile?.secure_url || uploadedFile?.path) {
           handleProfileImageUpload(uploadedFile)
         }
       } catch (err) {
@@ -281,13 +289,24 @@ export default function NurseDashboard() {
         <section className={styles.hero}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ width: 64, height: 64, borderRadius: 999, overflow: 'hidden', background: '#e6eef6', display: 'grid', placeItems: 'center' }}>
-                {profileImage?.url ? (
-                  <Image src={profileImage.url} alt={nurseName} width={64} height={64} style={{ objectFit: 'cover' }} />
-                ) : (
-                  <span style={{ fontSize: '1.25rem', color: '#0a3a66', fontWeight: 700 }}>{(nurseName || 'N').slice(0, 1).toUpperCase()}</span>
-                )}
-              </div>
+              <button
+                type="button"
+                className={homeStyles.profileAvatarButton}
+                onClick={() => fileInputRef.current?.click()}
+                aria-label={`Profile photo for ${nurseName}`}
+                style={{ border: 'none', background: 'transparent', padding: 0 }}
+              >
+                <div
+                  className={homeStyles.profileAvatar}
+                  style={{ width: 64, height: 64, borderRadius: 999, overflow: 'hidden', background: '#e6eef6', display: 'grid', placeItems: 'center' }}
+                >
+                  {profileImageSrc ? (
+                    <Image src={profileImageSrc} alt={nurseName} fill className={homeStyles.profileImage} />
+                  ) : (
+                    <span style={{ fontSize: '1.25rem', color: '#0a3a66', fontWeight: 700 }}>{(nurseName || 'N').slice(0, 1).toUpperCase()}</span>
+                  )}
+                </div>
+              </button>
               <button
                 onClick={() => fileInputRef.current?.click()}
                 style={{ marginTop: '0.75rem', display: 'inline-block', padding: '0.5rem 1rem', backgroundColor: '#0a3a66', color: 'white', border: 'none', textDecoration: 'none', borderRadius: '0.375rem', fontSize: '0.875rem', fontWeight: '600', textAlign: 'center', transition: 'background 150ms ease', cursor: 'pointer' }}

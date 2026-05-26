@@ -6,11 +6,6 @@ const registerPatient = async (req, res) => {
     try {
         const {patientFirstName, patientLastName, patientEmail, 
             patientPhone, patientPassword, patientAddress} = req.body;
-
-        // if ( !patientPassword.match[/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}/] ) {
-        //     return res.status(400).json({ 
-        //         message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.' });
-        // }
         bcrypt.hash(patientPassword, 10).then((hash) => {
             const newPatient = new Patient({
                     patientFirstName,

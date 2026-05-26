@@ -118,6 +118,16 @@ async function hashPassword(password) {
 
 router.post('/bootstrap', async (req, res) => {
   try {
+    // Protect bootstrap: require ADMIN_BOOTSTRAP_KEY when set, and disable in production if not set
+    const bootstrapKeyRequired = Boolean(process.env.ADMIN_BOOTSTRAP_KEY)
+    if (bootstrapKeyRequired) {
+      const provided = String(req.body?.bootstrapKey || '')
+      if (!provided || provided !== String(process.env.ADMIN_BOOTSTRAP_KEY)) {
+        return res.status(403).json({ message: 'Bootstrap key missing or invalid' })
+      }
+    } else if (String(process.env.NODE_ENV || '').toLowerCase() === 'production') {
+      return res.status(403).json({ message: 'Bootstrap endpoint disabled in production' })
+    }
     const existingCount = await Admin.countDocuments()
     if (existingCount > 0) {
       return res.status(409).json({ message: 'An admin account already exists.' })

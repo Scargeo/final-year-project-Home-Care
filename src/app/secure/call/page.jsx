@@ -309,7 +309,9 @@ function CallPageContent() {
     wsRef.current = ws
 
     ws.onopen = () => {
-      sendJson({ type: "join", roomId: roomIdRef.current, peerId: myPeerIdRef.current, role })
+      const session = getStoredSession()
+      const token = session?.token || null
+      sendJson({ type: "join", roomId: roomIdRef.current, peerId: myPeerIdRef.current, role, token })
     }
 
     ws.onmessage = async (evt) => {
@@ -487,7 +489,11 @@ function CallPageContent() {
               <Icon name="video" />
               <span>{videoEnabled ? "Stop video" : "Start video"}</span>
             </button>
-            <button className={styles.controlButton} onClick={() => sendJson({ type: "join", roomId: roomIdRef.current, peerId: myPeerIdRef.current, role })} disabled={!myPeerId}>
+            <button className={styles.controlButton} onClick={() => {
+              const session = getStoredSession()
+              const token = session?.token || null
+              sendJson({ type: "join", roomId: roomIdRef.current, peerId: myPeerIdRef.current, role, token })
+            }} disabled={!myPeerId}>
               <Icon name="dots" />
               <span>Reconnect</span>
             </button>

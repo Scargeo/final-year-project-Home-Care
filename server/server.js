@@ -43,20 +43,18 @@ app.use('/api/auth/login', authLoginLimiter)
 
 // CORS configuration for frontend access
 const allowedOrigins = [
-  "http://localhost:3000",
-  "https://final-year-project-home-care.vercel.app",
-  "https://final-year-project-home-care.netlify.app",
-  process.env.FRONTEND_URL,
-  process.env.CLIENT_URL,
+  process.env.FRONTEND_LOCAL_URL,
+  process.env.FRONTEND_APP_URL,
+  process.env.FRONTEND_URL
+  
 ].filter(Boolean);
 
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(null, true); // Allow requests for now, remove CORS restriction
-    }
+    // Allow non-browser requests (e.g., curl, server-to-server) when no origin is present
+    if (!origin) return callback(null, true)
+    if (allowedOrigins.indexOf(origin) !== -1) return callback(null, true)
+    return callback(new Error('CORS origin not allowed'), false)
   },
   credentials: true,
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
@@ -70,7 +68,7 @@ app.use(cors(corsOptions));
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: true,
+    origin: allowedOrigins,
     methods: ['GET', 'POST', 'PATCH'],
   },
 });

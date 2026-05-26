@@ -1,4 +1,7 @@
 import { WebSocketServer } from 'ws'
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
+const { verifyToken } = require('./server/middleware/jwtAuth')
 
 const PORT = Number(process.env.PORT || 3001)
 
@@ -42,8 +45,16 @@ wss.on('connection', (ws) => {
       const { roomId, peerId } = msg
       if (!roomId || !peerId) return
 
+      // Require a valid token before joining in production or when server enforces auth
+      const token = msg.token || ''
+      const payload = verifyToken(token)
+      if (!payload) {
+        return sendJson(ws, { type: 'error', message: 'Unauthorized: invalid or missing token' })
+      }
+
       ws._roomId = String(roomId)
       ws._peerId = String(peerId)
+      ws._user = payload
 
       const room = getOrCreateRoom(ws._roomId)
       // Enforce 1 websocket per peerId in the room.

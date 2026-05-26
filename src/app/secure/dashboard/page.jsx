@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import styles from "./dashboard.module.css"
@@ -76,20 +76,6 @@ const ACTIVITY = [
   },
 ]
 
-function getDisplayName() {
-  if (typeof window === "undefined") return "Patient"
-
-  const stored = window.localStorage.getItem("patientAuth")
-  if (!stored) return "Patient"
-
-  try {
-    const auth = JSON.parse(stored)
-    return [auth.patientFirstName, auth.patientLastName].filter(Boolean).join(" ").trim() || auth.patientFirstName || "Patient"
-  } catch {
-    return "Patient"
-  }
-}
-
 function getTimeBasedGreeting() {
   const hour = new Date().getHours()
   if (hour < 12) {
@@ -139,7 +125,7 @@ function getStoredToken() {
 }
 
 export default function DashboardPage() {
-  const patientName = useSyncExternalStore(() => () => {}, getDisplayName, () => "Patient")
+  const [patientName, setPatientName] = useState("Patient")
   const [aiOpen, setAiOpen] = useState(false)
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const [aiQuery, setAiQuery] = useState("")
@@ -153,6 +139,21 @@ export default function DashboardPage() {
   const aiThreadRef = useRef(null)
   const fileInputRef = useRef(null)
   const headerRef = useRef(null)
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const stored = window.localStorage.getItem("patientAuth")
+    if (!stored) return
+
+    try {
+      const auth = JSON.parse(stored)
+      const nextName = [auth.patientFirstName, auth.patientLastName].filter(Boolean).join(" ").trim() || auth.patientFirstName || "Patient"
+      setPatientName(nextName)
+    } catch {
+      setPatientName("Patient")
+    }
+  }, [])
 
   const handleProfileImageSelect = useCallback(
     async (event) => {

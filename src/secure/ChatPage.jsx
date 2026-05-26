@@ -11,6 +11,24 @@ function safeParse(raw) {
   }
 }
 
+function getStoredAuthToken() {
+  try {
+    const p = localStorage.getItem('patientAuth')
+    if (p) {
+      const parsed = JSON.parse(p)
+      if (parsed?.token) return parsed.token
+    }
+  } catch {}
+  try {
+    const d = localStorage.getItem('doctorAuth')
+    if (d) {
+      const parsed = JSON.parse(d)
+      if (parsed?.token) return parsed.token
+    }
+  } catch {}
+  return null
+}
+
 function pad2(n) {
   return String(n).padStart(2, '0')
 }
@@ -273,7 +291,8 @@ export default function ChatPage() {
         wsRef.current = ws
 
         ws.onopen = () => {
-          sendJson({ type: 'join', roomId, peerId: id })
+          const token = getStoredAuthToken()
+          sendJson({ type: 'join', roomId, peerId: id, token })
         }
 
         ws.onmessage = async (evt) => {

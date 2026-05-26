@@ -7,6 +7,7 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: '#0f766e',
 }
 
 export const metadata = {
@@ -14,7 +15,6 @@ export const metadata = {
   description: 'Home Care+ connects patients, doctors, nurses, and admins in one care platform.',
   applicationName: 'Home Care+',
   manifest: '/manifest.webmanifest',
-  themeColor: '#0f766e',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',

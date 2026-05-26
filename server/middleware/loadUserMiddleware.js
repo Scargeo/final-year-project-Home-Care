@@ -8,16 +8,19 @@ const { verifyToken } = require('./jwtAuth')
 // Prefers JWT Authorization: Bearer <token>. Falls back to legacy headers x-user-id/x-user-role.
 module.exports.loadUser = async function (req, res, next) {
   try {
-    if (String(process.env.DISABLE_AUTH || '') === 'true') return next()
+    // Allow a global disable only in non-production for local development/testing
+    if (String(process.env.DISABLE_AUTH || '').toLowerCase() === 'true' && String(process.env.NODE_ENV || '').toLowerCase() !== 'production') {
+      return next()
+    }
 
     // Try Authorization bearer token first
     const authHeader = String(req.get('authorization') || req.get('Authorization') || '').trim()
     if (authHeader) {
       const payload = verifyToken(authHeader)
       if (!payload) {
-        // token present but invalid/expired
         return res.status(401).json({ message: 'Invalid or expired token' })
       }
+
       if (payload && payload.id && payload.role) {
         try {
           if (payload.role === 'patient') {
@@ -36,52 +39,35 @@ module.exports.loadUser = async function (req, res, next) {
         } catch (e) {
           console.warn('Failed to load user from token payload', e.message)
         }
-        return next()
       }
+
+      return next()
     }
 
-    // Fallback to header-based auth for development
+    // Fallback to header-based auth only when explicitly allowed (development only)
+    const allowLegacy = String(process.env.NODE_ENV || '').toLowerCase() !== 'production' && String(process.env.ALLOW_LEGACY_HEADERS || '').toLowerCase() === 'true'
+    if (!allowLegacy) return next()
+
     const userId = String(req.get('x-user-id') || '').trim()
     const userRole = String(req.get('x-user-role') || '').trim().toLowerCase()
-
     if (!userId || !userRole) return next()
 
-    if (userRole === 'patient') {
-      try {
+    try {
+      if (userRole === 'patient') {
         const patient = await Patient.findOne({ patientId: userId })
-        if (patient) {
-          req.user = { id: userId, role: 'patient', record: patient }
-        }
-      } catch (e) {
-        console.warn('Failed to load patient record in loadUser middleware', e.message)
-      }
-    } else if (userRole === 'doctor') {
-      try {
+        if (patient) req.user = { id: userId, role: 'patient', record: patient }
+      } else if (userRole === 'doctor') {
         const doctor = await Doctor.findOne({ doctorId: userId })
-        if (doctor) {
-          req.user = { id: userId, role: 'doctor', record: doctor }
-        }
-      } catch (e) {
-        console.warn('Failed to load doctor record in loadUser middleware', e.message)
-      }
-    } else if (userRole === 'nurse') {
-      try {
+        if (doctor) req.user = { id: userId, role: 'doctor', record: doctor }
+      } else if (userRole === 'nurse') {
         const nurse = await Nurse.findOne({ uid: userId })
-        if (nurse) {
-          req.user = { id: userId, role: 'nurse', record: nurse }
-        }
-      } catch (e) {
-        console.warn('Failed to load nurse record in loadUser middleware', e.message)
-      }
-    } else if (userRole === 'admin') {
-      try {
+        if (nurse) req.user = { id: userId, role: 'nurse', record: nurse }
+      } else if (userRole === 'admin') {
         const admin = await Admin.findOne({ adminId: userId })
-        if (admin) {
-          req.user = { id: userId, role: 'admin', record: admin }
-        }
-      } catch (e) {
-        console.warn('Failed to load admin record in loadUser middleware', e.message)
+        if (admin) req.user = { id: userId, role: 'admin', record: admin }
       }
+    } catch (e) {
+      console.warn('Failed to load user from legacy headers', e.message)
     }
 
     return next()
