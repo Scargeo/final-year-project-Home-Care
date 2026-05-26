@@ -1,20 +1,21 @@
-const fs = require('fs')
-const path = require('path')
-const puppeteer = require('puppeteer')
+/* eslint-env node */
+import fs from 'fs'
+import path from 'path'
+import puppeteer from 'puppeteer'
 
 function escapeHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-;(async () => {
-  const input = process.argv[2] || 'cybersecurity_submission_grid.txt'
-  const output = process.argv[3] || 'cybersecurity_submission_grid.pdf'
-  const absInput = path.resolve(process.cwd(), input)
-  const absOutput = path.resolve(process.cwd(), output)
+(async () => {
+  const input = globalThis.process?.argv?.[2] || 'cybersecurity_submission_grid.txt'
+  const output = globalThis.process?.argv?.[3] || 'cybersecurity_submission_grid.pdf'
+  const absInput = path.resolve(globalThis.process.cwd(), input)
+  const absOutput = path.resolve(globalThis.process.cwd(), output)
 
   if (!fs.existsSync(absInput)) {
     console.error('Input file not found:', absInput)
-    process.exit(2)
+    globalThis.process?.exit(2)
   }
 
   const txt = fs.readFileSync(absInput, 'utf8')
@@ -45,7 +46,7 @@ function escapeHtml(str) {
   await page.pdf({ path: absOutput, format: 'A4', printBackground: true })
   await browser.close()
   console.log('PDF written to', absOutput)
-})().catch(err => {
+})().catch((err) => {
   console.error(err)
-  process.exit(1)
+  globalThis.process?.exit(1)
 })
