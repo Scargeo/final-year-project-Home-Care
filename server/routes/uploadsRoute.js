@@ -1,7 +1,6 @@
 const express = require('express')
 const router = express.Router()
 const multer = require('multer')
-const { CloudinaryStorage } = require('multer-storage-cloudinary')
 const cloudinary = require('cloudinary').v2
 const Attachment = require('../models/media/attachment')
 const Patient = require('../models/patient/patientRegistration')
@@ -18,20 +17,53 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 })
 
-const storage = new CloudinaryStorage({
-  cloudinary,
-  params: async (req, file) => {
-    const isPdf = String(file.mimetype || '').toLowerCase() === 'application/pdf'
-    const folder = `homecare/${req.body.ownerRef || 'public'}`
-    return {
-      folder,
-      resource_type: isPdf ? 'raw' : 'image',
-      public_id: `${Date.now()}_${file.originalname.replace(/\.[^/.]+$/, '')}`,
+const upload = multer({
+  // Keep file bytes in memory so we can stream them directly to Cloudinary v2.
+  storage: multer.memoryStorage(),
+  limits: {
+    files: 10,
+    fileSize: 20 * 1024 * 1024,
+  },
+  fileFilter: (req, file, cb) => {
+    const mimeType = String(file.mimetype || '').toLowerCase()
+    if (mimeType.startsWith('image/') || mimeType === 'application/pdf') {
+      return cb(null, true)
     }
+    return cb(new Error('Only image and PDF uploads are allowed'))
   },
 })
 
-const upload = multer({ storage })
+function safeFolderSegment(value) {
+  return String(value || 'public').trim().replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 80) || 'public'
+}
+
+function safePublicId(file) {
+  const baseName = String(file.originalname || 'file').replace(/\.[^/.]+$/, '')
+  return `${Date.now()}_${baseName}`.replace(/[^a-zA-Z0-9_-]+/g, '_')
+}
+
+function uploadBufferToCloudinary(file, ownerRef) {
+  const isPdf = String(file.mimetype || '').toLowerCase() === 'application/pdf'
+  const folder = `homecare/${safeFolderSegment(ownerRef)}`
+  const resourceType = isPdf ? 'raw' : 'image'
+
+  return new Promise((resolve, reject) => {
+    // Stream the upload so we avoid the deprecated storage adapter entirely.
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: resourceType,
+        public_id: safePublicId(file),
+      },
+      (error, result) => {
+        if (error) return reject(error)
+        return resolve(result)
+      },
+    )
+
+    stream.end(file.buffer)
+  })
+}
 
 function serializeDoctor(doctor) {
   if (!doctor) return null
@@ -79,13 +111,17 @@ router.post('/', upload.array('files', 10), async (req, res) => {
     const saved = []
 
     for (const f of files) {
-      // multer-storage-cloudinary exposes path and filename info
-      const url = f.path || f.secure_url || ''
-      const publicId = f.filename || f.public_id || ''
+      if (!f.buffer || !Buffer.isBuffer(f.buffer)) {
+        console.warn('Skipped file without buffer payload:', f.originalname)
+        continue
+      }
+
+      const uploadedFile = await uploadBufferToCloudinary(f, ownerRef)
+      const url = uploadedFile?.secure_url || uploadedFile?.url || ''
+      const publicId = uploadedFile?.public_id || ''
 
       if (!url || !publicId) {
-        console.error('Missing url or publicId from Cloudinary upload:', { url, publicId, file: f })
-        continue
+        throw new Error('Cloudinary upload returned an incomplete response')
       }
 
       const doc = await Attachment.create({
@@ -95,8 +131,8 @@ router.post('/', upload.array('files', 10), async (req, res) => {
         url,
         publicId,
         mimeType: f.mimetype,
-        size: f.size,
-        resourceType: f.resource_type || (f.mimetype && f.mimetype.includes('pdf') ? 'raw' : 'image'),
+        size: uploadedFile?.bytes || f.size,
+        resourceType: uploadedFile?.resource_type || (f.mimetype && f.mimetype.includes('pdf') ? 'raw' : 'image'),
       })
 
       // If purpose is profile, update patient OR doctor record and remove previous image
@@ -158,7 +194,7 @@ router.post('/', upload.array('files', 10), async (req, res) => {
             }
           }
         } catch (err) {
-          console.warn('Failed to update patient profile image', err)
+          console.warn('Failed to update profile image records', err)
         }
       }
 
