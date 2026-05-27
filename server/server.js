@@ -1,3 +1,10 @@
+const path = require('path');
+const dotenv = require('dotenv');
+
+// Load environment variables from the server folder explicitly.
+// Render may start the process from the repository root, so relying on CWD can miss server/.env.
+dotenv.config({ path: path.resolve(__dirname, '.env') });
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -9,9 +16,6 @@ const Appointment = require('./models/privateHealthWorker/doctor/appointment');
 const ConsultationRoom = require('./models/hospital/consultationRoom');
 const { createNurseAssignmentForCompletedAppointment } = require('./lib/nurseAssignment')
 // const { createProxyMiddleware } = require('http-proxy-middleware');
-// Load environment variables from .env file
-const dotenv = require('dotenv');
-dotenv.config();
 
 // Connect to the database
 const connectDB = require('./configurations/dbConnection');
