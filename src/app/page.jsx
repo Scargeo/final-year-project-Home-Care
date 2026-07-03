@@ -179,8 +179,7 @@ export default function HomePage() {
 
           <nav className="hc-nav" aria-label="Primary">
             <a href="#hero">Home</a>
-            <a href="#features">Features</a>
-            <a href="#testimonials">Testimonials</a>
+
             <Link href="/login">Log in</Link>
             <Link href="/signup" className="hc-btn hc-btn--primary hc-btn--sm">
               Sign up
@@ -211,8 +210,7 @@ export default function HomePage() {
         {isMenuOpen ? (
           <div className="hc-mobile-menu">
             <div className="hc-container hc-mobile-menu__links">
-              <a href="#features">Features</a>
-              <a href="#testimonials">Testimonials</a>
+              
               <Link href="/login">Log in</Link>
               <Link href="/signup" className="hc-btn hc-btn--primary hc-btn--sm">
                 Sign up
