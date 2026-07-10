@@ -427,9 +427,16 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
   }, [])
 
   useEffect(() => {
-    setReadIds(loadReadIds())
-    setUserType(getUserType())
+    // Load notification state after hydration so the server and client start from the same HTML.
+    const timer = window.setTimeout(() => {
+      setReadIds(loadReadIds())
+      setUserType(getUserType())
+    }, 0)
+
+    return () => window.clearTimeout(timer)
   }, [])
+
+  
 
   useEffect(() => {
     let mounted = true

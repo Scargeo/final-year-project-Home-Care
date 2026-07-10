@@ -143,6 +143,7 @@ export default function SecureHomePage() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
+  const [isHydrated, setIsHydrated] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
   const [aiQuery, setAiQuery] = useState("")
   const [aiMessages, setAiMessages] = useState([])
@@ -256,6 +257,11 @@ export default function SecureHomePage() {
   const aiThreadRef = useRef(null)
   const currentUserId = doctorId || nurseId || patientId || null
   const isProvider = userRole === "doctor" || userRole === "nurse"
+
+  useEffect(() => {
+    // Delay browser-dependent header controls until after hydration so SSR and client markup stay aligned.
+    setIsHydrated(true)
+  }, [])
 
   useEffect(() => {
     commentOpenRef.current = Boolean(commentingPostId)
@@ -1033,62 +1039,68 @@ export default function SecureHomePage() {
           <span className={styles.brandText}>Home Care+</span>
         </Link>
 
-        <div className={styles.topActions}>
-          <div className={`${styles.searchContainer} ${searchOpen ? styles.searchActive : ''}`}>
-            {!searchOpen && (
+        <div className={styles.topActions} suppressHydrationWarning>
+          {isHydrated ? (
+            <>
+              <div className={`${styles.searchContainer} ${searchOpen ? styles.searchActive : ''}`}>
+                {!searchOpen && (
+                  <button
+                    type="button"
+                    className={`${styles.action} ${styles.actionGhost} ${styles.searchButton}`}
+                    onClick={() => setSearchOpen(true)}
+                    aria-label="Search health tips and channels"
+                    title="Search"
+                  >
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                      <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="2" />
+                      <path d="M15.5 15.5L20 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                    <span className={styles.searchLabel}>Search</span>
+                  </button>
+                )}
+                {searchOpen && (
+                  <input
+                    type="text"
+                    placeholder="Search health tips and channels..."
+                    className={styles.searchInput}
+                    autoFocus
+                    onBlur={() => setSearchOpen(false)}
+                    onKeyDown={(e) => e.key === 'Escape' && setSearchOpen(false)}
+                  />
+                )}
+              </div>
+
+              <button type="button" className={styles.aiHeaderButton} onClick={() => setAiOpen(true)} aria-label="Open Health Assistant" title="Health Assistant">
+                <Image src={aiAssistantLogo} alt="" width={22} height={22} className={styles.aiHeaderIcon} priority />
+                <span className={styles.aiLabel}>Health Assistant</span>
+              </button>
+
+              <Link href="/secure/emergency" className={`${styles.action} ${styles.actionDanger}`}>
+                <span className={styles.emergencyLabel}>Emergency</span>
+                <span className={styles.sosLabel}>SOS</span>
+              </Link>
+              <NotificationsPanel variant="header" />
+              <Link href={isProvider ? (userRole === "nurse" ? "/secure/nurse" : "/secure/doctor") : "/secure/dashboard"} className={`${styles.action} ${styles.actionGhost} ${styles.desktopOnlyAction}`}>
+                Dashboard
+              </Link>
+
+              <button type="button" className={`${styles.action} ${styles.actionGhost} ${styles.desktopOnlyAction}`} onClick={() => handleLogout()}>
+                Logout
+              </button>
+
               <button
                 type="button"
-                className={`${styles.action} ${styles.actionGhost} ${styles.searchButton}`}
-                onClick={() => setSearchOpen(true)}
-                aria-label="Search health tips and channels"
-                title="Search"
+                className={styles.menuToggle}
+                onClick={() => setMenuOpen(!menuOpen)}
+                aria-label="Toggle menu"
+                aria-expanded={menuOpen}
               >
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="2" />
-                  <path d="M15.5 15.5L20 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-                <span className={styles.searchLabel}>Search</span>
+                <span aria-hidden="true">☰</span>
               </button>
-            )}
-            {searchOpen && (
-              <input
-                type="text"
-                placeholder="Search health tips and channels..."
-                className={styles.searchInput}
-                autoFocus
-                onBlur={() => setSearchOpen(false)}
-                onKeyDown={(e) => e.key === 'Escape' && setSearchOpen(false)}
-              />
-            )}
-          </div>
-
-          <button type="button" className={styles.aiHeaderButton} onClick={() => setAiOpen(true)} aria-label="Open Health Assistant" title="Health Assistant">
-            <Image src={aiAssistantLogo} alt="" width={22} height={22} className={styles.aiHeaderIcon} priority />
-            <span className={styles.aiLabel}>Health Assistant</span>
-          </button>
-
-          <Link href="/secure/emergency" className={`${styles.action} ${styles.actionDanger}`}>
-            <span className={styles.emergencyLabel}>Emergency</span>
-            <span className={styles.sosLabel}>SOS</span>
-          </Link>
-          <NotificationsPanel variant="header" />
-          <Link href={isProvider ? (userRole === "nurse" ? "/secure/nurse" : "/secure/doctor") : "/secure/dashboard"} className={`${styles.action} ${styles.actionGhost} ${styles.desktopOnlyAction}`}>
-            Dashboard
-          </Link>
-
-          <button type="button" className={`${styles.action} ${styles.actionGhost} ${styles.desktopOnlyAction}`} onClick={() => handleLogout()}>
-            Logout
-          </button>
-
-          <button
-            type="button"
-            className={styles.menuToggle}
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label="Toggle menu"
-            aria-expanded={menuOpen}
-          >
-            <span aria-hidden="true">☰</span>
-          </button>
+            </>
+          ) : (
+            <div className={styles.topActions} aria-hidden="true" />
+          )}
         </div>
 
         {menuOpen && (
@@ -1590,7 +1602,12 @@ export default function SecureHomePage() {
                     <p style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 0.25rem" }}>Name</p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
                       <p style={{ margin: 0, fontWeight: "600" }}>{doctorDisplayName}</p>
-                      <VerifiedDoctorBadge doctor={doctorDetails} style={{ fontSize: '0.7rem' }} />
+                      <VerifiedDoctorBadge
+                        doctor={doctorDetails}
+                        role={userRole === "nurse" ? "nurse" : "doctor"}
+                        label={userRole === "nurse" ? "Verified nurse" : "Verified doctor"}
+                        style={{ fontSize: '0.7rem' }}
+                      />
                     </div>
                   </div>
                   <div>

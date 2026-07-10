@@ -301,7 +301,15 @@ export default function NurseDashboard() {
                   style={{ width: 64, height: 64, borderRadius: 999, overflow: 'hidden', background: '#e6eef6', display: 'grid', placeItems: 'center' }}
                 >
                   {profileImageSrc ? (
-                    <Image src={profileImageSrc} alt={nurseName} fill className={homeStyles.profileImage} />
+                    <Image
+                      src={profileImageSrc}
+                      alt={nurseName}
+                      width={64}
+                      height={64}
+                      unoptimized
+                      className={homeStyles.profileImage}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
                   ) : (
                     <span style={{ fontSize: '1.25rem', color: '#0a3a66', fontWeight: 700 }}>{(nurseName || 'N').slice(0, 1).toUpperCase()}</span>
                   )}
@@ -328,7 +336,7 @@ export default function NurseDashboard() {
               <p className={styles.heroKicker}>Nurse Dashboard</p>
               <h1 className={styles.heroTitle} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                 Welcome, <strong>{nurseName}</strong>
-                {Boolean(dashboardData?.nurse?.isVerified) ? <VerifiedDoctorBadge doctor={dashboardData?.nurse} role="nurse" label="Verified nurse" style={{ fontSize: '0.72rem' }} /> : null}
+                {dashboardData?.nurse?.isVerified ? <VerifiedDoctorBadge doctor={dashboardData?.nurse} role="nurse" label="Verified nurse" style={{ fontSize: '0.72rem' }} /> : null}
               </h1>
               <p className={styles.heroBody}>
                 <strong>Nurse ID:</strong> {nurseId} | <strong>Specialty:</strong> {specialization || "Not specified"} | <strong>
