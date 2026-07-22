@@ -5,39 +5,16 @@ import { useEffect, useMemo, useState } from "react"
 import styles from "./page.module.css"
 import { useUpload } from "../../../lib/useUpload"
 import LoadingCanvas from "../components/LoadingCanvas"
-
-function getStoredAuth() {
-  if (typeof window === "undefined") return null
-
-  const stored = window.localStorage.getItem("patientAuth")
-  if (!stored) return null
-
-  try {
-    return JSON.parse(stored)
-  } catch {
-    return null
-  }
-}
-
-function getStoredToken() {
-  if (typeof window === 'undefined') return null
-  try {
-    const patientAuth = window.localStorage.getItem('patientAuth')
-    const doctorAuth = window.localStorage.getItem('doctorAuth')
-    const parsed = patientAuth ? JSON.parse(patientAuth) : doctorAuth ? JSON.parse(doctorAuth) : null
-    return parsed?.token || parsed?.accessToken || null
-  } catch {
-    return null
-  }
-}
-
-function getPatientIdentity() {
-  const auth = getStoredAuth()
-  const patientId = auth?.patientId || auth?.id || auth?._id || auth?.patientEmail || "patient"
-  const patientName = [auth?.patientFirstName, auth?.patientLastName].filter(Boolean).join(" ").trim() || auth?.patientFirstName || "Patient"
-
-  return { patientId, patientName }
-}
+/**
+ * ============================================================
+ *  FIX: Use unified user identity utility instead of
+ *  hardcoded patientAuth check. This ensures that:
+ *  - Patients see patient attributes
+ *  - Doctors see doctor attributes
+ *  - Nurses see nurse attributes
+ * ============================================================
+ */
+import { getStoredUserIdentity, getStoredToken } from "../../../lib/user-identity"
 
 function toPdfViewerUrl(file) {
   // For iframe preview, use Google Docs Viewer for Cloudinary URLs
@@ -63,9 +40,13 @@ export default function HealthRecordsPage() {
   const { upload, uploading } = useUpload()
 
   useEffect(() => {
-    const identity = getPatientIdentity()
-    setPatientId(identity.patientId)
-    setPatientName(identity.patientName)
+    /**
+     * FIX: Use getStoredUserIdentity() instead of removed
+     * getPatientIdentity() to support all roles
+     */
+    const identity = getStoredUserIdentity()
+    setPatientId(identity.id)
+    setPatientName(identity.name)
   }, [])
 
   useEffect(() => {

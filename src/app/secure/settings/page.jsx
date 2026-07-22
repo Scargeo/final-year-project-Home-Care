@@ -3,16 +3,20 @@
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import styles from "./settings.module.css"
+/**
+ * FIX: Use unified identity so settings page adapts
+ * to whichever role (patient, doctor, nurse) is logged in.
+ */
+import { getStoredUserIdentity } from "../../../lib/user-identity"
 
 function getStoredAuth() {
   if (typeof window === "undefined") return null
-  const stored = window.localStorage.getItem("patientAuth")
-  if (!stored) return null
-  try {
-    return JSON.parse(stored)
-  } catch {
-    return null
-  }
+  /**
+   * FIX: Check all auth keys, not just patientAuth.
+   * This way doctors/nurses see their own settings.
+   */
+  const identity = getStoredUserIdentity()
+  return identity.raw
 }
 
 export default function PatientSettingsPage() {

@@ -12,12 +12,26 @@ async function readBackendPayload(response) {
   return text ? { message: text } : {}
 }
 
+/**
+ * FIX: Added Cache-Control: no-store headers to prevent the
+ * PWA service worker / browser from caching API responses.
+ * Without this, the service worker's network-first strategy
+ * would still cache the response and serve stale post data
+ * on subsequent page loads.
+ */
 export async function GET() {
   try {
     const url = `${getBackendBaseUrl()}/api/posts`
     const response = await fetch(url, { cache: 'no-store' })
     const data = await readBackendPayload(response)
-    return NextResponse.json(data, { status: response.ok ? 200 : (response.status || 500) })
+    return NextResponse.json(data, {
+      status: response.ok ? 200 : (response.status || 500),
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    })
   } catch (error) {
     console.error('Error fetching posts:', error)
     return NextResponse.json({ message: error?.message || 'Failed to fetch posts' }, { status: 500 })
