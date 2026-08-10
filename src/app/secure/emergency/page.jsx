@@ -6,6 +6,7 @@ import { Suspense } from "react"
 import { io } from "socket.io-client"
 import { getBackendBaseUrl } from "../../../lib/backend-url"
 import LoadingCanvas from "../components/LoadingCanvas"
+import MapView from "../nurse/MapView"
 
 function formatTime(value) {
   try {
@@ -34,9 +35,19 @@ function statusCopy(request) {
   return { title: "Request updated", body: "We have recorded the latest emergency status." }
 }
 
+// SOS alerts expire after 24 hours. Once expired, all request actions are disabled.
+const SOS_EXPIRY_MS = 24 * 60 * 60 * 1000
+
+function isRequestExpired(request) {
+  if (!request?.createdAt) return false
+  const created = new Date(request.createdAt).getTime()
+  if (Number.isNaN(created)) return false
+  return Date.now() - created > SOS_EXPIRY_MS
+}
+
 function EmergencyDashboardContent() {
   const [userRole, setUserRole] = useState(null)
-  const isProvider = userRole === "doctor"
+  const isProvider = userRole === "doctor" || userRole === "nurse"
   const [providers, setProviders] = useState([])
   const [queue, setQueue] = useState([])
   const [activeRequest, setActiveRequest] = useState(null)
@@ -44,6 +55,7 @@ function EmergencyDashboardContent() {
   const [patientPhone, setPatientPhone] = useState("")
   const [location, setLocation] = useState("")
   const [address, setAddress] = useState("")
+  const [locationCoords, setLocationCoords] = useState(null)
   const [symptoms, setSymptoms] = useState("")
   const [deviceLocationMessage, setDeviceLocationMessage] = useState("")
   const [statusMessage, setStatusMessage] = useState("Ready to send an emergency alert.")
@@ -51,17 +63,25 @@ function EmergencyDashboardContent() {
   const [isResolvingLocation, setIsResolvingLocation] = useState(false)
   const [providerPopup, setProviderPopup] = useState(null)
   const [refreshTick, setRefreshTick] = useState(0)
-  const [providerJoinedChat, setProviderJoinedChat] = useState(false)
+const [providerJoinedChat, setProviderJoinedChat] = useState(false)
   const [providerJoinInfo, setProviderJoinInfo] = useState(null)
+  const [incomingCall, setIncomingCall] = useState(null)
+  const ringAudioRef = useRef(null)
   const seenProviderRequestIds = useRef(new Set())
   const socketRef = useRef(null)
 
-  useEffect(() => {
+useEffect(() => {
     if (typeof window === "undefined") return
 
     const doctorAuthStr = window.localStorage.getItem("doctorAuth")
     if (doctorAuthStr) {
       setUserRole("doctor")
+      return
+    }
+
+    const nurseAuthStr = window.localStorage.getItem("nurseAuth")
+    if (nurseAuthStr) {
+      setUserRole("nurse")
       return
     }
 
@@ -236,7 +256,7 @@ function EmergencyDashboardContent() {
       setRefreshTick((value) => value + 1)
     })
 
-    socket.on("provider-joined-chat", (payload) => {
+socket.on("provider-joined-chat", (payload) => {
       if (!isProvider) {
         // Patient receives notification that provider joined and payload contains room info
         setProviderJoinInfo(payload || null)
@@ -249,10 +269,22 @@ function EmergencyDashboardContent() {
       }
     })
 
+    socket.on("provider-calling", (payload) => {
+      if (isProvider) return
+      // Patient's app rings when a provider requests a voice call.
+      setIncomingCall({
+        roomId: payload?.chatRoomId || activeRequest?.chatRoomId || (activeRequest ? `emergency-${activeRequest.id}` : ""),
+        providerName: payload?.providerName || activeRequest?.respondedBy || "Your provider",
+      })
+      playRingTone()
+    })
+
     return () => {
       socket.off("sos-created")
       socket.off("sos-updated")
       socket.off("provider-joined-chat")
+      socket.off("provider-calling")
+      stopRingTone()
       socket.disconnect()
       socketRef.current = null
     }
@@ -295,11 +327,12 @@ function EmergencyDashboardContent() {
             ? "Location permission granted. Address filled automatically."
             : "Location permission granted, but address lookup returned coordinates only."
 
-          setLocation(fallbackLocation)
+setLocation(fallbackLocation)
           setAddress(finalAddress)
+          setLocationCoords({ lat: latitude, lng: longitude })
           setDeviceLocationMessage(message)
           setIsResolvingLocation(false)
-          resolve({ ok: true, address: finalAddress, location: fallbackLocation, message })
+          resolve({ ok: true, address: finalAddress, location: fallbackLocation, coords: { lat: latitude, lng: longitude }, message })
         },
         () => {
           const message = "Location access was denied. Please type your address if you want to share it."
@@ -315,14 +348,16 @@ function EmergencyDashboardContent() {
   async function sendEmergencyAlert() {
     setLoading(true)
     try {
-      let nextLocation = String(location || "").trim()
+let nextLocation = String(location || "").trim()
       let nextAddress = String(address || "").trim()
+      let nextCoords = locationCoords
 
       if (!nextLocation || !nextAddress) {
         const deviceLocation = await resolveDeviceLocation()
         if (deviceLocation.ok) {
           nextLocation = nextLocation || deviceLocation.location
           nextAddress = nextAddress || deviceLocation.address
+          nextCoords = nextCoords || deviceLocation.coords || null
         }
       }
 
@@ -340,6 +375,7 @@ function EmergencyDashboardContent() {
           patientPhone,
           location: nextLocation,
           address: nextAddress,
+          locationCoords: nextCoords,
           symptoms,
         }),
       })
@@ -353,9 +389,10 @@ function EmergencyDashboardContent() {
       setActiveRequest(data.emergency)
       setStatusMessage("Emergency alert sent to available doctors and nurses.")
       setRefreshTick((value) => value + 1)
-      // Reset the form fields the patient filled (keep name/phone from profile)
+// Reset the form fields the patient filled (keep name/phone from profile)
       setLocation("")
       setAddress("")
+      setLocationCoords(null)
       setSymptoms("")
     } catch (error) {
       setStatusMessage(error.message || "Failed to send emergency alert.")
@@ -364,32 +401,40 @@ function EmergencyDashboardContent() {
     }
   }
 
-  async function acceptRequest(request) {
-    // Get doctor auth to forward token and doctor name
-    let doctorName = "Available provider"
-    let authHeader = undefined
-    if (typeof window !== "undefined") {
-      const doctorAuthStr = window.localStorage.getItem("doctorAuth")
-      if (doctorAuthStr) {
-        try {
-          const auth = JSON.parse(doctorAuthStr)
-          authHeader = auth.token ? `Bearer ${auth.token}` : undefined
-          const firstName = String(auth.doctorFirstName || "").trim()
-          const lastName = String(auth.doctorLastName || "").trim()
-          doctorName = [firstName, lastName].filter(Boolean).join(" ").trim() || "Available provider"
-        } catch {
-          // Ignore parse errors
-        }
+// Resolve the authenticated provider (doctor or nurse) token + display name.
+  function getProviderAuth() {
+    const storedName = "Available provider"
+    let token = undefined
+    let name = storedName
+
+    if (typeof window === "undefined") return { token, name }
+
+    // Prefer doctor auth, then nurse auth (whichever the user is logged in as).
+    const authStr = window.localStorage.getItem(userRole === "nurse" ? "nurseAuth" : "doctorAuth")
+    if (authStr) {
+      try {
+        const auth = JSON.parse(authStr)
+        token = auth?.token || auth?.accessToken || undefined
+        const firstName = String(auth?.nurseFirstName || auth?.doctorFirstName || auth?.firstName || "").trim()
+        const lastName = String(auth?.nurseLastName || auth?.doctorLastName || auth?.lastName || "").trim()
+        name = [firstName, lastName].filter(Boolean).join(" ").trim() || storedName
+      } catch {
+        // Ignore parse errors
       }
     }
 
+    return { token, name }
+  }
+
+  async function acceptRequest(request) {
+    const { token, name } = getProviderAuth()
     const headers = { "Content-Type": "application/json" }
-    if (authHeader) headers["Authorization"] = authHeader
+    if (token) headers["Authorization"] = `Bearer ${token}`
 
     const response = await fetch(`/api/emergency/${request.id}`, {
       method: "PATCH",
       headers,
-      body: JSON.stringify({ action: "accept", providerName: doctorName }),
+      body: JSON.stringify({ action: "accept", providerName: name }),
     })
 
     const data = await response.json()
@@ -404,31 +449,15 @@ function EmergencyDashboardContent() {
   }
 
   async function startChat(request) {
-    let doctorName = request.respondedBy || "Available provider"
-    let authHeader = undefined
-
-    if (typeof window !== "undefined") {
-      const doctorAuthStr = window.localStorage.getItem("doctorAuth")
-      if (doctorAuthStr) {
-        try {
-          const auth = JSON.parse(doctorAuthStr)
-          authHeader = auth.token ? `Bearer ${auth.token}` : undefined
-          const firstName = String(auth.doctorFirstName || "").trim()
-          const lastName = String(auth.doctorLastName || "").trim()
-          doctorName = [firstName, lastName].filter(Boolean).join(" ").trim() || doctorName
-        } catch {
-          // Ignore parse errors
-        }
-      }
-    }
-
+    const { token, name } = getProviderAuth()
+    const providerName = request.respondedBy || name
     const headers = { "Content-Type": "application/json" }
-    if (authHeader) headers["Authorization"] = authHeader
+    if (token) headers["Authorization"] = `Bearer ${token}`
 
     const response = await fetch(`/api/emergency/${request.id}`, {
       method: "PATCH",
       headers,
-      body: JSON.stringify({ action: "chat", providerName: doctorName }),
+      body: JSON.stringify({ action: "chat", providerName }),
     })
 
     if (!response.ok) {
@@ -440,14 +469,98 @@ function EmergencyDashboardContent() {
     window.location.href = chatUrl
   }
 
-  async function contactPatient(request) {
-    const phone = String(request.patientPhone || "").trim()
-    if (!phone) return
-    window.location.href = `tel:${phone.replace(/\D/g, "")}`
+async function contactPatient(request) {
+    const { token, name } = getProviderAuth()
+    const providerName = request.respondedBy || name
+    const headers = { "Content-Type": "application/json" }
+    if (token) headers["Authorization"] = `Bearer ${token}`
+
+    // Notify the patient's app so it rings, then open the voice call link.
+    try {
+      await fetch(`/api/emergency/${request.id}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ action: "call", providerName }),
+      })
+    } catch {
+      // Best-effort: still open the call even if the ring notification fails.
+    }
+
+const roomId = request.chatRoomId || `emergency-${request.id}`
+    const callUrl = `/secure/call?roomId=${encodeURIComponent(roomId)}&role=${encodeURIComponent(userRole)}&mode=voice&autoJoin=1`
+    window.location.href = callUrl
   }
 
-  const requestTimeline = activeRequest?.timeline || []
+  function playRingTone() {
+    if (typeof window === "undefined") return
+    try {
+      if (!ringAudioRef.current) {
+        // Generate a simple ring tone using the Web Audio API to avoid asset dependencies.
+        const AudioContextCtor = window.AudioContext || window.webkitAudioContext
+        if (!AudioContextCtor) return
+        const context = ringAudioRef.current?.context || new AudioContextCtor()
+        const gain = context.createGain()
+        gain.gain.value = 0.12
+        gain.connect(context.destination)
+
+        const oscillator = context.createOscillator()
+        oscillator.type = "sine"
+        oscillator.frequency.value = 900
+        oscillator.gain = gain
+        oscillator.start()
+
+        ringAudioRef.current = {
+          context,
+          oscillator,
+          gain,
+          startedAt: Date.now(),
+          timer: setInterval(() => {
+            // Pulse the ring tone every ~1.2s to mimic a phone ring.
+            const elapsed = Date.now() - (ringAudioRef.current?.startedAt || Date.now())
+            const on = Math.floor(elapsed / 1200) % 2 === 0
+            try {
+              gain.gain.setTargetAtTime(on ? 0.12 : 0, context.currentTime, 0.05)
+            } catch {
+              // ignore
+            }
+          }, 200),
+        }
+      }
+    } catch {
+      // Ringtones are best-effort; the visual ring UI still works without audio.
+    }
+  }
+
+  function stopRingTone() {
+    if (!ringAudioRef.current) return
+    try {
+      clearInterval(ringAudioRef.current.timer)
+      ringAudioRef.current.oscillator?.stop()
+      ringAudioRef.current.oscillator?.disconnect()
+      ringAudioRef.current.gain?.disconnect()
+      ringAudioRef.current.context?.close?.()
+    } catch {
+      // ignore
+    }
+    ringAudioRef.current = null
+  }
+
+  function acceptIncomingCall() {
+    if (!incomingCall?.roomId) return
+    stopRingTone()
+    const callUrl = `/secure/call?roomId=${encodeURIComponent(incomingCall.roomId)}&role=patient&mode=voice&autoJoin=1`
+    window.location.href = callUrl
+  }
+
+  function dismissIncomingCall() {
+    stopRingTone()
+    setIncomingCall(null)
+  }
+
+const requestTimeline = activeRequest?.timeline || []
   const pendingRequestCount = queue.filter((request) => request.status === "pending").length
+  // Who is the signed-in provider (used to grant exclusive access to the requester that accepted).
+  const currentProviderName = getProviderAuth().name
 
   if (!userRole) {
     return <LoadingCanvas />
@@ -472,10 +585,8 @@ function EmergencyDashboardContent() {
             </Link>
           </div>
 
-          <nav className="hc-nav" aria-label="Emergency navigation">
+<nav className="hc-nav" aria-label="Emergency navigation">
             <Link href="/secure/home">Home</Link>
-            <Link href="/secure/chat">Chat</Link>
-            <Link href="/secure/call">Call</Link>
             <span className="hc-btn hc-btn--outline hc-btn--sm" aria-label="Current emergency view role">
               {isProvider ? "Provider view" : "Patient view"}
             </span>
@@ -503,7 +614,7 @@ function EmergencyDashboardContent() {
         </div>
       ) : null}
 
-      {!isProvider && providerJoinedChat ? (
+{!isProvider && providerJoinedChat ? (
         <div className="provider-sos-popup" role="status" aria-live="polite" style={{ backgroundColor: "#10b981" }}>
           <div className="provider-sos-popup__card" style={{ textAlign: "center" }}>
             <h3 style={{ color: "#fff", marginBottom: "0.5rem" }}>✓ {providerJoinInfo?.providerName || activeRequest?.respondedBy || "Doctor"} has joined the chat room!</h3>
@@ -514,6 +625,25 @@ function EmergencyDashboardContent() {
               <Link href={`/secure/chat?roomId=${encodeURIComponent(providerJoinInfo?.chatRoomId || activeRequest?.chatRoomId || (activeRequest ? `emergency-${activeRequest.id}` : ""))}&name=${encodeURIComponent(activeRequest?.patientName || patientName)}`} className="hc-btn hc-btn--primary">
                 Join chat
               </Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {!isProvider && incomingCall ? (
+        <div className="provider-sos-popup" role="dialog" aria-live="assertive" style={{ zIndex: 50 }}>
+          <div className="provider-sos-popup__card" style={{ textAlign: "center", borderColor: "rgba(6, 182, 212, 0.4)" }}>
+            <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📞</div>
+            <h3 style={{ marginBottom: "0.35rem" }}>Incoming call</h3>
+            <p style={{ fontWeight: 800, color: "#0e7490" }}>{incomingCall.providerName}</p>
+            <p style={{ marginTop: "0.2rem" }}>A provider is calling you about your emergency.</p>
+            <div className="provider-sos-popup__actions" style={{ justifyContent: "center" }}>
+              <button className="hc-btn hc-btn--primary" type="button" onClick={acceptIncomingCall}>
+                Accept call
+              </button>
+              <button className="hc-btn hc-btn--outline" type="button" onClick={dismissIncomingCall}>
+                Dismiss
+              </button>
             </div>
           </div>
         </div>
@@ -562,12 +692,17 @@ function EmergencyDashboardContent() {
                   <span>Address / details</span>
                   <textarea value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Where should help reach you?" rows={3} />
                 </label>
-                <div className="emergency-location-block emergency-form__wide">
+<div className="emergency-location-block emergency-form__wide">
                   <button className="emergency-location-btn" type="button" onClick={() => resolveDeviceLocation()} disabled={isResolvingLocation}>
                     {isResolvingLocation ? "Checking device location..." : "Use my device location"}
                   </button>
                   <p>{deviceLocationMessage || "Allow location access and we will fill your address automatically."}</p>
                 </div>
+                {locationCoords ? (
+                  <div className="emergency-map-block emergency-form__wide" style={{ marginTop: "0.75rem" }}>
+                    <MapView locationCoords={locationCoords} address={address} locationLabel={location} />
+                  </div>
+                ) : null}
                 <label className="emergency-form__wide">
                   <span>What is happening?</span>
                   <textarea value={symptoms} onChange={(event) => setSymptoms(event.target.value)} placeholder="Describe the emergency briefly" rows={4} />
@@ -638,10 +773,14 @@ function EmergencyDashboardContent() {
                   </div>
                 )}
 
-                {activeRequest?.status === "accepted" ? (
+{activeRequest?.status === "accepted" ? (
                   <div className="emergency-actions">
-                    <Link href={`/secure/chat?roomId=${encodeURIComponent(activeRequest.chatRoomId)}&name=${encodeURIComponent(activeRequest.respondedBy || "Provider")}`} className="hc-btn hc-btn--primary">
-                      🗨️ Open chat with {activeRequest.respondedBy || "provider"}
+                    <Link
+                      href={`/secure/chat?roomId=${encodeURIComponent(activeRequest.chatRoomId)}&name=${encodeURIComponent(activeRequest.respondedBy || "Provider")}`}
+                      className="hc-btn hc-btn--primary"
+                      style={isRequestExpired(activeRequest) ? { opacity: 0.4, pointerEvents: "none" } : undefined}
+                    >
+                      {isRequestExpired(activeRequest) ? "Expired" : `🗨️ Open chat with ${activeRequest.respondedBy || "provider"}`}
                     </Link>
                   </div>
                 ) : null}
@@ -703,23 +842,43 @@ function EmergencyDashboardContent() {
                         </span>
                       </div>
 
-                      <div className="queue-item__meta">
+<div className="queue-item__meta">
                         <span>Requested: {formatTime(request.createdAt)}</span>
                         {request.location ? <span>Location: {request.location}</span> : null}
                         {request.address ? <span>Address: {request.address}</span> : null}
                       </div>
 
-                      <div className="emergency-actions">
-                        <button className="hc-btn hc-btn--primary" type="button" onClick={() => acceptRequest(request)}>
-                          Accept request
-                        </button>
-                        <button className="hc-btn hc-btn--outline" type="button" onClick={() => contactPatient(request)}>
-                          Contact patient
-                        </button>
-                        <button className="hc-btn hc-btn--outline" type="button" onClick={() => startChat(request)}>
-                          Start chat immediately
-                        </button>
-                      </div>
+                      {request.locationCoords && Number.isFinite(Number(request.locationCoords.lat)) && Number.isFinite(Number(request.locationCoords.lng)) ? (
+                        <div style={{ marginTop: "0.75rem" }}>
+                          <MapView
+                            locationCoords={{ lat: Number(request.locationCoords.lat), lng: Number(request.locationCoords.lng) }}
+                            address={request.address}
+                            locationLabel={request.location}
+                          />
+                        </div>
+                      ) : null}
+
+{(() => {
+                        const expired = isRequestExpired(request)
+                        const isAccepted = request.status === "accepted"
+                        // Only the provider who accepted may contact/chat; otherwise all actions are hidden.
+                        const isOwner = isAccepted && request.respondedBy && request.respondedBy === currentProviderName
+                        const canAccept = !expired && !isAccepted
+                        const canCommunicate = !expired && isOwner
+                        return (
+                          <div className="emergency-actions">
+                            <button className="hc-btn hc-btn--primary" type="button" disabled={!canAccept} onClick={() => canAccept && acceptRequest(request)} style={{ opacity: canAccept ? 1 : 0.4, pointerEvents: canAccept ? "auto" : "none" }}>
+                              {expired ? "Expired" : isAccepted && !isOwner ? "Claimed" : "Accept request"}
+                            </button>
+                            <button className="hc-btn hc-btn--outline" type="button" disabled={!canCommunicate} onClick={() => canCommunicate && contactPatient(request)} style={{ opacity: canCommunicate ? 1 : 0.4, pointerEvents: canCommunicate ? "auto" : "none" }}>
+                              Contact patient
+                            </button>
+                            <button className="hc-btn hc-btn--outline" type="button" disabled={!canCommunicate} onClick={() => canCommunicate && startChat(request)} style={{ opacity: canCommunicate ? 1 : 0.4, pointerEvents: canCommunicate ? "auto" : "none" }}>
+                              Start chat immediately
+                            </button>
+                          </div>
+                        )
+                      })()}
                     </article>
                   ))
                 ) : (

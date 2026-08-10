@@ -43,14 +43,14 @@ export default function AuthShowcase() {
         <div className={styles.authShowcase__track}>
           {slides.concat(slides).map((slide, index) => (
             <article className={styles.authShowcase__slide} key={`${slide.title}-${index}`}>
-              <div className={styles.authShowcase__imageWrap}>
+<div className={styles.authShowcase__imageWrap}>
                 <Image
                   src={slide.image}
                   alt={slide.alt}
                   fill
                   sizes="(max-width: 920px) 100vw, 50vw"
                   className={styles.authShowcase__image}
-                  priority={index === 0}
+                  priority={slide.image === "/images/home-care.svg"}
                 />
               </div>
               <div className={styles.authShowcase__caption}>

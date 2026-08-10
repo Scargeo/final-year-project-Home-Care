@@ -1,4 +1,24 @@
+const mongoose = require('mongoose');
 const SOSAlert = require('../models/sos/sosAlert');
+
+function isDbConnected() {
+  return mongoose.connection.readyState === 1;
+}
+
+function dbUnavailable(res) {
+  return res.status(503).json({ message: 'Database temporarily unavailable. Please try again in a moment.' });
+}
+
+function isTransientDbError(error) {
+  const message = String(error?.message || error?.name || '').toLowerCase();
+  return message.includes('enotfound') ||
+    message.includes('eai_again') ||
+    message.includes('getaddrinfo') ||
+    message.includes('connection error') ||
+    message.includes('topology was destroyed') ||
+    message.includes('server selection') ||
+    message.includes('buffering timed out');
+}
 
 // Static provider roster can be replaced by authenticated provider records later.
 const providers = [
@@ -62,30 +82,38 @@ function toClientShape(document) {
 
 const listSOSRequests = async (_req, res) => {
   try {
-    const requests = await SOSAlert.find({}).sort({ createdAt: -1 }).lean();
+    if (!isDbConnected()) return dbUnavailable(res);
+    const requests = await SOSAlert.find({}).sort({ createdAt: -1 }).maxTimeMS(30000).lean();
     return res.status(200).json({
       requests: requests.map((request) => ({ ...request, id: String(request._id) })),
       providers,
     });
   } catch (error) {
-    return res.status(500).json({ message: 'Failed to load SOS requests.', error: error.message });
+    if (isTransientDbError(error)) return dbUnavailable(res);
+    return res.status(500).json({ message: 'Failed to load SOS requests.' });
   }
 };
 
 const createSOSRequest = async (req, res) => {
   try {
+    if (!isDbConnected()) return dbUnavailable(res);
     const location = String(req.body.location || '').trim();
     if (!location) {
       return res.status(400).json({ message: 'Location is required for emergency alerts.' });
     }
 
-    const patientName = String(req.body.patientName || 'Unknown patient').trim() || 'Unknown patient';
+const patientName = String(req.body.patientName || 'Unknown patient').trim() || 'Unknown patient';
     const createdAt = new Date();
+    const coordsRaw = req.body.locationCoords;
+    const locationCoords = coordsRaw && Number.isFinite(Number(coordsRaw.lat)) && Number.isFinite(Number(coordsRaw.lng))
+      ? { lat: Number(coordsRaw.lat), lng: Number(coordsRaw.lng) }
+      : null;
     const alert = await SOSAlert.create({
       patientName,
       patientPhone: String(req.body.patientPhone || '').trim(),
       location,
       address: String(req.body.address || '').trim(),
+      locationCoords,
       symptoms: String(req.body.symptoms || 'Emergency help requested').trim() || 'Emergency help requested',
       chatRoomId: `emergency-${Date.now()}`,
       notifiedTo: providerTargets(),
@@ -102,7 +130,7 @@ const createSOSRequest = async (req, res) => {
     alert.chatRoomId = `emergency-${alert._id}`;
     await alert.save();
 
-    emitSosEvent(req, 'sos-created', {
+emitSosEvent(req, 'sos-created', {
       emergency: toClientShape(alert),
     });
 
@@ -111,31 +139,57 @@ const createSOSRequest = async (req, res) => {
       emergency: toClientShape(alert),
     });
   } catch (error) {
-    return res.status(500).json({ message: 'Failed to create SOS request.', error: error.message });
+    if (isTransientDbError(error)) return dbUnavailable(res);
+    return res.status(500).json({ message: 'Failed to create SOS request.' });
   }
 };
 
 const getSOSRequestById = async (req, res) => {
   try {
-    const emergency = await SOSAlert.findById(req.params.id);
+    if (!isDbConnected()) return dbUnavailable(res);
+    const emergency = await SOSAlert.findById(req.params.id).maxTimeMS(30000);
     if (!emergency) {
       return res.status(404).json({ message: 'Emergency request not found' });
     }
 
     return res.status(200).json({ emergency: toClientShape(emergency) });
   } catch (error) {
-    return res.status(500).json({ message: 'Failed to load SOS request.', error: error.message });
+    if (isTransientDbError(error)) return dbUnavailable(res);
+    return res.status(500).json({ message: 'Failed to load SOS request.' });
   }
 };
 
+const SOS_EXPIRY_MS = 24 * 60 * 60 * 1000;
+
+function isRequestExpired(emergency) {
+  if (!emergency?.createdAt) return false;
+  const created = new Date(emergency.createdAt).getTime();
+  if (Number.isNaN(created)) return false;
+  return Date.now() - created > SOS_EXPIRY_MS;
+}
+
 const updateSOSRequest = async (req, res) => {
   try {
+    if (!isDbConnected()) return dbUnavailable(res);
     const action = String(req.body.action || '').toLowerCase();
     const providerName = String(req.body.providerName || '').trim();
+    const isGatedAction = ['accept', 'chat', 'call'].includes(action);
 
-    const emergency = await SOSAlert.findById(req.params.id);
+    const emergency = await SOSAlert.findById(req.params.id).maxTimeMS(30000);
     if (!emergency) {
       return res.status(404).json({ message: 'Emergency request not found' });
+    }
+
+    // Enforce 24-hour expiry and single-provider ownership on the server so the
+    // UI gating cannot be bypassed by calling the API directly.
+    if (isGatedAction) {
+      if (isRequestExpired(emergency)) {
+        return res.status(410).json({ message: 'This emergency request has expired.' });
+      }
+
+      if (emergency.status === 'accepted' && emergency.respondedBy && emergency.respondedBy !== providerName) {
+        return res.status(409).json({ message: 'This request has already been claimed by another provider.' });
+      }
     }
 
     if (action === 'accept') {
@@ -152,12 +206,18 @@ const updateSOSRequest = async (req, res) => {
       const noteAt = new Date();
       emergency.notes.push({ label: noteLabel, at: noteAt });
       emergency.timeline.push({ type: 'note', label: noteLabel, at: noteAt });
-    } else if (action === 'chat') {
+} else if (action === 'chat') {
       const noteAt = new Date();
       const joinedBy = providerName || emergency.respondedBy || 'provider';
       const chatNote = `${joinedBy} started chat`;
       emergency.notes.push({ label: chatNote, at: noteAt });
       emergency.timeline.push({ type: 'chat-started', label: chatNote, at: noteAt });
+    } else if (action === 'call') {
+      const noteAt = new Date();
+      const callerName = providerName || emergency.respondedBy || 'provider';
+      const callNote = `${callerName} started a voice call`;
+      emergency.notes.push({ label: callNote, at: noteAt });
+      emergency.timeline.push({ type: 'call-started', label: callNote, at: noteAt });
     }
 
     await emergency.save();
@@ -176,12 +236,24 @@ const updateSOSRequest = async (req, res) => {
       });
     }
 
-    return res.status(200).json({
+    if (action === 'call') {
+      const startedAt = new Date().toISOString();
+      // Ring the patient's app so they know a provider is calling them.
+      emitRoomEvent(req, emergency.chatRoomId, 'provider-calling', {
+        emergency: toClientShape(emergency),
+        chatRoomId: emergency.chatRoomId,
+        providerName: emergency.respondedBy || providerName || 'provider',
+        startedAt,
+      });
+    }
+
+return res.status(200).json({
       message: 'Emergency request updated',
       emergency: toClientShape(emergency),
     });
   } catch (error) {
-    return res.status(500).json({ message: 'Failed to update SOS request.', error: error.message });
+    if (isTransientDbError(error)) return dbUnavailable(res);
+    return res.status(500).json({ message: 'Failed to update SOS request.' });
   }
 };
 

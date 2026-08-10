@@ -32,8 +32,12 @@ const sosAlertSchema = new mongoose.Schema(
   {
     patientName: { type: String, default: 'Unknown patient', trim: true },
     patientPhone: { type: String, default: '', trim: true },
-    location: { type: String, required: true, trim: true },
+location: { type: String, required: true, trim: true },
     address: { type: String, default: '', trim: true },
+    locationCoords: {
+      lat: { type: Number, default: null },
+      lng: { type: Number, default: null },
+    },
     symptoms: { type: String, default: 'Emergency help requested', trim: true },
     status: {
       type: String,

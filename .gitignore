@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.next
 *.local
+VULNERABILITY_FIX_REPORT.md
+VERIFICATION_CHECKLIST.md
+README_EMAIL_VERIFICATION.md
+note.txt
 
 # Editor directories and files
 .vscode/*

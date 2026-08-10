@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import styles from "../../doctor/settings/doctor-settings.module.css"
+import { getStoredUserIdentity } from "../../../../lib/user-identity"
 
 function getStoredAuth() {
   if (typeof window === "undefined") return null
@@ -140,7 +141,11 @@ export default function NurseSettingsPage() {
       window.dispatchEvent(new Event("nurseAuthUpdated"))
     } catch (storageError) {
       console.error("Failed to persist nurse settings to localStorage:", storageError)
-      window.localStorage.setItem("nurseAuth", JSON.stringify(nextAuth))
+      try {
+        window.localStorage.setItem("nurseAuth", JSON.stringify({ savedAt: Date.now(), _fallback: true }))
+      } catch {
+        console.error("Critical: Could not write to localStorage at all")
+      }
       window.dispatchEvent(new Event("nurseAuthUpdated"))
     }
   }
@@ -218,12 +223,15 @@ export default function NurseSettingsPage() {
       "Failed to save preferences.",
     )
 
+  const identity = typeof window !== "undefined" ? getStoredUserIdentity() : { name: "Nurse" }
+  const nurseDisplayName = identity.name || auth?.nurseFirstName || "Nurse"
+
   return (
     <main className={styles.page}>
       <header className={styles.topBar}>
         <div>
-          <p className={styles.kicker}></p>
-          <h1>System Configuration</h1>
+          <p className={styles.kicker}>Nurse Settings</p>
+          <h1>{nurseDisplayName}</h1>
           <p className={styles.subtitle}>Manage your account, personalization, privacy, and notifications.</p>
         </div>
 

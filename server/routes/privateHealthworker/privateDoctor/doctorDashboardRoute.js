@@ -459,6 +459,43 @@ router.get('/:doctorId/dashboard', async (req, res) => {
 })
 
 // Get appointments for a specific date
+router.get('/:doctorId/appointments/id/:appointmentId', async (req, res) => {
+  try {
+    const { doctorId, appointmentId } = req.params
+
+    if (!doctorId || !appointmentId) {
+      return res.status(400).json({ message: 'Doctor ID and appointment ID are required' })
+    }
+
+    const appointment = await Appointment.findOne({ doctorId, appointmentId }).lean()
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found' })
+    }
+
+    const doctor = await Doctor.findOne({ doctorId }).lean()
+
+    return res.status(200).json({
+      ...appointment,
+      doctor: doctor
+        ? {
+            doctorId: doctor.doctorId,
+            doctorFirstName: doctor.doctorFirstName,
+            doctorLastName: doctor.doctorLastName,
+            doctorName: [doctor.doctorFirstName, doctor.doctorLastName].filter(Boolean).join(' ').trim(),
+            doctorEmail: doctor.doctorEmail,
+            doctorPhone: doctor.doctorPhone,
+            specialization: doctor.specialization,
+            profileImage: doctor.profileImage,
+            isVerified: doctor.isVerified,
+          }
+        : null,
+    })
+  } catch (error) {
+    console.error('Failed to fetch appointment details:', error)
+    res.status(500).json({ message: 'Failed to fetch appointment details' })
+  }
+})
+
 router.get('/:doctorId/appointments/:date', async (req, res) => {
   try {
     const { doctorId, date } = req.params

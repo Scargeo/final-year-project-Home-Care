@@ -1,10 +1,26 @@
 "use client"
 
 import Link from "next/link"
+import { useState } from "react"
 import styles from "../home/home.module.css"
 import NotificationsPanel from "../components/NotificationsPanel"
 
+function getDashboardHref() {
+  if (typeof window === "undefined") return "/secure/dashboard"
+  try {
+    const nurseAuth = window.localStorage.getItem("nurseAuth")
+    if (nurseAuth) return "/secure/nurse"
+    const doctorAuth = window.localStorage.getItem("doctorAuth")
+    if (doctorAuth) return "/secure/doctor"
+  } catch {
+    // ignore storage access errors
+  }
+  return "/secure/dashboard"
+}
+
 export default function NotificationsPage() {
+  const [dashboardHref] = useState(() => getDashboardHref())
+
   return (
     <main className={styles.page} style={{ overflowY: "auto", overflowX: "hidden" }}>
       <header className={styles.topBar}>
@@ -22,7 +38,7 @@ export default function NotificationsPage() {
           <Link href="/secure/home" className={`${styles.action} ${styles.actionGhost}`}>
             Home
           </Link>
-          <Link href="/secure/dashboard" className={`${styles.action} ${styles.actionGhost} ${styles.desktopOnlyAction}`}>
+          <Link href={dashboardHref} className={`${styles.action} ${styles.actionGhost} ${styles.desktopOnlyAction}`}>
             Dashboard
           </Link>
           <Link href="/secure/emergency" className={`${styles.action} ${styles.actionDanger}`}>

@@ -63,7 +63,7 @@ export default function LoginPage() {
           localStorage.setItem('doctorAuth', JSON.stringify(payload))
         } else if (data.user.role === 'nurse') {
           localStorage.setItem('nurseAuth', JSON.stringify(payload))
-        } else {
+} else {
           localStorage.setItem('patientAuth', JSON.stringify(payload))
         }
       }
@@ -72,7 +72,19 @@ export default function LoginPage() {
       setStatus('Access granted.')
       setForm(initialForm)
       const redirectPath = getRoleRedirect(data.user?.role)
-      setTimeout(() => router.push(redirectPath), 1000)
+      // Give the success message a moment to render, then navigate. Using a
+      // try/catch + window.location fallback avoids the "Router action
+      // dispatched before initialization" error that can occur when the
+      // client-side router isn't ready yet (e.g. during hydration).
+      setTimeout(() => {
+        try {
+          router.push(redirectPath)
+        } catch {
+          if (typeof window !== 'undefined') {
+            window.location.assign(redirectPath)
+          }
+        }
+      }, 1000)
     } catch (err) {
       setError(err.message || "Login failed.")
       setStatus("Unable to log in right now.")

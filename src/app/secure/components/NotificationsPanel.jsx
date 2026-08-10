@@ -9,6 +9,7 @@ import styles from "../home/home.module.css"
 
 const READ_STORAGE_KEY = "patientNotificationReadIds"
 const DOCTOR_READ_STORAGE_KEY = "doctorNotificationReadIds"
+const NURSE_READ_STORAGE_KEY = "nurseNotificationReadIds"
 
 function loadPatientProfile() {
   if (typeof window === "undefined") return null
@@ -34,10 +35,24 @@ function loadDoctorProfile() {
   }
 }
 
+function loadNurseProfile() {
+  if (typeof window === "undefined") return null
+  const stored = window.localStorage.getItem("nurseAuth")
+  if (!stored) return null
+
+  try {
+    return JSON.parse(stored)
+  } catch {
+    return null
+  }
+}
+
 function getUserType() {
   if (typeof window === "undefined") return null
   const patientAuth = window.localStorage.getItem("patientAuth")
   const doctorAuth = window.localStorage.getItem("doctorAuth")
+  const nurseAuth = window.localStorage.getItem("nurseAuth")
+  if (nurseAuth) return "nurse"
   if (doctorAuth) return "doctor"
   if (patientAuth) return "patient"
   return null
@@ -46,7 +61,7 @@ function getUserType() {
 function loadReadIds() {
   if (typeof window === "undefined") return new Set()
   const userType = getUserType()
-  const storageKey = userType === "doctor" ? DOCTOR_READ_STORAGE_KEY : READ_STORAGE_KEY
+  const storageKey = userType === "doctor" ? DOCTOR_READ_STORAGE_KEY : userType === "nurse" ? NURSE_READ_STORAGE_KEY : READ_STORAGE_KEY
   const stored = window.localStorage.getItem(storageKey)
   if (!stored) return new Set()
 
@@ -61,7 +76,7 @@ function loadReadIds() {
 function saveReadIds(nextIds) {
   if (typeof window === "undefined") return
   const userType = getUserType()
-  const storageKey = userType === "doctor" ? DOCTOR_READ_STORAGE_KEY : READ_STORAGE_KEY
+  const storageKey = userType === "doctor" ? DOCTOR_READ_STORAGE_KEY : userType === "nurse" ? NURSE_READ_STORAGE_KEY : READ_STORAGE_KEY
 
   try {
     window.localStorage.setItem(storageKey, JSON.stringify(Array.from(nextIds)))
@@ -271,12 +286,26 @@ function NotificationCard({ entry, isRead, isExpanded, onToggle, onMarkRead, use
       <button
         type="button"
         className={styles.notificationButton}
-        onClick={() => {
-          // If doctor clicked and this entry references an appointment, open doctor dashboard and load it
+onClick={() => {
+          // If a provider (doctor or nurse) clicked and this entry references a
+          // SOS/emergency request, route to the provider emergency panel so they
+          // can view and accept it.
           try {
-            if (userType === 'doctor' && entry?.emergency) {
-              const apptId = String(entry.emergency.appointmentId || entry.emergency.id || '')
-              if (apptId) {
+            if ((userType === 'doctor' || userType === 'nurse') && entry?.emergency) {
+              const source = String(entry.source || '')
+              const isEmergencyEntry = source === 'request' || source === 'live'
+              const hasSosRoom = Boolean(String(entry.emergency.chatRoomId || '').trim())
+              const hasAppointmentId = Boolean(String(entry.emergency.appointmentId || '').trim())
+
+              // SOS / emergency requests open the provider emergency panel (view + accept).
+              if (isEmergencyEntry || hasSosRoom) {
+                try { router.push('/secure/emergency') } catch { router.push(userType === 'nurse' ? '/secure/nurse' : '/secure/doctor') }
+                return
+              }
+
+              // Appointment entries open the appointment detail page.
+              if (hasAppointmentId) {
+                const apptId = String(entry.emergency.appointmentId)
                 try { router.push(`/secure/doctor/appointments/${encodeURIComponent(apptId)}`) } catch { router.push('/secure/doctor') }
                 return
               }
@@ -438,20 +467,64 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
 
   
 
-  useEffect(() => {
+useEffect(() => {
     let mounted = true
     const userType = getUserType()
-    const auth = userType === "doctor" ? loadDoctorProfile() : loadPatientProfile() || {}
+    const isProvider = userType === "doctor" || userType === "nurse"
+    const auth = userType === "doctor" ? loadDoctorProfile() : userType === "nurse" ? loadNurseProfile() : loadPatientProfile() || {}
     const patientPhone = userType === "patient" ? String(auth.patientPhone || "").trim() : ""
     const patientName = userType === "patient" ? [auth.patientFirstName, auth.patientLastName].filter(Boolean).join(" ").trim() : ""
     const patientId = userType === "patient" ? String(auth.patientId || "").trim() : ""
     const socketUrl = getBackendBaseUrl()
-    const socket = userType === "patient" && patientId
+    const socket = (userType === "patient" && patientId) || isProvider
       ? io(socketUrl, { transports: ["websocket"], withCredentials: true })
       : null
 
-    if (socket && patientId) {
-      socket.emit("join-notifications-patient", patientId)
+    if (socket) {
+      // Providers (doctors and nurses) join the shared providers room so they
+      // receive real-time SOS alerts broadcast by the backend.
+      if (isProvider) {
+        socket.emit("join-provider")
+        socket.on("sos-created", (payload) => {
+          const emergency = payload?.emergency
+          if (!emergency?.id) return
+
+          const liveId = buildEntryId("live", emergency.id, emergency.status || "pending")
+          setNotifications((current) => {
+            const next = [{
+              id: liveId,
+              title: "New SOS alert",
+              body: `${emergency.patientName || "A patient"} needs help at ${emergency.location || "an unknown location"}.`,
+              at: emergency.createdAt || new Date().toISOString(),
+              emergency,
+              source: "live",
+              important: true,
+            }, ...current].filter(Boolean)
+            const seen = new Set()
+            return next.filter((item) => {
+              const key = String(item.id || "")
+              if (!key || seen.has(key)) return false
+              seen.add(key)
+              return true
+            }).slice(0, 20)
+          })
+
+          try {
+            if (typeof window !== "undefined" && "Notification" in window && window.Notification.permission === "granted") {
+              new window.Notification("New SOS alert", {
+                body: `${emergency.patientName || "A patient"} needs help at ${emergency.location || "an unknown location"}.`,
+              })
+            }
+          } catch {
+            // ignore browser notification failures
+          }
+        })
+      }
+
+      if (userType === "patient" && patientId) {
+        socket.emit("join-notifications-patient", patientId)
+      }
+
       socket.on("patient-notification-created", (payload) => {
         const notification = payload?.notification
         if (!notification) return
@@ -480,11 +553,12 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
 
     async function load() {
       try {
-          const headers = {}
+const headers = {}
           try {
             const patientAuth = typeof window !== 'undefined' ? window.localStorage.getItem('patientAuth') : null
             const doctorAuth = typeof window !== 'undefined' ? window.localStorage.getItem('doctorAuth') : null
-            const parsed = patientAuth ? JSON.parse(patientAuth) : doctorAuth ? JSON.parse(doctorAuth) : null
+            const nurseAuth = typeof window !== 'undefined' ? window.localStorage.getItem('nurseAuth') : null
+            const parsed = patientAuth ? JSON.parse(patientAuth) : doctorAuth ? JSON.parse(doctorAuth) : nurseAuth ? JSON.parse(nurseAuth) : null
             const token = parsed?.token || parsed?.accessToken || null
             if (token) headers.authorization = `Bearer ${token}`
           } catch {
@@ -500,8 +574,9 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
         const matching = requests.filter((request) => {
           if (!request) return false
           
-          // For doctors: show all pending requests (not yet accepted by anyone)
-          if (userType === "doctor") {
+          // For providers (doctors and nurses): show all pending SOS requests
+          // (not yet accepted by anyone) so they can respond in real time.
+          if (userType === "doctor" || userType === "nurse") {
             return String(request.status || "").toLowerCase() === "pending"
           }
           

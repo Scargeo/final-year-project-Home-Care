@@ -24,7 +24,7 @@ function getStoredSession() {
   if (typeof window === "undefined") return null
 
   try {
-    const doctorRaw = window.localStorage.getItem("doctorAuth")
+const doctorRaw = window.localStorage.getItem("doctorAuth")
     if (doctorRaw) {
       const doctor = JSON.parse(doctorRaw)
       return {
@@ -33,6 +33,18 @@ function getStoredSession() {
         firstName: doctor?.doctorFirstName || doctor?.firstName || "",
         lastName: doctor?.doctorLastName || doctor?.lastName || "",
         token: doctor?.token || doctor?.accessToken || "",
+      }
+    }
+
+    const nurseRaw = window.localStorage.getItem("nurseAuth")
+    if (nurseRaw) {
+      const nurse = JSON.parse(nurseRaw)
+      return {
+        role: "nurse",
+        id: nurse?.nurseId || nurse?.id || nurse?._id || "",
+        firstName: nurse?.nurseFirstName || nurse?.firstName || "",
+        lastName: nurse?.nurseLastName || nurse?.lastName || "",
+        token: nurse?.token || nurse?.accessToken || "",
       }
     }
 
@@ -372,11 +384,11 @@ function CallPageContent() {
         const data = await response.json().catch(() => ({}))
         if (!response.ok || !active) return
 
-        const roomStatus = String(data?.room?.status || "").toLowerCase()
+const roomStatus = String(data?.room?.status || "").toLowerCase()
         if (roomStatus === "completed" || roomStatus === "cancelled") {
           await cleanup()
           setError("This room has ended.")
-          window.location.href = role === "doctor" ? "/secure/doctor" : "/secure/appointments"
+          window.location.href = role === "doctor" ? "/secure/doctor" : role === "nurse" ? "/secure/nurse" : "/secure/appointments"
         }
       } catch {
         // best-effort only
@@ -423,11 +435,11 @@ function CallPageContent() {
       // best-effort
     }
 
-    await cleanup()
+await cleanup()
     setMyPeerId("")
     setRemotePeerId("")
     setRoomActionBusy(false)
-    window.location.href = role === "doctor" ? "/secure/doctor" : "/secure/appointments"
+    window.location.href = role === "doctor" ? "/secure/doctor" : role === "nurse" ? "/secure/nurse" : "/secure/appointments"
   }
 
   function getJoinCopy() {

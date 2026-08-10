@@ -239,8 +239,9 @@ export default function SecureHomePage() {
   const [postBody, setPostBody] = useState("")
   const [postImages, setPostImages] = useState([])
   const [posting, setPosting] = useState(false)
-  const [posts, setPosts] = useState([])
+const [posts, setPosts] = useState([])
   const [postsLoading, setPostsLoading] = useState(true)
+  const [postsError, setPostsError] = useState("")
   const postImageInputRef = useRef(null)
   const [commentingPostId, setCommentingPostId] = useState(null)
   const [commentText, setCommentText] = useState('')
@@ -255,8 +256,44 @@ export default function SecureHomePage() {
   const commentOpenRef = useRef(false)
   const aiInputRef = useRef(null)
   const aiThreadRef = useRef(null)
-  const currentUserId = doctorId || nurseId || patientId || null
+const currentUserId = doctorId || nurseId || patientId || null
+  const router = useRouter()
   const isProvider = userRole === "doctor" || userRole === "nurse"
+
+  // Fetch public posts on mount so the feed renders instead of staying on "Loading posts…"
+  useEffect(() => {
+    let active = true
+    setPostsLoading(true)
+    setPostsError("")
+
+    async function loadPosts() {
+      try {
+        const headers = {}
+        const token = getStoredTokenForRole(userRole)
+        if (token) headers.authorization = `Bearer ${token}`
+
+        const response = await fetch("/api/posts", { cache: "no-store", headers })
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok) {
+          throw new Error(data?.message || "Failed to load posts")
+        }
+
+        if (!active) return
+        setPosts(Array.isArray(data?.posts) ? data.posts : [])
+        setPostsError("")
+      } catch (err) {
+        if (active) {
+          console.error("Failed to load posts", err)
+          setPostsError(err?.message || "Could not load the posts feed.")
+        }
+      } finally {
+        if (active) setPostsLoading(false)
+      }
+    }
+
+    loadPosts()
+    return () => { active = false }
+  }, [userRole])
 
   useEffect(() => {
     // Delay browser-dependent header controls until after hydration so SSR and client markup stay aligned.
@@ -282,78 +319,9 @@ export default function SecureHomePage() {
       }
     }
 
-    document.addEventListener("mousedown", handleOutsideClick)
-    document.addEventListener("touchstart", handleOutsideClick)
-    return () => {
-      document.removeEventListener("mousedown", handleOutsideClick)
-      document.removeEventListener("touchstart", handleOutsideClick)
-    }
-  }, [userRole])
+    document.addEventListener('click', handleOutsideClick)
 
-  // Load public posts feed (visible to all users)
-  useEffect(() => {
-    let active = true
-    async function loadPosts() {
-      setPostsLoading(true)
-      try {
-        const response = await fetch('/api/posts', { cache: 'no-store' })
-        const data = await response.json().catch(() => ({}))
-        if (!response.ok) throw new Error(data?.message || 'Could not load posts')
-        if (!active) return
-        setPosts(Array.isArray(data.posts) ? data.posts : [])
-      } catch (err) {
-        console.error('Failed to load posts', err)
-      } finally {
-        if (active) setPostsLoading(false)
-      }
-    }
-
-    loadPosts()
-    return () => { active = false }
-  }, [userRole])
-
-  const router = useRouter()
-
-  useEffect(() => {
-    if (typeof window === "undefined") return
-
-    const patientAuthStr = window.localStorage.getItem("patientAuth")
-    if (patientAuthStr) {
-      try {
-        const auth = JSON.parse(patientAuthStr)
-        setStoredAuth(auth)
-        setPatientId(auth.patientId || auth.id || auth._id || null)
-        setDoctorId(null)
-        setDoctorDetails(null)
-        setUserRole("patient")
-        if (auth.profileImage && auth.profileImage.url) {
-          setProfileImage(auth.profileImage)
-        }
-      } catch {
-        // ignore parse errors
-      }
-      return
-    }
-
-    const doctorAuthStr = window.localStorage.getItem("doctorAuth")
-    if (doctorAuthStr) {
-      try {
-        const auth = JSON.parse(doctorAuthStr)
-        setStoredAuth(auth)
-        setDoctorId(auth.doctorId || auth.id || auth._id || null)
-        setPatientId(null)
-        setUserRole("doctor")
-        if (auth.profileImage && auth.profileImage.url) {
-          setProfileImage(auth.profileImage)
-        }
-      } catch {
-        setDoctorId(null)
-        setUserRole("doctor")
-      }
-      return
-    }
-
-    const nurseAuthStr = window.localStorage.getItem("nurseAuth")
+    const nurseAuthStr = typeof window !== 'undefined' ? window.localStorage.getItem('nurseAuth') : null
     if (nurseAuthStr) {
       try {
         const auth = JSON.parse(nurseAuthStr)
@@ -368,6 +336,45 @@ export default function SecureHomePage() {
         setNurseId(null)
         setUserRole("nurse")
       }
+    }
+
+const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getItem('doctorAuth') : null
+    if (doctorAuthStr) {
+      try {
+        const auth = JSON.parse(doctorAuthStr)
+        setStoredAuth(auth)
+        setDoctorId(auth.doctorId || auth.id || auth._id || null)
+        setPatientId(null)
+        setUserRole("doctor")
+        if (auth.profileImage && auth.profileImage.url) {
+          setProfileImage(auth.profileImage)
+        }
+      } catch {
+        setDoctorId(null)
+        setUserRole("doctor")
+      }
+    }
+
+    const patientAuthStr = typeof window !== 'undefined' ? window.localStorage.getItem('patientAuth') : null
+    if (patientAuthStr) {
+      try {
+        const auth = JSON.parse(patientAuthStr)
+        setStoredAuth(auth)
+        setPatientId(auth.patientId || auth.id || auth._id || null)
+        setDoctorId(null)
+        setNurseId(null)
+        setUserRole("patient")
+        if (auth.profileImage && auth.profileImage.url) {
+          setProfileImage(auth.profileImage)
+        }
+      } catch {
+        setPatientId(null)
+        setUserRole("patient")
+      }
+    }
+
+    return () => {
+      document.removeEventListener('click', handleOutsideClick)
     }
   }, [])
 
@@ -1079,7 +1086,7 @@ export default function SecureHomePage() {
                 <span className={styles.emergencyLabel}>Emergency</span>
                 <span className={styles.sosLabel}>SOS</span>
               </Link>
-              <NotificationsPanel variant="header" />
+<NotificationsPanel variant="header" />
               <Link href={isProvider ? (userRole === "nurse" ? "/secure/nurse" : "/secure/doctor") : "/secure/dashboard"} className={`${styles.action} ${styles.actionGhost} ${styles.desktopOnlyAction}`}>
                 Dashboard
               </Link>
@@ -1109,10 +1116,16 @@ export default function SecureHomePage() {
               <span>📊</span>
               <span>Dashboard</span>
             </Link>
-            <Link href="/secure/chat" className={styles.dropdownItem}>
+<Link href="/secure/chat" className={styles.dropdownItem}>
               <span>💬</span>
               <span>Chats</span>
             </Link>
+            {!isProvider && (
+              <Link href="/secure/home-care/request" className={styles.dropdownItem}>
+                <span>🏠</span>
+                <span>Request Home Care</span>
+              </Link>
+            )}
             <Link href="/secure/dashboard#appointments" className={styles.dropdownItem}>
               <span>📅</span>
               <span>Appointments</span>
@@ -1152,10 +1165,16 @@ export default function SecureHomePage() {
           <span>📊</span>
           <span>Dashboard</span>
         </Link>
-        <Link href="/secure/chat" className={styles.menuButton}>
+<Link href="/secure/chat" className={styles.menuButton}>
           <span>💬</span>
           <span>Chats</span>
         </Link>
+        {!isProvider && (
+          <Link href="/secure/home-care/request" className={styles.menuButton}>
+            <span>🏠</span>
+            <span>Home Care</span>
+          </Link>
+        )}
         <Link href="/secure/dashboard#appointments" className={styles.menuButton}>
           <span>📅</span>
           <span>Appointments</span>
@@ -1196,9 +1215,9 @@ export default function SecureHomePage() {
                   aria-label={`Profile menu for ${userName}`}
                   aria-expanded={profileDropdownOpen}
                 >
-                  <div className={styles.profileAvatar}>
+<div className={styles.profileAvatar}>
                     {profileImage?.url ? (
-                      <Image src={profileImage.url} alt={userName} fill className={styles.profileImage} />
+                      <Image src={profileImage.url} alt={userName} fill sizes="72px" className={styles.profileImage} />
                     ) : (
                       userName.slice(0, 1).toUpperCase()
                     )}
@@ -1284,8 +1303,9 @@ export default function SecureHomePage() {
             </div>
           </article>
 
-          <div className={styles.feedList}>
+<div className={styles.feedList}>
             {postsLoading ? <p className={styles.status}>Loading posts…</p> : null}
+            {!postsLoading && postsError ? <p className={styles.status} role="alert">{postsError}</p> : null}
             {posts.map((post) => {
               const userLiked = post.likes?.userIds?.includes(currentUserId) || false
               const canDeletePost = post.author?.id === currentUserId
@@ -1296,8 +1316,8 @@ export default function SecureHomePage() {
                   {/* Header with profile info and label */}
                   <div className={styles.feedHeader}>
                     <div className={styles.feedAvatar}>
-                      {post.author?.profileImage?.url ? (
-                        <Image src={post.author.profileImage.url} alt={post.author?.name} fill style={{ objectFit: 'cover' }} />
+{post.author?.profileImage?.url ? (
+                        <Image src={post.author.profileImage.url} alt={post.author?.name} fill sizes="48px" style={{ objectFit: 'cover' }} />
                       ) : (
                         (post.author?.name || 'D').slice(0, 1).toUpperCase()
                       )}
@@ -1580,9 +1600,9 @@ export default function SecureHomePage() {
           <>
             <aside className={styles.leftRail}>
               <section className={styles.profileCard}>
-                <div className={styles.profileAvatar}>
+<div className={styles.profileAvatar}>
                   {profileImage?.url ? (
-                    <Image src={profileImage.url} alt={userName} fill className={styles.profileImage} />
+                    <Image src={profileImage.url} alt={userName} fill sizes="72px" className={styles.profileImage} />
                   ) : (
                     userName.slice(0, 1).toUpperCase()
                   )}
@@ -1763,8 +1783,8 @@ export default function SecureHomePage() {
                       {/* Header with profile info and label */}
                       <div className={styles.feedHeader}>
                         <div className={styles.feedAvatar}>
-                          {post.author?.profileImage?.url ? (
-                            <Image src={post.author.profileImage.url} alt={post.author?.name} fill style={{ objectFit: 'cover' }} />
+{post.author?.profileImage?.url ? (
+                            <Image src={post.author.profileImage.url} alt={post.author?.name} fill sizes="48px" style={{ objectFit: 'cover' }} />
                           ) : (
                             (post.author?.name || 'D').slice(0, 1).toUpperCase()
                           )}

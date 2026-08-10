@@ -196,6 +196,9 @@ router.post('/login', async (req, res) => {
 router.use(loadUser)
 router.use(requireAdmin)
 
+// Admin home care review dashboard endpoints (independent entry point)
+router.use('/home-care', require('./homeCareAdminRoute'))
+
 router.get('/me', async (req, res) => {
   return res.status(200).json({ user: stripAdmin(req.user?.record) })
 })

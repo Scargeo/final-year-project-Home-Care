@@ -4,7 +4,7 @@ const Nurse = require('../models/privateHealthWorker/nurse/privateNurseRegistrat
 const bcrypt = require('bcrypt');
 const { signToken } = require('./jwtAuth')
 
-// Unified login: try patient first, then doctor
+// Unified login: try patient first, then doctor, then nurse
 const loginUnified = async (req, res) => {
   try {
     const { email, password } = req.body || {};
@@ -14,15 +14,15 @@ const loginUnified = async (req, res) => {
 
     const normalized = String(email).trim().toLowerCase();
 
-    // Try patient
-    const patient = await Patient.findOne({ patientEmail: normalized });
+    // Try patient (select password since it is excluded by default)
+    const patient = await Patient.findOne({ patientEmail: normalized }).select('+patientPassword');
     if (patient) {
       const match = await bcrypt.compare(password, patient.patientPassword);
       if (match) {
         const payload = { id: patient.patientId, role: 'patient', patientId: patient.patientId }
-        const token = signToken(payload)
         const { signRefreshToken } = require('./jwtAuth')
         const refreshToken = await signRefreshToken(payload)
+        const token = signToken(payload)
         return res.status(200).json({
           message: 'Login successful',
           token,
@@ -46,9 +46,9 @@ const loginUnified = async (req, res) => {
       const match = await bcrypt.compare(password, doctor.doctorPassword);
       if (match) {
         const payload = { id: doctor.doctorId, role: 'doctor', doctorId: doctor.doctorId }
-        const token = signToken(payload)
         const { signRefreshToken } = require('./jwtAuth')
         const refreshToken = await signRefreshToken(payload)
+        const token = signToken(payload)
         return res.status(200).json({
           message: 'Login successful',
           token,
@@ -72,9 +72,9 @@ const loginUnified = async (req, res) => {
       const matchN = await bcrypt.compare(password, nurse.nursePassword);
       if (matchN) {
         const payload = { id: nurse.uid || nurse._id, role: 'nurse', nurseId: nurse.uid || nurse._id }
-        const token = signToken(payload)
         const { signRefreshToken } = require('./jwtAuth')
         const refreshToken = await signRefreshToken(payload)
+        const token = signToken(payload)
         return res.status(200).json({
           message: 'Login successful',
           token,
@@ -89,13 +89,13 @@ const loginUnified = async (req, res) => {
           },
         });
       }
-      return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    return res.status(404).json({ message: 'User not found' });
+    // Uniform response for all failure cases to avoid user enumeration
+    return res.status(401).json({ message: 'Invalid credentials' });
   } catch (error) {
     console.error('Unified login error:', error);
-    return res.status(500).json({ message: 'Login failed', error: error.message });
+    return res.status(500).json({ message: 'Login failed' });
   }
 };
 

@@ -2,12 +2,14 @@
 
 import Link from "next/link"
 import Image from "next/image"
+import { useSearchParams } from "next/navigation"
 import { useEffect, useState, useCallback, useRef } from "react"
 import { io } from "socket.io-client"
 import styles from "./nurse.module.css"
 import homeStyles from "../home/home.module.css"
 import LoadingCanvas from "../components/LoadingCanvas"
 import VerifiedDoctorBadge from "../components/VerifiedDoctorBadge"
+import HomeCarePanel from "./HomeCarePanel"
 import { getBackendBaseUrl } from "../../../lib/backend-url"
 
 const MISSED_GRACE_MINUTES = 10
@@ -79,6 +81,8 @@ function resolveProfileImageSource(profileImage) {
 }
 
 export default function NurseDashboard() {
+  const searchParams = useSearchParams()
+  const initialRequestId = searchParams.get("requestId") || ""
   const [nurseId, setNurseId] = useState("nurse")
   const [nurseName, setNurseName] = useState("Nurse")
   const [profileImage, setProfileImage] = useState(null)
@@ -89,6 +93,7 @@ export default function NurseDashboard() {
   const [loading, setLoading] = useState(true)
   const [, setError] = useState("")
   const [, setNotificationCount] = useState(0)
+  const [liveNotice, setLiveNotice] = useState(null)
   const socketRef = useRef(null)
   const fileInputRef = useRef(null)
 
@@ -229,7 +234,7 @@ export default function NurseDashboard() {
       } finally {
         if (active) setLoading(false)
       }
-    }
+}
 
     loadDashboard()
 
@@ -237,6 +242,53 @@ export default function NurseDashboard() {
     const socket = io(socketUrl, { transports: ['websocket'], withCredentials: true })
     socketRef.current = socket
     socket.emit('join-assignments-nurse', nurseId)
+    socket.emit('join-notifications-nurse', nurseId)
+    // Nurses join the shared providers room so they receive real-time SOS alerts
+    // broadcast by the backend the moment a patient places an emergency request.
+    socket.emit('join-provider')
+
+    socket.on('sos-created', (payload) => {
+      const emergency = payload?.emergency
+      if (!emergency?.id) return
+      setLiveNotice({
+        id: Date.now(),
+        title: '🚨 New SOS alert',
+        message: `${emergency.patientName || 'A patient'} needs help at ${emergency.location || 'an unknown location'}.`,
+        actionUrl: '/secure/emergency',
+      })
+      try {
+        if (typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === 'granted') {
+          new window.Notification('🚨 New SOS alert', {
+            body: `${emergency.patientName || 'A patient'} needs help at ${emergency.location || 'an unknown location'}.`,
+          })
+        }
+      } catch {
+        // ignore browser notification failures
+      }
+    })
+
+    socket.on('nurse-notification-created', (payload) => {
+      const notification = payload?.notification
+      if (!notification) return
+      setLiveNotice({
+        id: Date.now(),
+        title: notification.title || 'Home care notification',
+        message: notification.message || 'You have a new home care update.',
+actionUrl: notification.actionUrl || `/secure/nurse`,
+      })
+    })
+
+    socket.on('home-care-updated', (payload) => {
+      const updated = payload?.request
+      if (!updated?.id && !updated?.homeCareRequestId) return
+      const key = String(updated.homeCareRequestId || updated.id)
+      setLiveNotice({
+        id: Date.now(),
+        title: 'Home care request updated',
+        message: `Status for ${String(updated.serviceType || 'home care')} is now "${String(updated.status || '').replace(/^\w/, (c) => c.toUpperCase())}".`,
+actionUrl: `/secure/nurse?requestId=${encodeURIComponent(key)}`,
+      })
+    })
 
     socket.on('assignment-created', (payload) => {
       if (!payload?.assignment) return
@@ -279,11 +331,30 @@ export default function NurseDashboard() {
           <span className={styles.brandText}>Home Care+</span>
         </Link>
 
-        <div className={styles.topActions}>
+<div className={styles.topActions}>
           <Link href="/secure/home" className={`${styles.actionButton} ${styles.actionSecondary}`}>Home</Link>
           <Link href="/secure/nurse/settings" className={`${styles.actionButton} ${styles.actionSecondary}`}>System</Link>
         </div>
       </header>
+
+      {liveNotice ? (
+        <div className={styles.liveNotice} role="alert">
+          <div className={styles.liveNoticeContent}>
+            <strong>{liveNotice.title}</strong>
+            <span>{liveNotice.message}</span>
+          </div>
+          <div className={styles.liveNoticeActions}>
+            {liveNotice.actionUrl ? (
+              <Link href={liveNotice.actionUrl} className={styles.liveNoticeButton} onClick={() => setLiveNotice(null)}>
+                View
+              </Link>
+            ) : null}
+            <button type="button" className={styles.liveNoticeClose} onClick={() => setLiveNotice(null)} aria-label="Dismiss">
+              ×
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <div className={styles.shell}>
         <section className={styles.hero}>
@@ -378,10 +449,14 @@ export default function NurseDashboard() {
                   </div>
                 </div>
               ))}
-            </div>
-          ) : (
+</div>
+) : (
             <p>No assignments</p>
           )}
+        </section>
+
+<section style={{ marginTop: "2rem" }}>
+          <HomeCarePanel nurseId={nurseId} nurseName={nurseName} initialRequestId={initialRequestId} />
         </section>
       </div>
     </main>

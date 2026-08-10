@@ -1,4 +1,5 @@
 const express = require('express')
+const mongoose = require('mongoose')
 const router = express.Router()
 
 const Appointment = require('../../models/privateHealthWorker/doctor/appointment')
@@ -165,7 +166,13 @@ async function getOrCreateRoom(roomId) {
   const roomKey = String(roomId || '').trim()
   if (!roomKey) return { error: 'Missing room id', status: 400 }
 
-  const appointment = await Appointment.findOne({ roomId: roomKey }).lean()
+  // Transient MongoDB DNS/network failures should yield a clean 503, not a raw
+  // ENOTFOUND stack trace leaking to the client.
+  if (mongoose.connection.readyState !== 1) {
+    return { error: 'Database temporarily unavailable. Please try again in a moment.', status: 503 }
+  }
+
+  const appointment = await Appointment.findOne({ roomId: roomKey }).maxTimeMS(30000).lean()
   if (!appointment) {
     return { error: 'Room is not linked to an appointment', status: 404 }
   }

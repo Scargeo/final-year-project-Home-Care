@@ -22,7 +22,12 @@ async function signRefreshToken(payload, opts = {}) {
   const expiresIn = opts.expiresIn || DEFAULT_REFRESH_EXPIRY
   const expiresAt = new Date(Date.now() + parseExpiryToMs(expiresIn))
 
-  const doc = new RefreshToken({ token, userId: String(payload.id || payload.userId || payload.adminId), role: payload.role || 'user', expiresAt })
+  const doc = new RefreshToken({
+    token,
+    userId: String(payload.id || payload.userId || payload.adminId),
+    role: payload.role || 'user',
+    expiresAt,
+  })
   await doc.save()
   return token
 }
@@ -61,7 +66,15 @@ async function verifyRefreshToken(token) {
     const doc = await RefreshToken.findOne({ token }).lean()
     if (!doc) return null
     if (new Date(doc.expiresAt) < new Date()) return null
-    return { userId: doc.userId, role: doc.role }
+
+    // Reuse detection: if a previously rotated token is submitted again,
+    // an attacker may possess it, so revoke all of the user's tokens.
+    if (doc.revokedAt) {
+      await revokeAllRefreshTokens(doc.userId)
+      return null
+    }
+
+    return { userId: doc.userId, role: doc.role, tokenId: String(doc._id) }
   } catch {
     return null
   }
@@ -69,7 +82,16 @@ async function verifyRefreshToken(token) {
 
 async function revokeRefreshToken(token) {
   try {
-    await RefreshToken.deleteOne({ token })
+    // Mark as revoked instead of deleting so reuse can be detected
+    await RefreshToken.updateOne({ token }, { $set: { revokedAt: new Date() } })
+  } catch {
+    // ignore
+  }
+}
+
+async function revokeAllRefreshTokens(userId) {
+  try {
+    await RefreshToken.updateMany({ userId }, { $set: { revokedAt: new Date() } })
   } catch {
     // ignore
   }
@@ -81,14 +103,14 @@ function authenticateToken(req, res, next) {
     const authHeader = req.get('authorization') || req.get('Authorization') || ''
     if (!authHeader) return next()
     const payload = verifyToken(authHeader)
-    if (!payload) return next()
+    if (!payload) return res.status(401).json({ message: 'Invalid or expired token' })
     // attach minimal token payload to req.tokenUser
     req.tokenUser = payload
     return next()
   } catch (err) {
     console.error('authenticateToken error', err)
-    return next()
+    return res.status(500).json({ message: 'Authentication failed' })
   }
 }
 
-module.exports = { signToken, verifyToken, authenticateToken, signRefreshToken, verifyRefreshToken, revokeRefreshToken }
+module.exports = { signToken, verifyToken, authenticateToken, signRefreshToken, verifyRefreshToken, revokeRefreshToken, revokeAllRefreshTokens }

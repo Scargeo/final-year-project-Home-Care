@@ -22,11 +22,12 @@ function getStoredAuth() {
 export default function PatientSettingsPage() {
   const [activeTab, setActiveTab] = useState("account")
   const [auth, setAuth] = useState(null)
-  const [formData, setFormData] = useState({
+const [formData, setFormData] = useState({
     email: "",
     phone: "",
     firstName: "",
     lastName: "",
+    address: "",
   })
   const [notificationPrefs, setNotificationPrefs] = useState({
     emailAlerts: true,
@@ -47,11 +48,12 @@ export default function PatientSettingsPage() {
     const storedAuth = getStoredAuth()
     if (storedAuth) {
       setAuth(storedAuth)
-      setFormData({
+setFormData({
         email: storedAuth.patientEmail || "",
         phone: storedAuth.patientPhone || "",
         firstName: storedAuth.patientFirstName || "",
         lastName: storedAuth.patientLastName || "",
+        address: storedAuth.patientAddress || "",
       })
     }
   }, [])
@@ -82,18 +84,19 @@ export default function PatientSettingsPage() {
       const response = await fetch(`/api/patients/${encodeURIComponent(patientId)}/settings`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+body: JSON.stringify({
           patientFirstName: formData.firstName,
           patientLastName: formData.lastName,
           patientEmail: formData.email,
           patientPhone: formData.phone,
+          patientAddress: formData.address,
         }),
       })
 
       const data = await response.json()
       if (!response.ok) throw new Error(data?.message || "Failed to save settings")
 
-      const updated = { ...auth, ...formData, patientEmail: formData.email, patientPhone: formData.phone, patientFirstName: formData.firstName, patientLastName: formData.lastName }
+      const updated = { ...auth, ...formData, patientEmail: formData.email, patientPhone: formData.phone, patientFirstName: formData.firstName, patientLastName: formData.lastName, patientAddress: formData.address }
       try {
         const prev = getStoredAuth() || {}
         window.localStorage.setItem("patientAuth", JSON.stringify({ ...prev, ...updated }))
@@ -189,12 +192,15 @@ export default function PatientSettingsPage() {
     }
   }
 
+  const identity = typeof window !== "undefined" ? getStoredUserIdentity() : { name: "Patient" }
+  const patientDisplayName = identity.name || auth?.patientFirstName || "Patient"
+
   return (
     <main className={styles.page}>
       <header className={styles.topBar}>
         <div>
-          <p className={styles.kicker}></p>
-          <h1>Manage Your Account</h1>
+          <p className={styles.kicker}>Patient Settings</p>
+          <h1>{patientDisplayName}</h1>
           <p className={styles.subtitle}>Control your account, privacy, notifications, and preferences.</p>
         </div>
 
@@ -275,13 +281,23 @@ export default function PatientSettingsPage() {
               />
             </label>
 
-            <label className={styles.field}>
+<label className={styles.field}>
               <span>Phone Number</span>
               <input
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => handleFormChange("phone", e.target.value)}
                 placeholder="+1 (555) 000-0000"
+              />
+            </label>
+
+            <label className={styles.field}>
+              <span>Address</span>
+              <input
+                type="text"
+                value={formData.address}
+                onChange={(e) => handleFormChange("address", e.target.value)}
+                placeholder="Your home address"
               />
             </label>
 

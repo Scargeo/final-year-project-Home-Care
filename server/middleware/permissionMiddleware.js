@@ -70,3 +70,36 @@ module.exports.allowDoctorOnly = function () {
     }
   }
 }
+
+// Allows both doctors and nurses (healthcare providers) to respond to SOS
+// emergency alerts. Used by the SOS routes so nurses can accept and join
+// emergency requests alongside doctors.
+module.exports.allowHealthProviderOnly = function () {
+  return (req, res, next) => {
+    try {
+      // Allow a global disable only in non-production for local development/testing
+      if (String(process.env.DISABLE_AUTH || '').toLowerCase() === 'true' && String(process.env.NODE_ENV || '').toLowerCase() !== 'production') return next()
+
+      // Prefer req.user when loadUser middleware has already resolved identity.
+      if (req.user && req.user.role) {
+        if (req.user.role === 'doctor' || req.user.role === 'nurse') return next()
+        return res.status(403).json({ message: 'Provider access only' })
+      }
+      // Fallback to header-based role checks only when explicitly allowed (development only)
+      if (String(process.env.NODE_ENV || '').toLowerCase() !== 'production' && String(process.env.ALLOW_LEGACY_HEADERS || '').toLowerCase() === 'true') {
+        const userRole = String(req.get('x-user-role') || '').trim().toLowerCase()
+        if (!userRole) {
+          return res.status(401).json({ message: 'Missing authentication headers' })
+        }
+
+        if (userRole === 'doctor' || userRole === 'nurse') return next()
+        return res.status(403).json({ message: 'Provider access only' })
+      }
+
+      return res.status(401).json({ message: 'Unauthorized' })
+    } catch (err) {
+      console.error('allowHealthProviderOnly middleware error', err)
+      return res.status(500).json({ message: 'Permission check failed' })
+    }
+  }
+}

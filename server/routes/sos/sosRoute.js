@@ -8,7 +8,7 @@ const {
 } = require('../../middleware/sosController');
 
 const { loadUser } = require('../../middleware/loadUserMiddleware');
-const { allowDoctorOnly } = require('../../middleware/permissionMiddleware');
+const { allowHealthProviderOnly } = require('../../middleware/permissionMiddleware');
 
 const router = express.Router();
 
@@ -18,6 +18,7 @@ router.use(loadUser);
 router.get('/', listSOSRequests);
 router.post('/', createSOSRequest);
 router.get('/:id', getSOSRequestById);
-router.patch('/:id', allowDoctorOnly(), updateSOSRequest);
+// Both doctors and nurses (healthcare providers) can accept/respond to SOS alerts.
+router.patch('/:id', allowHealthProviderOnly(), updateSOSRequest);
 
 module.exports = router;

@@ -88,10 +88,11 @@ export default function SignupPage() {
         throw new Error(data?.message || "Could not create account.")
       }
 
-      setSuccess("Account created successfully. You can now log in.")
-      setStatus("Redirecting to patient login...")
+      setSuccess("Account created! Please check your email to verify your account before logging in.")
+      setStatus("Verification email sent. Please check your inbox.")
       setForm(initialForm)
-      setTimeout(() => router.push("/login"), 1000)
+      // Redirect to login after 3 seconds
+      setTimeout(() => router.push("/login"), 3000)
     } catch (err) {
       setError(err.message || "Signup failed.")
       setStatus("Unable to create account right now.")

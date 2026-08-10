@@ -18,14 +18,18 @@ function getStoredAuthToken() {
       const parsed = JSON.parse(p)
       if (parsed?.token) return parsed.token
     }
-  } catch {}
+  } catch {
+    // Ignore malformed patient auth stored in this browser.
+  }
   try {
     const d = localStorage.getItem('doctorAuth')
     if (d) {
       const parsed = JSON.parse(d)
       if (parsed?.token) return parsed.token
     }
-  } catch {}
+  } catch {
+    // Ignore malformed doctor auth stored in this browser.
+  }
   return null
 }
 

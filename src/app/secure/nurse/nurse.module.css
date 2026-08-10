@@ -162,6 +162,329 @@
 .emptyState { text-align: center; padding: 2rem; color: #94a3b8; font-size: 0.95rem; }
 .error { padding: 1rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 0.5rem; color: #991b1b; margin-bottom: 1.5rem; }
 
+.liveNotice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: min(1320px, calc(100% - 1.5rem));
+  margin: 0.75rem auto 0;
+  padding: 0.85rem 1rem;
+  background: linear-gradient(135deg, #0f766e 0%, #047857 100%);
+  color: #ffffff;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 14px rgba(15, 118, 110, 0.25);
+  animation: liveNoticeIn 220ms ease;
+}
+
+@keyframes liveNoticeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.liveNoticeContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.liveNoticeContent strong {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.liveNoticeContent span {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.liveNoticeActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.liveNoticeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  color: #047857;
+  font-size: 0.825rem;
+  font-weight: 700;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+}
+
+.liveNoticeClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* ===== Home Care panel (HomeCarePanel.jsx) ===== */
+.secondaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 160ms ease;
+  border: none;
+  cursor: pointer;
+  color: #0a3a66;
+  background: rgba(8, 145, 178, 0.08);
+  border: 1px solid rgba(8, 145, 178, 0.16);
+}
+
+.secondaryButton:hover { background: rgba(8, 145, 178, 0.14); }
+
+.dangerButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 160ms ease;
+  border: none;
+  cursor: pointer;
+  color: #ffffff;
+  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+}
+
+.dangerButton:hover { opacity: 0.9; }
+
+.hcHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.hcHeader h2 { margin: 0; color: #0a3a66; font-size: 1.25rem; }
+
+.hcSubtitle { margin: 0.25rem 0 0; color: #64748b; font-size: 0.9rem; }
+
+.hcLayout {
+  display: grid;
+  grid-template-columns: minmax(260px, 330px) 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.hcList { display: flex; flex-direction: column; gap: 0.6rem; }
+
+.hcCard {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: #fff;
+  border: 1.5px solid #e5eef6;
+  border-radius: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  width: 100%;
+}
+
+.hcCard:hover { border-color: #0891b2; }
+
+.hcCardActive {
+  border-color: #0891b2;
+  box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.12);
+}
+
+.hcCardIcon { font-size: 1.4rem; }
+
+.hcCardInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.hcCardInfo strong { color: #102a43; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hcCardInfo span { color: #64748b; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.hcCardMeta { color: #94a3b8; font-size: 0.75rem !important; }
+
+.statusPill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: #eef3f8;
+  color: #475569;
+}
+
+.status_pending { background: #fef3c7; color: #92400e; }
+.status_under_review { background: #e0f2fe; color: #075985; }
+.status_assigned { background: #ede9fe; color: #5b21b6; }
+.status_accepted { background: #d1fae5; color: #065f46; }
+.status_in_progress { background: #fce7f3; color: #9d174d; }
+.status_completed { background: #10b981; color: #fff; }
+.status_cancelled { background: #f3f4f6; color: #6b7280; }
+
+.hcDetail {
+  background: #fff;
+  border: 1px solid #e5eef6;
+  border-radius: 14px;
+  padding: 1.25rem;
+}
+
+.hcDetailHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #eef3f8;
+  padding-bottom: 0.9rem;
+}
+
+.hcDetailHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.hcCloseButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.05);
+  color: #64748b;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.hcCloseButton:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+.hcDetailId { margin: 0 0 0.2rem; font-size: 0.72rem; color: #94a3b8; letter-spacing: 0.04em; }
+.hcDetailHeader h3 { margin: 0; color: #102a43; font-size: 1.2rem; }
+
+.hcSection { padding: 1rem 0; border-bottom: 1px solid #eef3f8; }
+.hcSection:last-of-type { border-bottom: none; }
+.hcSection h4 { margin: 0 0 0.6rem; color: #102a43; font-size: 0.95rem; }
+
+.hcGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.6rem;
+}
+
+.hcGrid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.6rem 0.75rem;
+  background: #f8fbff;
+  border: 1px solid #eef3f8;
+  border-radius: 10px;
+}
+
+.hcGrid span { font-size: 0.72rem; color: #94a3b8; }
+.hcGrid strong { color: #102a43; font-size: 0.85rem; }
+
+.hcDescription { margin: 0; color: #475569; line-height: 1.6; font-size: 0.9rem; }
+
+.hcNote {
+  margin-top: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  background: #f8fbff;
+  border: 1px solid #eef3f8;
+  border-radius: 10px;
+}
+
+.hcNote p { margin: 0 0 0.2rem; color: #334155; font-size: 0.85rem; line-height: 1.5; }
+.hcNote small { color: #94a3b8; font-size: 0.72rem; }
+
+.hcTimeline { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.hcTimelineItem {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  color: #334155;
+}
+
+.hcTimelineDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #0891b2;
+  flex-shrink: 0;
+}
+
+.hcActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding-top: 1rem;
+}
+
+.hcCompleted { color: #0f766e; font-weight: 600; font-size: 0.9rem; }
+
+.hcForm {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f8fbfd;
+  border: 1px solid #e5eef6;
+  border-radius: 12px;
+}
+
+.hcForm label { display: flex; flex-direction: column; gap: 0.4rem; }
+.hcForm label span { font-size: 0.8rem; font-weight: 600; color: #334155; }
+.hcForm textarea {
+  padding: 0.6rem 0.75rem;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+}
+
+.hcForm textarea:focus { border-color: #0891b2; }
+
+.hcFormActions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 0.75rem; }
+
 @media (max-width: 760px) {
   .topBar { padding: 1rem; }
   .shell { padding: 1rem 0 2rem; }
@@ -169,4 +492,6 @@
   .heroBody { font-size: 0.9rem; }
   .appointmentDetailItem { flex-direction: column; align-items: flex-start; }
   .appointmentActions { margin-left: 0; margin-top: 0.75rem; }
+  .hcLayout { grid-template-columns: 1fr; }
+  .hcDetail { padding: 1rem; }
 }

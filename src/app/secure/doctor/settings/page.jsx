@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import styles from "./doctor-settings.module.css"
+import { getStoredUserIdentity } from "../../../../lib/user-identity"
 
 function getStoredAuth() {
   if (typeof window === "undefined") return null
@@ -302,12 +303,15 @@ export default function DoctorSettingsPage() {
     }
   }
 
+  const doctorIdentity = typeof window !== "undefined" ? getStoredUserIdentity() : { name: "Doctor" }
+  const doctorDisplayName = doctorIdentity.name || auth?.doctorFirstName || "Doctor"
+
   return (
     <main className={styles.page}>
       <header className={styles.topBar}>
         <div>
-          <p className={styles.kicker}></p>
-          <h1>System Configuration</h1>
+          <p className={styles.kicker}>Doctor Settings</p>
+          <h1>{doctorDisplayName}</h1>
           <p className={styles.subtitle}>Manage your account, practice settings, privacy, and notifications.</p>
         </div>
 

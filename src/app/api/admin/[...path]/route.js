@@ -6,8 +6,10 @@ export const dynamic = 'force-dynamic'
 
 async function proxy(request, params) {
   try {
+    // Next.js 15: params is a Promise that must be awaited
+    const resolvedParams = await params
     const method = request.method || 'GET'
-    const pathSegments = Array.isArray(params?.path) ? params.path : []
+    const pathSegments = Array.isArray(resolvedParams?.path) ? resolvedParams.path : []
     const path = pathSegments.length > 0 ? `/${pathSegments.join('/')}` : ''
     const backendUrl = `${getBackendBaseUrl()}/api/admin${path}${request.nextUrl.search || ''}`
 
@@ -38,21 +40,26 @@ async function proxy(request, params) {
 }
 
 export async function GET(request, context) {
-  return proxy(request, context.params)
+  const params = await context.params
+  return proxy(request, params)
 }
 
 export async function POST(request, context) {
-  return proxy(request, context.params)
+  const params = await context.params
+  return proxy(request, params)
 }
 
 export async function PATCH(request, context) {
-  return proxy(request, context.params)
+  const params = await context.params
+  return proxy(request, params)
 }
 
 export async function PUT(request, context) {
-  return proxy(request, context.params)
+  const params = await context.params
+  return proxy(request, params)
 }
 
 export async function DELETE(request, context) {
-  return proxy(request, context.params)
+  const params = await context.params
+  return proxy(request, params)
 }

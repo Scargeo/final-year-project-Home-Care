@@ -1,8 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
-import { useParams } from "next/navigation"
+import { use, useEffect, useMemo, useState } from "react"
 import styles from "./lab-result.module.css"
 
 function getStoredToken() {
@@ -26,9 +25,9 @@ function formatDateTime(value) {
   }
 }
 
-export default function LabResultPage() {
-  const params = useParams()
-  const resultId = Array.isArray(params?.resultId) ? params.resultId[0] : params?.resultId
+export default function LabResultPage({ params }) {
+  const resolvedParams = use(params)
+  const resultId = Array.isArray(resolvedParams?.resultId) ? resolvedParams.resultId[0] : resolvedParams?.resultId
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [result, setResult] = useState(null)

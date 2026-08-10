@@ -11,6 +11,7 @@ const NurseAssignment = require('../../models/privateHealthWorker/nurse/nurseAss
 const { allowOwnerOrDoctor } = require('../../middleware/permissionMiddleware')
 const { loadUser } = require('../../middleware/loadUserMiddleware')
 const settingsRoute = require('./settingsRoute');
+const homeCareRoute = require('./homeCareRoute');
 
 // Attempt to load user object from headers for subsequent permission checks
 router.use(loadUser)
@@ -21,11 +22,14 @@ router.post('/register', registerPatient);
 // Route for patient login
 router.post('/login', loginPatient);
 
-// Route to update patient presence / ai status
-router.patch('/:id/status', updateStatus);
+// Route to update patient presence / ai status (owner or doctor only)
+router.patch('/:id/status', allowOwnerOrDoctor((req) => req.params.id), updateStatus);
 
 // Route for patient settings
 router.use('/:id/settings', settingsRoute);
+
+// Route for home care requests
+router.use('/:id/home-care', homeCareRoute);
 
 router.get('/:id/health-records', allowOwnerOrDoctor((req) => req.params.id), async (req, res) => {
 	try {

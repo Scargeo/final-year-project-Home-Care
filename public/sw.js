@@ -17,7 +17,15 @@
  * ============================================================
  */
 
-const CACHE_VERSION = 'home-care-pwa-v2'
+/**
+ * ============================================================
+ *  COMPLETE FIX: Bumped to v3 to force full cache invalidation
+ *  on all existing clients. Old v1 and v2 caches are deleted
+ *  during activate, ensuring API responses always come fresh
+ *  from the network.
+ * ============================================================
+ */
+const CACHE_VERSION = 'home-care-pwa-v4'
 const PRECACHE = `${CACHE_VERSION}-precache`
 const RUNTIME = `${CACHE_VERSION}-runtime`
 
@@ -54,6 +62,33 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return
 
   const requestUrl = new URL(event.request.url)
+
+  // Never intercept Next.js dev-mode / HMR requests. The service worker can
+  // serve a stale cached JS chunk during hot-reload, which desynchronizes the
+  // router and triggers "Router action dispatched before initialization".
+  // Bypassing /_next/* (and Vite/Next dev websockets) lets dev reloads work
+  // normally while production caching still applies.
+  if (requestUrl.pathname.startsWith('/_next/')) return
+  if (requestUrl.searchParams.has('__nextImageOptimize')) return
+
+  // CRITICAL: Bypass Next.js App Router client-side navigation payloads (RSC).
+  // When navigating client-side, Next.js fetches the React Server Component
+  // tree for the target route using special headers (RSC: 1 and
+  // Next-Router-State-Tree). These fetches are same-origin GET requests that
+  // are neither /_next/*, nor /api/*, nor mode: 'navigate', so they previously
+  // fell through to the cache-first static-asset handler. Serving them from a
+  // stale cache (or racing the cache) left the app stuck on the loading screen
+  // until a full page refresh. Bypassing all RSC/router payload requests lets
+  // client-side navigation resolve normally and always fetch fresh.
+  if (
+    event.request.headers.has('rsc') ||
+    event.request.headers.has('next-router-state-tree') ||
+    event.request.headers.has('next-url') ||
+    requestUrl.searchParams.has('_rsc')
+  ) {
+    return
+  }
+
   const isNavigation = event.request.mode === 'navigate'
   const isApiRequest = requestUrl.pathname.startsWith('/api/')
 

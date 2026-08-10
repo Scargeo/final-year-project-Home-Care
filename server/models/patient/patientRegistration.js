@@ -30,7 +30,7 @@ const patientRegistrationSchema = new mongoose.Schema({
         trim: true,
         match: [/\S+@\S+\.\S+/, 'Please use a valid email address.'],
     },
-    patientPhone: {
+patientPhone: {
         type: String,
         required: true,
         unique: true,
@@ -40,6 +40,7 @@ const patientRegistrationSchema = new mongoose.Schema({
     patientPassword: {
         type: String,
         required: true,
+        select: false, // Exclude password hash from queries by default
         minlength: [8, 'Password must be at least 8 characters long.'],
         match: [/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}/, 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.'],
     },
@@ -47,6 +48,10 @@ const patientRegistrationSchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true,
+    },
+    isVerified: {
+        type: Boolean,
+        default: false,
     },
     online: {
         type: Boolean,

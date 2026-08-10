@@ -4,7 +4,9 @@ const router = express.Router()
 const Nurse = require('../../../models/privateHealthWorker/nurse/privateNurseRegistration')
 const NurseNotification = require('../../../models/privateHealthWorker/nurse/nurseNotification')
 const NurseAssignment = require('../../../models/privateHealthWorker/nurse/nurseAssignment')
+const HomeCareRequest = require('../../../models/patient/homeCareRequest')
 const { listAssignmentsForNurse } = require('../../../lib/nurseAssignment')
+const { transitionRequestStatus, serializeHomeCareRequest } = require('../../../lib/homeCareAssignment')
 const { loadUser } = require('../../../middleware/loadUserMiddleware')
 
 function canEditOwnProfile(req, nurseId) {
@@ -319,6 +321,135 @@ router.patch('/:nurseId/notifications/:notificationId', async (req, res) => {
   } catch (error) {
     console.error('Failed to update nurse notification:', error)
     res.status(500).json({ message: 'Failed to update nurse notification' })
+  }
+})
+
+// Home care requests assigned to a nurse
+router.get('/:nurseId/home-care', loadUser, async (req, res) => {
+  try {
+    const { nurseId } = req.params
+    if (String(process.env.DISABLE_AUTH || '') !== 'true' && (!req.user || req.user.role !== 'nurse' || String(req.user.id || '') !== String(nurseId))) {
+      return res.status(403).json({ message: 'You can only view your own home care requests' })
+    }
+
+    const requests = await HomeCareRequest.find({ assignedNurseId: String(nurseId) }).sort({ createdAt: -1 }).lean()
+    return res.status(200).json({ requests: requests.map((request) => serializeHomeCareRequest(request)) })
+  } catch (error) {
+    console.error('Failed to fetch nurse home care requests:', error)
+    return res.status(500).json({ message: 'Failed to fetch nurse home care requests' })
+  }
+})
+
+router.get('/:nurseId/home-care/:requestId', loadUser, async (req, res) => {
+  try {
+    const { nurseId, requestId } = req.params
+    if (String(process.env.DISABLE_AUTH || '') !== 'true' && (!req.user || req.user.role !== 'nurse' || String(req.user.id || '') !== String(nurseId))) {
+      return res.status(403).json({ message: 'You can only view your own home care requests' })
+    }
+
+    const request = await HomeCareRequest.findOne({ homeCareRequestId: String(requestId), assignedNurseId: String(nurseId) }).lean()
+    if (!request) return res.status(404).json({ message: 'Home care request not found' })
+
+    return res.status(200).json({ request: serializeHomeCareRequest(request) })
+  } catch (error) {
+    console.error('Failed to fetch nurse home care request:', error)
+    return res.status(500).json({ message: 'Failed to fetch nurse home care request' })
+  }
+})
+
+router.patch('/:nurseId/home-care/:requestId', loadUser, async (req, res) => {
+  try {
+    const { nurseId, requestId } = req.params
+    if (String(process.env.DISABLE_AUTH || '') !== 'true' && (!req.user || req.user.role !== 'nurse' || String(req.user.id || '') !== String(nurseId))) {
+      return res.status(403).json({ message: 'You can only update your own home care requests' })
+    }
+
+const request = await HomeCareRequest.findOne({ homeCareRequestId: String(requestId), assignedNurseId: String(nurseId) })
+    if (!request) return res.status(404).json({ message: 'Home care request not found' })
+
+    const action = String(req.body?.action || '').toLowerCase()
+    const io = req?.app?.get('io')
+    const now = new Date()
+
+    // Decline: clear assignment and return to under review so admin can reassign
+    if (action === 'decline') {
+      if (String(request.status).toLowerCase() !== 'assigned') {
+        return res.status(409).json({ message: 'You can only decline a newly assigned request' })
+      }
+      request.status = 'under review'
+      request.declineReason = String(req.body?.reason || '').trim()
+      request.assignedNurseId = ''
+      request.assignedNurseName = ''
+      request.reviewedAt = request.reviewedAt || now
+      request.timeline.push({
+        type: 'declined',
+        label: `${req.body?.nurseName || 'The nurse'} declined this request. It is back under review.`,
+        at: now,
+      })
+      await request.save()
+      const payload = serializeHomeCareRequest(request)
+      if (io) io.to(`notifications-patient-${String(request.patientId)}`).emit('home-care-updated', { request: payload })
+      if (io) io.to(`notifications-nurse-${String(nurseId)}`).emit('nurse-notification-created', {
+        notification: { title: 'Request declined', message: 'You declined this home care request.' },
+      })
+      return res.status(200).json({ message: 'Assignment declined. Request returned to review.', request: payload })
+    }
+
+    // Record care provided
+    if (action === 'record-care') {
+      const note = String(req.body?.note || '').trim()
+      if (!note) return res.status(400).json({ message: 'A care note is required' })
+      request.careRecords.push({
+        type: 'care',
+        note,
+        recordedBy: String(req.body?.recordedBy || request.assignedNurseName || '').trim(),
+        at: now,
+      })
+      request.timeline.push({ type: 'care-recorded', label: 'Care provided was recorded', at: now })
+      await request.save()
+      const payload = serializeHomeCareRequest(request)
+      if (io) io.to(`notifications-patient-${String(request.patientId)}`).emit('home-care-updated', { request: payload })
+      return res.status(200).json({ message: 'Care provided recorded', request: payload })
+    }
+
+    // Add an observation / note
+    if (action === 'add-observation') {
+      const note = String(req.body?.note || '').trim()
+      if (!note) return res.status(400).json({ message: 'An observation note is required' })
+      request.observations.push({
+        note,
+        recordedBy: String(req.body?.recordedBy || request.assignedNurseName || '').trim(),
+        at: now,
+      })
+      request.timeline.push({ type: 'observation-added', label: 'A new observation was added', at: now })
+      await request.save()
+      const payload = serializeHomeCareRequest(request)
+      if (io) io.to(`notifications-patient-${String(request.patientId)}`).emit('home-care-updated', { request: payload })
+      return res.status(200).json({ message: 'Observation added', request: payload })
+    }
+
+    const nextStatus = action === 'accept' ? 'accepted' : action === 'start' ? 'in progress' : action === 'complete' ? 'completed' : null
+    if (!nextStatus) {
+      return res.status(400).json({ message: 'Unsupported home care action' })
+    }
+
+    const result = await transitionRequestStatus(request, nextStatus, { actor: 'Nurse' })
+    if (result.error) return res.status(result.statusCode || 409).json({ message: result.error })
+
+    const payload = serializeHomeCareRequest(result.request)
+    if (io) {
+      io.to(`notifications-patient-${String(request.patientId)}`).emit('home-care-updated', { request: payload })
+    }
+    if (io) {
+      io.to(`notifications-nurse-${String(nurseId)}`).emit('nurse-notification-created', {
+        notification: { title: 'Request updated', message: `This request is now ${result.request.status}.` },
+      })
+    }
+
+    return res.status(200).json({ message: 'Home care request updated', request: payload })
+  } catch (error) {
+    console.error('Failed to update nurse home care request:', error)
+    return res.status(500).json({ message: 'Failed to update nurse home care request' })
   }
 })
 

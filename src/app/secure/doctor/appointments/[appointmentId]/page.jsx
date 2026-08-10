@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { use, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import VerifiedDoctorBadge from "../../../components/VerifiedDoctorBadge"
 import styles from "../../doctor.module.css"
@@ -29,7 +29,8 @@ function getDoctorIdentity() {
 }
 
 export default function AppointmentDetailPage({ params }) {
-  const { appointmentId } = params || {}
+  const resolvedParams = use(params)
+  const appointmentId = Array.isArray(resolvedParams?.appointmentId) ? resolvedParams.appointmentId[0] : resolvedParams?.appointmentId
   const [appointment, setAppointment] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -46,7 +47,7 @@ export default function AppointmentDetailPage({ params }) {
         const token = getStoredToken()
         const headers = {}
         if (token) headers.authorization = `Bearer ${token}`
-        const res = await fetch(`/api/doctors/${encodeURIComponent(doctorId)}/appointments/${encodeURIComponent(appointmentId)}`, { cache: 'no-store', headers })
+        const res = await fetch(`/api/doctors/${encodeURIComponent(doctorId)}/appointments/id/${encodeURIComponent(appointmentId)}`, { cache: 'no-store', headers })
         const data = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(data?.message || 'Failed to load appointment')
         if (!active) return

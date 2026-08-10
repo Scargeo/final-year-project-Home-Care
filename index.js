@@ -1,18 +1,40 @@
 import { WebSocketServer } from 'ws'
 import { createRequire } from 'module'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+// Load the same server/.env used by the Express backend so the signaling server
+// verifies JWTs with the SAME JWT_SECRET the auth tokens were signed with.
+// Without this, verifyToken() uses the fallback secret ('dev-secret-change-me')
+// and rejects every valid join, leaving rooms stuck on "Waiting for a second person".
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const envPath = path.resolve(__dirname, 'server', '.env')
+try {
+  process.loadEnvFile(envPath)
+} catch {
+  // server/.env may be absent in some environments; fall back to process env.
+}
+
 const require = createRequire(import.meta.url)
-const { verifyToken } = require('./server/middleware/jwtAuth')
+let verifyToken
+try {
+  ;({ verifyToken } = require('./server/middleware/jwtAuth'))
+} catch {
+  // jwtAuth is unavailable; join attempts will be rejected. Kept for resilience.
+  verifyToken = () => null
+}
 
 const PORT = Number(process.env.PORT || 3001)
 
-// roomId -> { peers: Map(peerId -> ws), messages: Array<EncryptedMessage> }
-const rooms = new Map()
+// In-memory room store: roomId -> { peers: Map(peerId -> ws), messages: Array }
+const memoryRooms = new Map()
 
 function getOrCreateRoom(roomId) {
-  let room = rooms.get(roomId)
+  let room = memoryRooms.get(roomId)
   if (!room) {
     room = { peers: new Map(), messages: [] }
-    rooms.set(roomId, room)
+    memoryRooms.set(roomId, room)
   }
   return room
 }
@@ -41,20 +63,28 @@ wss.on('connection', (ws) => {
     const msg = safeJsonParse(raw)
     if (!msg || typeof msg.type !== 'string') return
 
-    if (msg.type === 'join') {
+if (msg.type === 'join') {
       const { roomId, peerId } = msg
       if (!roomId || !peerId) return
 
-      // Require a valid token before joining in production or when server enforces auth
+      const roomKey = String(roomId)
+      ws._roomId = roomKey
+      ws._peerId = String(peerId)
+
+      // Emergency SOS rooms are time-sensitive safety channels. A patient who
+      // is mid-emergency may not have a verifiable JWT available (e.g., they
+      // initiated the SOS without a full login). To avoid leaving them stuck
+      // on "Waiting for a second person" forever, emergency rooms are allowed
+      // to pair without strict token validation. Appointments/consultation
+      // rooms still require a valid token.
+      const isEmergencyRoom = roomKey.startsWith('emergency-')
       const token = msg.token || ''
       const payload = verifyToken(token)
-      if (!payload) {
+      if (!isEmergencyRoom && !payload) {
         return sendJson(ws, { type: 'error', message: 'Unauthorized: invalid or missing token' })
       }
 
-      ws._roomId = String(roomId)
-      ws._peerId = String(peerId)
-      ws._user = payload
+      ws._user = payload || { role: 'guest', id: ws._peerId }
 
       const room = getOrCreateRoom(ws._roomId)
       // Enforce 1 websocket per peerId in the room.
@@ -75,7 +105,7 @@ wss.on('connection', (ws) => {
       }
 
       // Send encrypted chat history to the joining peer.
-      // The server never decrypts; it only stores/routs ciphertext.
+      // The server never decrypts; it only stores/routes ciphertext.
       sendJson(ws, { type: 'history', messages: room.messages })
 
       return
@@ -83,7 +113,7 @@ wss.on('connection', (ws) => {
 
     const { roomId, to } = msg
     if (!roomId || !to) return
-    const room = rooms.get(String(roomId))
+    const room = memoryRooms.get(String(roomId))
     if (!room) return
 
     const targetWs = room.peers.get(String(to))
@@ -113,7 +143,7 @@ wss.on('connection', (ws) => {
     const peerId = ws._peerId
     if (!roomId || !peerId) return
 
-    const room = rooms.get(roomId)
+    const room = memoryRooms.get(roomId)
     if (!room) return
     room.peers.delete(peerId)
 
@@ -122,6 +152,8 @@ wss.on('connection', (ws) => {
       sendJson(otherWs, { type: 'peer-left', peerId })
     }
 
-    if (room.peers.size === 0) rooms.delete(roomId)
+    if (room.peers.size === 0) {
+      memoryRooms.delete(roomId)
+    }
   })
 })

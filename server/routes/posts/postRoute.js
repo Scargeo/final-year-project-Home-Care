@@ -4,6 +4,22 @@ const Post = require('../../models/posts/post')
 const Doctor = require('../../models/privateHealthWorker/doctor/doctorRegistration')
 const Nurse = require('../../models/privateHealthWorker/nurse/privateNurseRegistration')
 const { loadUser } = require('../../middleware/loadUserMiddleware')
+const { getJson, setJson, delMatching } = require('../../lib/redisClient')
+
+const POSTS_CACHE_TTL = 60 // seconds
+const POSTS_CACHE_PREFIX = 'posts:feed' // used with delMatching('posts:feed:*')
+
+function postsCacheKey(limit, skip) {
+  return `${POSTS_CACHE_PREFIX}:${limit}:${skip}`
+}
+
+// Best-effort cache invalidation for the public feed. Runs in the background
+// so a Redis hiccup never blocks a write operation.
+function invalidatePostsCache() {
+  delMatching(`${POSTS_CACHE_PREFIX}:*`).catch((error) => {
+    console.warn('[redis] failed to invalidate posts cache:', error?.message || error)
+  })
+}
 
 function getUserIdentity(user = {}) {
   const record = user.record || {}
@@ -45,6 +61,8 @@ router.post('/', async (req, res) => {
     const post = new Post({ author, body, images: Array.isArray(images) ? images : [], visibility })
     await post.save()
 
+    invalidatePostsCache()
+
     return res.status(201).json({ message: 'Post created', post })
   } catch (error) {
     console.error('Failed to create post:', error)
@@ -52,11 +70,17 @@ router.post('/', async (req, res) => {
   }
 })
 
-// Get public posts (paginated optional)
+// Get public posts (paginated optional, cached in Redis)
 router.get('/', async (req, res) => {
   try {
     const limit = Math.min(50, parseInt(req.query.limit || '20', 10))
     const skip = Math.max(0, parseInt(req.query.skip || '0', 10))
+
+    const cacheKey = postsCacheKey(limit, skip)
+    const cached = await getJson(cacheKey)
+    if (cached && Array.isArray(cached.posts)) {
+      return res.status(200).json(cached)
+    }
 
     const posts = await Post.find({ visibility: 'public' })
       .sort({ createdAt: -1 })
@@ -120,7 +144,9 @@ router.get('/', async (req, res) => {
       }
     })
 
-    return res.status(200).json({ posts: normalizedPosts })
+    const payload = { posts: normalizedPosts }
+    await setJson(cacheKey, payload, POSTS_CACHE_TTL)
+    return res.status(200).json(payload)
   } catch (error) {
     console.error('Failed to fetch posts:', error)
     return res.status(500).json({ message: 'Failed to fetch posts', error: error.message })
@@ -145,7 +171,7 @@ router.patch('/:postId/like', async (req, res) => {
 
     // Check if user already liked
     const alreadyLiked = post.likes?.userIds?.includes(userId)
-    
+
     if (alreadyLiked) {
       // Unlike
       post.likes.userIds = post.likes.userIds.filter((id) => id !== userId)
@@ -159,6 +185,7 @@ router.patch('/:postId/like', async (req, res) => {
     }
 
     await post.save()
+    invalidatePostsCache()
     return res.status(200).json({ message: alreadyLiked ? 'Post unliked' : 'Post liked', post })
   } catch (error) {
     console.error('Failed to like post:', error)
@@ -205,6 +232,7 @@ router.post('/:postId/comments', async (req, res) => {
     post.comments.count = (post.comments.count || 0) + 1
 
     await post.save()
+    invalidatePostsCache()
     return res.status(200).json({ message: 'Comment added', post })
   } catch (error) {
     console.error('Failed to add comment:', error)
@@ -241,6 +269,7 @@ router.delete('/:postId/comments/:commentId', async (req, res) => {
     post.comments.count = Math.max(0, (post.comments.count || 0) - 1)
 
     await post.save()
+    invalidatePostsCache()
     return res.status(200).json({ message: 'Comment deleted', post })
   } catch (error) {
     console.error('Failed to delete comment:', error)
@@ -269,6 +298,7 @@ router.delete('/:postId', async (req, res) => {
     }
 
     await Post.deleteOne({ postId })
+    invalidatePostsCache()
     return res.status(200).json({ message: 'Post deleted', postId })
   } catch (error) {
     console.error('Failed to delete post:', error)

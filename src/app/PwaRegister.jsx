@@ -8,7 +8,21 @@ export default function PwaRegister() {
 
     const register = async () => {
       try {
-        await navigator.serviceWorker.register("/sw.js", { scope: "/" })
+        const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" })
+
+        // The service worker uses skipWaiting() + clients.claim() so a newly
+        // fetched worker takes control immediately. This ensures fixes like the
+        // App Router navigation (RSC) bypass are applied right away instead of
+        // waiting for the next full page load.
+        registration.addEventListener("updatefound", () => {
+          const newWorker = registration.installing
+          if (!newWorker) return
+          newWorker.addEventListener("statechange", () => {
+            if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+              newWorker.postMessage({ type: "SKIP_WAITING" })
+            }
+          })
+        })
       } catch (error) {
         console.error("PWA service worker registration failed:", error)
       }

@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import Link from "next/link"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import VerifiedDoctorBadge from "../secure/components/VerifiedDoctorBadge"
 import styles from "./page.module.css"
 
@@ -136,6 +137,9 @@ export default function AdminPage() {
   const [showAddAdmin, setShowAddAdmin] = useState(false)
   const [newAdminForm, setNewAdminForm] = useState({ adminName: "", adminEmail: "", adminPassword: "" })
   const [selectedTab, setSelectedTab] = useState("overview")
+  const [allAdmins, setAllAdmins] = useState([])
+  const [search, setSearch] = useState("")
+  const [recordsFilter, setRecordsFilter] = useState("all") // all | doctors | nurses | patients | posts
 
   const validateAdminSession = useCallback(async (activeToken) => {
     try {
@@ -220,22 +224,24 @@ export default function AdminPage() {
     try {
       setBusy(true)
       setError("")
-      const [summaryRes, doctorsRes, nursesRes, pendingRes, patientsRes, postsRes] = await Promise.all([
+      const [summaryRes, doctorsRes, nursesRes, pendingRes, patientsRes, postsRes, adminsRes] = await Promise.all([
         apiFetch("/summary", { method: "GET" }, activeToken),
         apiFetch("/doctors", { method: "GET" }, activeToken),
         apiFetch("/nurses", { method: "GET" }, activeToken),
         apiFetch("/doctors/pending", { method: "GET" }, activeToken),
         apiFetch("/patients", { method: "GET" }, activeToken),
         apiFetch("/posts", { method: "GET" }, activeToken),
+        apiFetch("/admins", { method: "GET" }, activeToken),
       ])
 
-      const [summaryData, doctorsData, nursesData, pendingData, patientsData, postsData] = await Promise.all([
+      const [summaryData, doctorsData, nursesData, pendingData, patientsData, postsData, adminsData] = await Promise.all([
         summaryRes.json().catch(() => ({})),
         doctorsRes.json().catch(() => ({})),
         nursesRes.json().catch(() => ({})),
         pendingRes.json().catch(() => ({})),
         patientsRes.json().catch(() => ({})),
         postsRes.json().catch(() => ({})),
+        adminsRes.json().catch(() => ({})),
       ])
 
       if (!summaryRes.ok) throw new Error(summaryData?.message || "Failed to load admin summary")
@@ -251,6 +257,11 @@ export default function AdminPage() {
       setPendingDoctors(Array.isArray(pendingData?.doctors) ? pendingData.doctors : [])
       setPatients(Array.isArray(patientsData?.patients) ? patientsData.patients : [])
       setPosts(Array.isArray(postsData?.posts) ? postsData.posts : [])
+      const adminsFetched = Array.isArray(adminsData?.admins) ? adminsData.admins : Array.isArray(adminsData) ? adminsData : []
+      setAllAdmins(adminsFetched)
+      if (adminsFetched.length > 0) {
+        setSummary((current) => ({ ...current, admins: adminsFetched.length > (current.admins || 0) ? adminsFetched.length : current.admins || adminsFetched.length }))
+      }
     } catch (err) {
       setError(err?.message || "Could not load admin dashboard")
     } finally {
@@ -537,6 +548,68 @@ export default function AdminPage() {
     }
   }
 
+  const term = String(search || "").trim().toLowerCase()
+
+  // Client-side search across every record resource; driven by the search box + type filter.
+  const filteredDoctors = useMemo(() => {
+    const list = recordsFilter === "all" || recordsFilter === "doctors" ? doctors : []
+    if (!term) return list
+    return list.filter((doctor) =>
+      [doctor.doctorFirstName, doctor.doctorLastName, doctor.doctorId, doctor.doctorEmail, doctor.specialization]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term)),
+    )
+  }, [doctors, recordsFilter, term])
+
+  const filteredNurses = useMemo(() => {
+    const list = recordsFilter === "all" || recordsFilter === "nurses" ? nurses : []
+    if (!term) return list
+    return list.filter((nurse) =>
+      [nurse.nurseFirstName, nurse.nurseLastName, nurse.nurseId, nurse.nurseEmail, nurse.specialization]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term)),
+    )
+  }, [nurses, recordsFilter, term])
+
+  const filteredPatients = useMemo(() => {
+    const list = recordsFilter === "all" || recordsFilter === "patients" ? patients : []
+    if (!term) return list
+    return list.filter((patient) =>
+      [patient.patientFirstName, patient.patientLastName, patient.patientId, patient.patientEmail, patient.patientPhone]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term)),
+    )
+  }, [patients, recordsFilter, term])
+
+  const filteredPosts = useMemo(() => {
+    const list = recordsFilter === "all" || recordsFilter === "posts" ? posts : []
+    if (!term) return list
+    return list.filter((post) =>
+      [post.postId, post.body, post.visibility, post.author?.name]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term)),
+    )
+  }, [posts, recordsFilter, term])
+
+  const filteredAdmins = useMemo(() => {
+    const list = recordsFilter === "all" || recordsFilter === "admins" ? allAdmins : []
+    if (!term) return list
+    return list.filter((item) =>
+      [item.adminName, item.adminEmail, item.adminId, item.role]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term)),
+    )
+  }, [allAdmins, recordsFilter, term])
+
+  const recordFilters = [
+    { value: "all", label: "All", count: doctors.length + nurses.length + patients.length + posts.length },
+    { value: "doctors", label: "Doctors", count: doctors.length },
+    { value: "nurses", label: "Nurses", count: nurses.length },
+    { value: "patients", label: "Patients", count: patients.length },
+    { value: "posts", label: "Posts", count: posts.length },
+    { value: "admins", label: "Admins", count: allAdmins.length },
+  ]
+
   const isAuthed = Boolean(admin?.token || token)
 
   if (loading && !isAuthed) {
@@ -595,11 +668,14 @@ export default function AdminPage() {
           <h1>Admin Dashboard</h1>
           <p>Manage users, approvals, and content</p>
         </div>
-        <div className={styles.adminHeaderRight}>
+<div className={styles.adminHeaderRight}>
           <div className={styles.adminProfile}>
             <span className={styles.adminLabel}>Signed in as</span>
             <strong>{admin?.adminName || "Admin"}</strong>
           </div>
+          <Link href="/admin/home-care" className={styles.actionButton} style={{ textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
+            Home Care Requests
+          </Link>
           <button className={styles.actionButton} type="button" onClick={refreshDashboard} disabled={busy}>Refresh</button>
           <button className={styles.actionButton} type="button" onClick={logout}>Logout</button>
         </div>
@@ -614,29 +690,64 @@ export default function AdminPage() {
         <button type="button" className={`${styles.tabButton} ${selectedTab === 'records' ? styles.active : ''}`} onClick={() => setSelectedTab('records')}>Records</button>
       </div>
 
-      {selectedTab === 'overview' && (
-        <section className={styles.dashboardGrid}>
-          <article className={styles.dashCard}>
-            <span className={styles.cardLabel}>Verified Doctors</span>
-            <strong className={styles.cardValue}>{summary.doctors}</strong>
-          </article>
-          <article className={styles.dashCard}>
-            <span className={styles.cardLabel}>Nurses</span>
-            <strong className={styles.cardValue}>{summary.nurses}</strong>
-          </article>
-          <article className={styles.dashCard}>
-            <span className={styles.cardLabel}>Pending Approvals</span>
-            <strong className={styles.cardValue}>{summary.pendingDoctors}</strong>
-          </article>
-          <article className={styles.dashCard}>
-            <span className={styles.cardLabel}>Patients</span>
-            <strong className={styles.cardValue}>{summary.patients}</strong>
-          </article>
-          <article className={styles.dashCard}>
-            <span className={styles.cardLabel}>Posts</span>
-            <strong className={styles.cardValue}>{summary.posts}</strong>
-          </article>
-        </section>
+{selectedTab === 'overview' && (
+        <>
+          <section className={styles.dashboardGrid}>
+            <article className={styles.dashCard} style={{ cursor: 'pointer' }} onClick={() => { setSelectedTab('approvals'); }}>
+              <span className={styles.cardLabel}>Pending Approvals</span>
+              <strong className={styles.cardValue}>{summary.pendingDoctors}</strong>
+              <small style={{ color: 'rgba(15,23,42,0.5)' }}>Click to review</small>
+            </article>
+            <article className={styles.dashCard} style={{ cursor: 'pointer' }} onClick={() => { setRecordsFilter('doctors'); setSelectedTab('records'); }}>
+              <span className={styles.cardLabel}>Verified Doctors</span>
+              <strong className={styles.cardValue}>{summary.doctors}</strong>
+              <small style={{ color: 'rgba(15,23,42,0.5)' }}>View directory</small>
+            </article>
+            <article className={styles.dashCard} style={{ cursor: 'pointer' }} onClick={() => { setRecordsFilter('nurses'); setSelectedTab('records'); }}>
+              <span className={styles.cardLabel}>Nurses</span>
+              <strong className={styles.cardValue}>{summary.nurses}</strong>
+              <small style={{ color: 'rgba(15,23,42,0.5)' }}>View directory</small>
+            </article>
+            <article className={styles.dashCard} style={{ cursor: 'pointer' }} onClick={() => { setRecordsFilter('patients'); setSelectedTab('records'); }}>
+              <span className={styles.cardLabel}>Patients</span>
+              <strong className={styles.cardValue}>{summary.patients}</strong>
+              <small style={{ color: 'rgba(15,23,42,0.5)' }}>View directory</small>
+            </article>
+            <article className={styles.dashCard} style={{ cursor: 'pointer' }} onClick={() => { setRecordsFilter('posts'); setSelectedTab('records'); }}>
+              <span className={styles.cardLabel}>Posts</span>
+              <strong className={styles.cardValue}>{summary.posts}</strong>
+              <small style={{ color: 'rgba(15,23,42,0.5)' }}>View content</small>
+            </article>
+            <article className={styles.dashCard} style={{ cursor: 'pointer' }} onClick={() => { setRecordsFilter('admins'); setSelectedTab('records'); }}>
+              <span className={styles.cardLabel}>Admins</span>
+              <strong className={styles.cardValue}>{allAdmins.length || summary.admins || 0}</strong>
+              <small style={{ color: 'rgba(15,23,42,0.5)' }}>Manage admins</small>
+            </article>
+          </section>
+          <section className={styles.panel} style={{ marginTop: '1rem' }}>
+            <div className={styles.panelHeader}>
+              <div>
+                <p className={styles.panelLabel}>Recent pending approvals</p>
+                <h2>Doctors awaiting verification</h2>
+              </div>
+            </div>
+            <div className={styles.list}>
+              {pendingDoctors.length === 0 ? (
+                <p className={styles.empty}>No doctors waiting for approval. 🎉</p>
+              ) : (
+                pendingDoctors.slice(0, 5).map((doctor) => (
+                  <div key={doctor.doctorId} className={styles.listItem}>
+                    <div>
+                      <strong>{formatName(doctor.doctorFirstName, doctor.doctorLastName, doctor.doctorId)}</strong>
+                      <p>{doctor.doctorEmail}</p>
+                    </div>
+                    <button className={styles.actionButton} type="button" onClick={() => approveDoctor(doctor.doctorId, true)} disabled={busy}>Approve</button>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        </>
       )}
 
       {selectedTab !== 'overview' && selectedTab !== 'records' && (
@@ -775,118 +886,185 @@ export default function AdminPage() {
         </section>
       )}
 
+      {selectedTab === 'records' && (
+        <section className={styles.panelGrid} style={{ marginBottom: '1rem' }}>
+          <div className={styles.panel} style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 220px' }}>
+              <p className={styles.panelLabel}>Records directory</p>
+              <h2 style={{ fontSize: '1.2rem', margin: 0 }}>Browse all accounts & content</h2>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search by name, email, ID, phone…"
+                style={{ borderRadius: '14px', border: '1px solid rgba(148,163,184,0.32)', padding: '0.7rem 1rem', minWidth: '260px' }}
+              />
+            </div>
+          </div>
+          <div className={styles.panel} style={{ flexDirection: 'row', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {recordFilters.map((filter) => (
+              <button
+                key={filter.value}
+                type="button"
+                className={`${styles.tabButton} ${recordsFilter === filter.value ? styles.active : ''}`}
+                onClick={() => setRecordsFilter(filter.value)}
+              >
+                {filter.label} ({filter.count})
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className={styles.tableGrid}>
-        <article className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <div>
-              <p className={styles.panelLabel}>Doctors</p>
-              <h2>All doctors</h2>
+        {(recordsFilter === 'all' || recordsFilter === 'doctors') && (
+          <article className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <div>
+                <p className={styles.panelLabel}>Doctors</p>
+                <h2>All doctors {search ? `(${filteredDoctors.length})` : ''}</h2>
+              </div>
             </div>
-          </div>
-          <div className={styles.tableList}>
-            {doctors.map((doctor) => (
-              <div key={doctor.doctorId} className={styles.rowCard}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
-                    <strong>{formatName(doctor.doctorFirstName, doctor.doctorLastName, doctor.doctorId)}</strong>
-                    <VerifiedDoctorBadge doctor={doctor} style={{ fontSize: '0.7rem' }} />
+            <div className={styles.tableList}>
+              {filteredDoctors.length === 0 ? <p className={styles.empty}>No doctors match your search.</p> : null}
+              {filteredDoctors.map((doctor) => (
+                <div key={doctor.doctorId} className={styles.rowCard}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                      <strong>{formatName(doctor.doctorFirstName, doctor.doctorLastName, doctor.doctorId)}</strong>
+                      <VerifiedDoctorBadge doctor={doctor} style={{ fontSize: '0.7rem' }} />
+                    </div>
+                    <p>{doctor.doctorEmail}</p>
+                    <p>{doctor.specialization || 'Unspecified'} · {doctor.isAvailable ? 'Available' : 'Unavailable'}</p>
                   </div>
-                  <p>{doctor.doctorEmail}</p>
-                  <p>{doctor.specialization || 'Unspecified'} · {doctor.isAvailable ? 'Available' : 'Unavailable'}</p>
-                </div>
-                <div className={styles.rowActions}>
-                  <button className={styles.actionButton} type="button" onClick={() => approveDoctor(doctor.doctorId, !doctor.isVerified)} disabled={busy}>
-                    {doctor.isVerified ? 'Unverify' : 'Verify'}
-                  </button>
-                  <button type="button" className={styles.danger} onClick={() => deleteRecord('doctor', doctor.doctorId)} disabled={busy}>
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <div>
-              <p className={styles.panelLabel}>Patients</p>
-              <h2>All patients</h2>
-            </div>
-          </div>
-          <div className={styles.tableList}>
-            {patients.map((patient) => (
-              <div key={patient.patientId} className={styles.rowCard}>
-                <div>
-                  <strong>{formatName(patient.patientFirstName, patient.patientLastName, patient.patientId)}</strong>
-                  <p>{patient.patientEmail}</p>
-                  <p>{patient.patientPhone}</p>
-                </div>
-                <div className={styles.rowActions}>
-                  <button type="button" className={styles.danger} onClick={() => deleteRecord('patient', patient.patientId)} disabled={busy}>
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <div>
-              <p className={styles.panelLabel}>Nurses</p>
-              <h2>All nurses</h2>
-            </div>
-          </div>
-          <div className={styles.tableList}>
-            {nurses.map((nurse) => (
-              <div key={nurse.nurseId} className={styles.rowCard}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
-                    <strong>{formatName(nurse.nurseFirstName, nurse.nurseLastName, nurse.nurseId)}</strong>
-                    <VerifiedDoctorBadge doctor={nurse} role="nurse" label="Verified nurse" style={{ fontSize: '0.7rem' }} />
+                  <div className={styles.rowActions}>
+                    <button className={styles.actionButton} type="button" onClick={() => approveDoctor(doctor.doctorId, !doctor.isVerified)} disabled={busy}>
+                      {doctor.isVerified ? 'Unverify' : 'Verify'}
+                    </button>
+                    <button type="button" className={styles.danger} onClick={() => deleteRecord('doctor', doctor.doctorId)} disabled={busy}>
+                      Delete
+                    </button>
                   </div>
-                  <p>{nurse.nurseEmail}</p>
-                  <p>{nurse.specialization || 'Unspecified'} · {nurse.isAvailable ? 'Available' : 'Unavailable'}</p>
                 </div>
-                <div className={styles.rowActions}>
-                  <button type="button" className={styles.actionButton} onClick={() => verifyNurse(nurse.nurseId, !nurse.isVerified)} disabled={busy}>
-                    {nurse.isVerified ? 'Unverify' : 'Verify'}
-                  </button>
-                  <button type="button" className={styles.danger} onClick={() => deleteRecord('nurse', nurse.nurseId)} disabled={busy}>
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <div>
-              <p className={styles.panelLabel}>Posts</p>
-              <h2>All posts</h2>
+              ))}
             </div>
-          </div>
-          <div className={styles.tableList}>
-            {posts.map((post) => (
-              <div key={post.postId} className={styles.rowCard}>
-                <div>
-                  <strong>{post.author?.name || post.postId}</strong>
-                  <p>{post.body || 'No body text'}</p>
-                  <p>{post.visibility} · {post.likes?.count || 0} likes · {post.comments?.count || 0} comments</p>
-                </div>
-                <div className={styles.rowActions}>
-                  <button type="button" className={styles.danger} onClick={() => deleteRecord('post', post.postId)} disabled={busy}>
-                    Delete
-                  </button>
-                </div>
+          </article>
+        )}
+
+        {(recordsFilter === 'all' || recordsFilter === 'patients') && (
+          <article className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <div>
+                <p className={styles.panelLabel}>Patients</p>
+                <h2>All patients {search ? `(${filteredPatients.length})` : ''}</h2>
               </div>
-            ))}
-          </div>
-        </article>
+            </div>
+            <div className={styles.tableList}>
+              {filteredPatients.length === 0 ? <p className={styles.empty}>No patients match your search.</p> : null}
+              {filteredPatients.map((patient) => (
+                <div key={patient.patientId} className={styles.rowCard}>
+                  <div>
+                    <strong>{formatName(patient.patientFirstName, patient.patientLastName, patient.patientId)}</strong>
+                    <p>{patient.patientEmail}</p>
+                    <p>{patient.patientPhone}</p>
+                  </div>
+                  <div className={styles.rowActions}>
+                    <button type="button" className={styles.danger} onClick={() => deleteRecord('patient', patient.patientId)} disabled={busy}>
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
+        )}
+
+        {(recordsFilter === 'all' || recordsFilter === 'nurses') && (
+          <article className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <div>
+                <p className={styles.panelLabel}>Nurses</p>
+                <h2>All nurses {search ? `(${filteredNurses.length})` : ''}</h2>
+              </div>
+            </div>
+            <div className={styles.tableList}>
+              {filteredNurses.length === 0 ? <p className={styles.empty}>No nurses match your search.</p> : null}
+              {filteredNurses.map((nurse) => (
+                <div key={nurse.nurseId} className={styles.rowCard}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                      <strong>{formatName(nurse.nurseFirstName, nurse.nurseLastName, nurse.nurseId)}</strong>
+                      <VerifiedDoctorBadge doctor={nurse} role="nurse" label="Verified nurse" style={{ fontSize: '0.7rem' }} />
+                    </div>
+                    <p>{nurse.nurseEmail}</p>
+                    <p>{nurse.specialization || 'Unspecified'} · {nurse.isAvailable ? 'Available' : 'Unavailable'}</p>
+                  </div>
+                  <div className={styles.rowActions}>
+                    <button type="button" className={styles.actionButton} onClick={() => verifyNurse(nurse.nurseId, !nurse.isVerified)} disabled={busy}>
+                      {nurse.isVerified ? 'Unverify' : 'Verify'}
+                    </button>
+                    <button type="button" className={styles.danger} onClick={() => deleteRecord('nurse', nurse.nurseId)} disabled={busy}>
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
+        )}
+
+        {(recordsFilter === 'all' || recordsFilter === 'posts') && (
+          <article className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <div>
+                <p className={styles.panelLabel}>Posts</p>
+                <h2>All posts {search ? `(${filteredPosts.length})` : ''}</h2>
+              </div>
+            </div>
+            <div className={styles.tableList}>
+              {filteredPosts.length === 0 ? <p className={styles.empty}>No posts match your search.</p> : null}
+              {filteredPosts.map((post) => (
+                <div key={post.postId} className={styles.rowCard}>
+                  <div>
+                    <strong>{post.author?.name || post.postId}</strong>
+                    <p>{post.body || 'No body text'}</p>
+                    <p>{post.visibility} · {post.likes?.count || 0} likes · {post.comments?.count || 0} comments</p>
+                  </div>
+                  <div className={styles.rowActions}>
+                    <button type="button" className={styles.danger} onClick={() => deleteRecord('post', post.postId)} disabled={busy}>
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
+        )}
+
+        {(recordsFilter === 'all' || recordsFilter === 'admins') && (
+          <article className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <div>
+                <p className={styles.panelLabel}>Admins</p>
+                <h2>Admin accounts {search ? `(${filteredAdmins.length})` : ''}</h2>
+              </div>
+              <button className={styles.actionButton} type="button" onClick={() => setSelectedTab('addAdmin')}>Add admin</button>
+            </div>
+            <div className={styles.tableList}>
+              {allAdmins.length === 0 ? <p className={styles.empty}>No admin records available.</p> : null}
+              {filteredAdmins.map((item) => (
+                <div key={item.adminId || item._id || item.adminEmail} className={styles.rowCard}>
+                  <div>
+                    <strong>{item.adminName || 'Admin'}</strong>
+                    <p>{item.adminEmail}</p>
+                    <p>{item.role || 'administrator'}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
+        )}
       </section>
 
       {error ? <p className={styles.error}>{error}</p> : null}

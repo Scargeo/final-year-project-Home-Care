@@ -12,26 +12,28 @@
     "create:admin": "node scripts/createAdmin.js"
   },
   "dependencies": {
-    "helmet": "^7.2.0",
-    "@pinecone-database/pinecone": "^7.1.0",
     "@modelcontextprotocol/sdk": "^1.15.0",
+    "@pinecone-database/pinecone": "^7.1.0",
     "axios": "^1.13.6",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.10.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
-    "http-proxy-middleware": "^3.0.5",
-    "install": "^0.13.0",
+    "helmet": "^7.2.0",
+"http-proxy-middleware":"^3.0.5",
+    "install":"^0.13.0",
+    "jsonwebtoken":"^9.0.0",
     "mongodb": "^7.1.0",
     "mongoose": "^9.3.1",
     "multer": "^2.1.1",
+    "nano": "^11.0.6",
     "nanoid": "^5.1.7",
+    "nodemailer": "^9.0.4",
     "nodemon": "^3.1.14",
     "npm": "^11.12.0",
     "openai": "^4.24.0",
     "pdf-parse": "^2.4.5",
-    "jsonwebtoken": "^9.0.0",
     "socket.io": "^4.8.3"
   }
 }

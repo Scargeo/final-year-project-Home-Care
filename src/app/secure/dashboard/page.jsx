@@ -15,6 +15,12 @@ const DASHBOARD_METRICS = [
 
 const QUICK_ACTIONS = [
   {
+    href: "/secure/home-care/request",
+    title: "Request Home Care",
+    text: "Request nursing, elderly, physiotherapy, or post-hospitalization care at home.",
+    icon: "🏠",
+  },
+  {
     href: "/secure/emergency",
     title: "Emergency request",
     text: "Send an SOS and track provider updates from one place.",
@@ -469,9 +475,12 @@ export default function DashboardPage() {
           <span className={styles.brandText}>Home Care+</span>
         </Link>
 
-        <div className={styles.topActions}>
+<div className={styles.topActions}>
           <Link href="/secure/home" className={`${styles.actionButton} ${styles.actionSecondary}`}>
             Home
+          </Link>
+          <Link href="/secure/settings" className={`${styles.actionButton} ${styles.actionSecondary}`}>
+            System
           </Link>
           <Link href="/secure/emergency" className={`${styles.actionButton} ${styles.actionDanger}`}>
             Emergency

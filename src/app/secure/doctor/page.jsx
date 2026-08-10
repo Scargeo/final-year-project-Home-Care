@@ -176,7 +176,7 @@ export default function DoctorDashboard() {
   const [appointmentHistory, setAppointmentHistory] = useState([])
   const [appointmentHistoryLoading, setAppointmentHistoryLoading] = useState(false)
   const [nowTick, setNowTick] = useState(new Date())
-  const [dashboardSyncTick, setDashboardSyncTick] = useState(0)
+  const [, setDashboardSyncTick] = useState(0)
   const selectedAppointmentRef = useRef(null)
   const fileInputRef = useRef(null)
   const labFileInputRef = useRef(null)

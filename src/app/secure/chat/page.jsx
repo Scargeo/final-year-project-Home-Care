@@ -35,6 +35,18 @@ function getStoredSession() {
       }
     }
 
+    const nurseRaw = window.localStorage.getItem("nurseAuth")
+    if (nurseRaw) {
+      const nurse = JSON.parse(nurseRaw)
+      return {
+        role: "nurse",
+        id: nurse?.nurseId || nurse?.uid || nurse?.id || nurse?._id || "",
+        firstName: nurse?.nurseFirstName || nurse?.firstName || "",
+        lastName: nurse?.nurseLastName || nurse?.lastName || "",
+        token: nurse?.token || nurse?.accessToken || "",
+      }
+    }
+
     const patientRaw = window.localStorage.getItem("patientAuth")
     if (patientRaw) {
       const patient = JSON.parse(patientRaw)
@@ -207,7 +219,7 @@ function receiptLabel(status) {
 }
 
 function ChatPageContent() {
-  const searchParams = useSearchParams()
+const searchParams = useSearchParams()
 
   const signalUrl = resolveSignalUrl()
   const contactName = searchParams.get("name") || "GCTU"
@@ -215,6 +227,11 @@ function ChatPageContent() {
   const urlPatientId = searchParams.get("patientId") || ""
   const urlDoctorId = searchParams.get("doctorId") || ""
   const urlDoctorName = searchParams.get("doctorName") || ""
+
+  // SOS emergency rooms are lightweight text-only chats (no appointment /
+  // consultation room). Detect them by the "emergency-" room id prefix so the
+  // page shows a plain chat interface instead of the full room panel.
+  const isEmergencyRoom = String(roomId || "").startsWith("emergency-")
 
   const [status, setStatus] = useState("idle")
   const [error, setError] = useState("")
@@ -286,8 +303,15 @@ function ChatPageContent() {
   useEffect(() => {
     let active = true
 
-    async function loadRoom() {
+async function loadRoom() {
       if (!roomId) return
+
+      // SOS emergency rooms are lightweight text chats and are not linked to an
+      // appointment/consultation room, so skip loading room data entirely.
+      if (isEmergencyRoom) {
+        setRoomLoading(false)
+        return
+      }
 
       setRoomLoading(true)
       setRoomError("")
@@ -342,8 +366,10 @@ function ChatPageContent() {
   useEffect(() => {
     let active = true
 
-    async function refreshRoomStatus() {
-      if (!roomId) return
+async function refreshRoomStatus() {
+      // Emergency rooms are lightweight text chats and have no appointment
+      // room to poll.
+      if (!roomId || isEmergencyRoom) return
 
       try {
         const auth = getStoredSession()
@@ -591,9 +617,15 @@ function ChatPageContent() {
           sendJson({ type: "join", roomId, peerId: id, token })
         }
 
-        ws.onmessage = async (evt) => {
+ws.onmessage = async (evt) => {
           const msg = safeParse(evt.data)
           if (!msg?.type) return
+
+          if (msg.type === "error") {
+            setError(String(msg.message || "Connection error from signaling server."))
+            setStatus("error")
+            return
+          }
 
           if (msg.type === "waiting") {
             setStatus("waiting")
@@ -974,8 +1006,8 @@ function ChatPageContent() {
         Room: <code>{roomId}</code> • {remotePeerId ? `Peer connected` : `Waiting for a second person`}
       </div>
 
-      {/* Mobile-only tab toggle for chat/room */}
-      {isMobile ? (
+{/* Mobile-only tab toggle for chat/room (hidden for lightweight emergency chat) */}
+      {isMobile && !isEmergencyRoom ? (
         <div className="secureMobileTabToggle">
           <button
             className={`secureMobileTabToggle__btn ${!showRoomOnMobile ? 'secureMobileTabToggle__btn--active' : ''}`}
@@ -1139,7 +1171,8 @@ function ChatPageContent() {
           </div>
         </div>
 
-        {/* Room section (hidden on mobile unless showRoomOnMobile is true) */}
+{/* Room section (hidden entirely for lightweight emergency chat) */}
+        {!isEmergencyRoom ? (
         <div className={`secureRoomSection ${isMobile && !showRoomOnMobile ? 'secureRoomSection--hidden' : ''}`}>
           <div className="secureRoomPanel">
             <div className="secureRoomPanel__header">
@@ -1301,10 +1334,11 @@ function ChatPageContent() {
               </div>
             ) : null}
 
-            {urlDoctorName ? <p className="secureRoomPanel__hint">Assigned doctor: {urlDoctorName}</p> : null}
+{urlDoctorName ? <p className="secureRoomPanel__hint">Assigned doctor: {urlDoctorName}</p> : null}
             {roomError ? <p className="secureRoomPanel__error">{roomError}</p> : null}
           </div>
         </div>
+        ) : null}
       </div>
     </div>
   )

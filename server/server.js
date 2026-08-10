@@ -15,11 +15,16 @@ const mongoose = require('mongoose');
 const Appointment = require('./models/privateHealthWorker/doctor/appointment');
 const ConsultationRoom = require('./models/hospital/consultationRoom');
 const { createNurseAssignmentForCompletedAppointment } = require('./lib/nurseAssignment')
+const { acquireLock, releaseLock } = require('./lib/redisClient')
 // const { createProxyMiddleware } = require('http-proxy-middleware');
 
-// Connect to the database
+// Connect to the database.
+// A transient DNS/network failure at boot is not fatal: Mongoose keeps retrying in
+// the background, and the background jobs below skip until the DB is reachable.
 const connectDB = require('./configurations/dbConnection');
-connectDB();
+connectDB().catch((error) => {
+  console.error('Backend will keep running and retry MongoDB connection:', error?.message || error);
+});
 
 const app = express();
 app.use(express.json());
@@ -29,7 +34,7 @@ app.use(helmet())
 // Basic rate limiting to reduce abuse
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // limit each IP to 200 requests per windowMs
+  max: 1000, // limit each IP to 1000 requests per windowMs
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => req.path.startsWith('/api/auth/login') || req.path.startsWith('/api/sos'),
@@ -95,61 +100,86 @@ function getAppointmentEndDate(appointment) {
   return appointmentDate
 }
 
+function isDbConnected() {
+  return mongoose.connection.readyState === 1
+}
+
 async function completeEligibleRooms() {
-  if (mongoose.connection.readyState !== 1) {
+  // Transient DNS/network failures (e.g., getaddrinfo ENOTFOUND) are normal when
+  // MongoDB Atlas briefly drops. Skip the cycle quietly instead of throwing.
+  if (!isDbConnected()) {
     return
   }
 
-  const now = new Date()
-  const rooms = await ConsultationRoom.find({
-    status: { $nin: ['completed', 'cancelled'] },
-    appointmentId: { $ne: '' },
-    doctorJoinedAt: { $ne: null },
-    patientJoinedAt: { $ne: null },
-  }).lean()
+  // Try to acquire a distributed lock so only one instance processes rooms.
+  // If Redis is in fallback mode, the in-memory lock still protects a single
+  // instance; across multiple instances it degrades gracefully.
+  const lockToken = await acquireLock('completeEligibleRooms', 60).catch(() => null)
+  if (!lockToken) {
+    // Another instance is already processing, or lock acquisition failed — skip this cycle.
+    return
+  }
 
-  for (const room of rooms) {
-    const appointment = await Appointment.findOne({ appointmentId: String(room.appointmentId || '') }).lean()
-    if (!appointment) continue
+  try {
+    const now = new Date()
+    const rooms = await ConsultationRoom.find({
+      status: { $nin: ['completed', 'cancelled'] },
+      appointmentId: { $ne: '' },
+      doctorJoinedAt: { $ne: null },
+      patientJoinedAt: { $ne: null },
+    }).maxTimeMS(30000).lean()
 
-    const terminalStatuses = new Set(['completed', 'cancelled', 'no-show'])
-    if (terminalStatuses.has(String(appointment.status || '').toLowerCase())) continue
+    for (const room of rooms) {
+      // The DB may have dropped between the batch query and this room's lookup.
+      if (!isDbConnected()) break
 
-    const endTime = getAppointmentEndDate(appointment)
-    if (!endTime || endTime.getTime() > now.getTime()) continue
+      const appointment = await Appointment.findOne({ appointmentId: String(room.appointmentId || '') }).maxTimeMS(30000).lean()
+      if (!appointment) continue
 
-    const completedAt = room.completedAt ? new Date(room.completedAt) : now
-    const updatedAppointment = await Appointment.findOneAndUpdate(
-      { appointmentId: appointment.appointmentId },
-      { status: 'completed', updatedAt: now },
-      { new: true },
-    )
+      const terminalStatuses = new Set(['completed', 'cancelled', 'no-show'])
+      if (terminalStatuses.has(String(appointment.status || '').toLowerCase())) continue
 
-    if (!updatedAppointment) continue
+      const endTime = getAppointmentEndDate(appointment)
+      if (!endTime || endTime.getTime() > now.getTime()) continue
 
-    await ConsultationRoom.findOneAndUpdate(
-      { roomId: room.roomId },
-      { $set: { status: 'completed', completedAt } },
-      { new: true },
-    )
+      if (!isDbConnected()) break
 
-    await createNurseAssignmentForCompletedAppointment({
-      appointment: updatedAppointment,
-      room,
-      io,
-    }).catch((error) => {
-      console.error('Failed to create nurse assignment from auto-completion:', error)
-    })
+      const completedAt = room.completedAt ? new Date(room.completedAt) : now
+      const updatedAppointment = await Appointment.findOneAndUpdate(
+        { appointmentId: appointment.appointmentId },
+        { status: 'completed', updatedAt: now },
+        { new: true },
+      ).maxTimeMS(30000)
 
-    io.to(`appointments-doctor-${String(updatedAppointment.doctorId)}`).emit('appointment-updated', { appointment: updatedAppointment })
-    io.to(`appointments-patient-${String(updatedAppointment.patientId)}`).emit('appointment-updated', { appointment: updatedAppointment })
+      if (!updatedAppointment) continue
+
+      await ConsultationRoom.findOneAndUpdate(
+        { roomId: room.roomId },
+        { $set: { status: 'completed', completedAt } },
+        { new: true },
+      ).maxTimeMS(30000)
+
+      await createNurseAssignmentForCompletedAppointment({
+        appointment: updatedAppointment,
+        room,
+        io,
+      }).catch((error) => {
+        console.warn('Could not create nurse assignment from auto-completion (will retry next cycle):', error?.message || error)
+      })
+
+      io.to(`appointments-doctor-${String(updatedAppointment.doctorId)}`).emit('appointment-updated', { appointment: updatedAppointment })
+      io.to(`appointments-patient-${String(updatedAppointment.patientId)}`).emit('appointment-updated', { appointment: updatedAppointment })
+    }
+  } catch (error) {
+    // Transient DB disconnect should not print a fatal-looking stack trace every 60s.
+    console.warn('Auto-complete consultation rooms skipped (transient DB error):', error?.message || error)
+  } finally {
+    await releaseLock('completeEligibleRooms', lockToken).catch(() => {})
   }
 }
 
 setInterval(() => {
-  completeEligibleRooms().catch((error) => {
-    console.error('Failed to auto-complete consultation rooms:', error?.message || error)
-  })
+  completeEligibleRooms()
 }, 60 * 1000)
 
 io.on('connection', (socket) => {
