@@ -62,6 +62,10 @@ const privateNurseSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
+    emailVerified: {
+        type: Boolean,
+        default: false,
+    },
     notificationPrefs: {
         appointmentAlerts: { type: Boolean, default: true },
         patientMessages: { type: Boolean, default: true },

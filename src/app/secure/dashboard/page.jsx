@@ -141,6 +141,7 @@ export default function DashboardPage() {
   const [aiError, setAiError] = useState("")
   const [proposedAppointment, setProposedAppointment] = useState(null)
   const [profileImage, setProfileImage] = useState(null)
+  const [patientProfile, setPatientProfile] = useState(null)
   const aiInputRef = useRef(null)
   const aiThreadRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -159,6 +160,66 @@ export default function DashboardPage() {
     } catch {
       setPatientName("Patient")
     }
+  }, [])
+
+  useEffect(() => {
+    const loadPatientProfile = async () => {
+      if (typeof window === 'undefined') return
+
+      const stored = getStoredAuth()
+      const patientId = stored?.patientId || stored?.id || stored?._id
+      if (!patientId) return
+
+      try {
+        const headers = { 'Content-Type': 'application/json' }
+        const token = getStoredToken()
+        if (token) {
+          headers.authorization = `Bearer ${token}`
+        }
+
+        const response = await fetch(`/api/patients/${encodeURIComponent(patientId)}/settings`, {
+          headers,
+        })
+
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok) {
+          console.warn('Patient profile fetch failed, using stored auth as fallback', {
+            status: response.status,
+            message: data?.message,
+          })
+          const fallbackProfile = {
+            ...(stored || {}),
+            patientId,
+          }
+          setPatientProfile(fallbackProfile)
+          setPatientName([fallbackProfile.patientFirstName, fallbackProfile.patientLastName].filter(Boolean).join(' ').trim() || fallbackProfile.patientFirstName || 'Patient')
+          if (fallbackProfile.profileImage?.url) {
+            setProfileImage(fallbackProfile.profileImage)
+          }
+          return
+        }
+
+        const nextProfile = data?.patient || null
+        if (!nextProfile) return
+
+        setPatientProfile(nextProfile)
+        setPatientName([nextProfile.patientFirstName, nextProfile.patientLastName].filter(Boolean).join(' ').trim() || nextProfile.patientFirstName || 'Patient')
+        if (nextProfile.profileImage?.url) {
+          setProfileImage(nextProfile.profileImage)
+        }
+
+        try {
+          const updatedAuth = { ...(stored || {}), ...nextProfile }
+          window.localStorage.setItem('patientAuth', JSON.stringify(updatedAuth))
+        } catch (storageError) {
+          console.error('Failed to sync patient profile to localStorage', storageError)
+        }
+      } catch (error) {
+        console.error('Failed to load patient dashboard profile:', error)
+      }
+    }
+
+    loadPatientProfile()
   }, [])
 
   const handleProfileImageSelect = useCallback(
@@ -529,6 +590,14 @@ export default function DashboardPage() {
               This dashboard brings together your emergency status, AI assistant, notifications, and care actions in one calm place.
               It is designed around the way the app already works: quick SOS access, provider updates, and guided support when you need it.
             </p>
+
+            {patientProfile ? (
+              <div style={{ marginTop: '1rem', display: 'grid', gap: '0.5rem', color: 'rgba(15, 23, 42, 0.8)' }}>
+                <p style={{ margin: 0 }}><strong>Email:</strong> {patientProfile.patientEmail || 'Not set'}</p>
+                <p style={{ margin: 0 }}><strong>Phone:</strong> {patientProfile.patientPhone || 'Not set'}</p>
+                <p style={{ margin: 0 }}><strong>Address:</strong> {patientProfile.patientAddress || 'Not set'}</p>
+              </div>
+            ) : null}
 
             <div className={styles.heroActions}>
               <button type="button" onClick={openAiAssistant} className={`${styles.actionButton} ${styles.actionPrimary} ${styles.actionButtonReset}`}>

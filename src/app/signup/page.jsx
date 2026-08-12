@@ -88,11 +88,11 @@ export default function SignupPage() {
         throw new Error(data?.message || "Could not create account.")
       }
 
-      setSuccess("Account created! Please check your email to verify your account before logging in.")
-      setStatus("Verification email sent. Please check your inbox.")
+      const redirectEmail = form.patientEmail.trim().toLowerCase()
+      setSuccess("Verification code sent. Please check your email and enter the code to complete registration.")
+      setStatus("Verification code sent. Redirecting to verification page...")
       setForm(initialForm)
-      // Redirect to login after 3 seconds
-      setTimeout(() => router.push("/login"), 3000)
+      setTimeout(() => router.push(`/verify-email?role=patient&email=${encodeURIComponent(redirectEmail)}`), 800)
     } catch (err) {
       setError(err.message || "Signup failed.")
       setStatus("Unable to create account right now.")

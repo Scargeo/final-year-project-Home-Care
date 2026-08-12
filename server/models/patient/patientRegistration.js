@@ -53,6 +53,10 @@ patientPhone: {
         type: Boolean,
         default: false,
     },
+    emailVerified: {
+        type: Boolean,
+        default: false,
+    },
     online: {
         type: Boolean,
         default: false,

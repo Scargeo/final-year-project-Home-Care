@@ -63,6 +63,10 @@ const doctorSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
     role: {
       type: String,
       enum: ['doctor'],

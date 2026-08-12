@@ -1,9 +1,11 @@
 const Patient = require('../models/patient/patientRegistration');
 const Doctor = require('../models/privateHealthWorker/doctor/doctorRegistration');
 const Nurse = require('../models/privateHealthWorker/nurse/privateNurseRegistration');
+const PendingEmailVerification = require('../models/token/pendingEmailVerification');
 const PrivateNurseRequirement = require('../models/privateHealthWorker/nurse/privateNurseRequirement');
 const bcrypt = require('bcrypt');
 const { signToken, signRefreshToken } = require('./jwtAuth')
+const { sendVerificationEmail } = require('../lib/emailService');
 
 function normalizeEmail(value) {
     return String(value || '').trim().toLowerCase()
@@ -15,6 +17,10 @@ function normalizePhone(value) {
 
 function isStrongPassword(value) {
     return /(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}/.test(String(value || ''))
+}
+
+function createOtp() {
+    return Math.floor(100000 + Math.random() * 900000).toString()
 }
 
 function buildSafeNurseUser(nurse) {
@@ -29,6 +35,7 @@ function buildSafeNurseUser(nurse) {
         yearsOfExperience: nurse.yearsOfExperience,
         role: 'nurse',
         isVerified: Boolean(nurse.isVerified),
+        emailVerified: Boolean(nurse.emailVerified),
         profileImage: nurse.profileImage || null,
     }
 }
@@ -89,34 +96,38 @@ const registerNurse = async (req, res) => {
             return res.status(409).json({ message: 'An account with this email or phone number already exists.' })
         }
 
+        await PendingEmailVerification.deleteMany({ role: 'nurse', $or: [{ email: normalizedEmail }, { phone: normalizedPhone }] })
+
         const hashedPassword = await bcrypt.hash(String(nursePassword), 12)
+        const token = createOtp()
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000)
 
-        const newNurse = new Nurse({
-            nurseFirstName: trimmedFirstName,
-            nurseLastName: trimmedLastName,
-            nurseEmail: normalizedEmail,
-            nursePhone: normalizedPhone,
-            nursePassword: hashedPassword,
-            nurseAddress: trimmedAddress,
-            specialization: trimmedSpecialization,
-            yearsOfExperience: Number.isFinite(Number(yearsOfExperience)) ? Number(yearsOfExperience) : 0,
-            isVerified: false,
+        await PendingEmailVerification.create({
+            role: 'nurse',
+            email: normalizedEmail,
+            phone: normalizedPhone,
+            token,
+            expiresAt,
+            lastOtpSentAt: new Date(),
+            payload: {
+                nurseFirstName: trimmedFirstName,
+                nurseLastName: trimmedLastName,
+                nurseEmail: normalizedEmail,
+                nursePhone: normalizedPhone,
+                nursePasswordHash: hashedPassword,
+                nurseAddress: trimmedAddress,
+                specialization: trimmedSpecialization,
+                yearsOfExperience: Number.isFinite(Number(yearsOfExperience)) ? Number(yearsOfExperience) : 0,
+            },
         })
 
-        const savedNurse = await newNurse.save()
+        await sendVerificationEmail(normalizedEmail, `${trimmedFirstName} ${trimmedLastName}`, token)
 
-        // Store a linked approval record only after the nurse exists, so admin review can resolve the account cleanly.
-        PrivateNurseRequirement.create({
-            requirementId: savedNurse._id,
-            nurseId: savedNurse.uid,
-        }).catch((error) => {
-            console.error('Error saving nurse approval request:', error)
-        })
-
-        return res.status(201).json({
-            message: 'Account created. Your nurse profile is pending admin approval.',
-            user: buildSafeNurseUser(savedNurse),
-            approvalStatus: 'pending_approval',
+        return res.status(200).json({
+            message: 'Verification code sent to your email. Please verify to complete nurse account creation.',
+            email: normalizedEmail,
+            role: 'nurse',
+            expiresAt: expiresAt.toISOString(),
         })
     } catch (error) {
         return res.status(500).json({ message: 'Error registering nurse', error: error.message })
@@ -137,6 +148,10 @@ const loginNurse = async (req, res) => {
         const nurse = await Nurse.findOne({ nurseEmail: normalizedEmail })
         if (!nurse) {
             return res.status(404).json({ message: 'Nurse not found' })
+        }
+
+        if (nurse.emailVerified === false) {
+            return res.status(403).json({ message: 'Please verify your email before logging in.' })
         }
 
         if (!nurse.isVerified) {

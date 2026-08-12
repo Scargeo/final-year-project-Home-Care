@@ -7,6 +7,46 @@ const { loadUser } = require('../../middleware/loadUserMiddleware');
 router.use(loadUser);
 
 /**
+ * GET /api/patients/:id/settings
+ * Fetch patient settings and profile information
+ */
+router.get('/', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ message: 'Missing patient ID' });
+    }
+
+    const patient = await Patient.findOne({ patientId: id }).select('-patientPassword');
+    if (!patient) {
+      return res.status(404).json({ message: 'Patient not found' });
+    }
+
+    return res.status(200).json({
+      patient: {
+        patientId: patient.patientId,
+        patientFirstName: patient.patientFirstName,
+        patientLastName: patient.patientLastName,
+        patientEmail: patient.patientEmail,
+        patientPhone: patient.patientPhone,
+        patientAddress: patient.patientAddress,
+        notificationPrefs: patient.notificationPrefs,
+        privacyPrefs: patient.privacyPrefs,
+        personalizationPrefs: patient.personalizationPrefs,
+        profileImage: patient.profileImage,
+        isVerified: patient.isVerified,
+        emailVerified: Boolean(patient.emailVerified),
+        online: patient.online,
+        aiActive: patient.aiActive,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching patient settings:', error);
+    return res.status(500).json({ message: 'Failed to fetch patient settings', error: error.message });
+  }
+});
+
+/**
  * PATCH /api/patients/:id/settings
  * Update patient settings (account, notifications, privacy)
  */
@@ -25,6 +65,7 @@ router.patch('/', async (req, res) => {
       patientAddress,
       notificationPrefs,
       privacyPrefs,
+      personalizationPrefs,
     } = req.body;
 
     // Build update object with only provided fields
@@ -36,6 +77,7 @@ router.patch('/', async (req, res) => {
     if (patientAddress) updateFields.patientAddress = patientAddress;
     if (notificationPrefs) updateFields.notificationPrefs = notificationPrefs;
     if (privacyPrefs) updateFields.privacyPrefs = privacyPrefs;
+    if (personalizationPrefs) updateFields.personalizationPrefs = personalizationPrefs;
 
     // Update patient in database
     const updated = await Patient.findOneAndUpdate(
@@ -59,6 +101,7 @@ router.patch('/', async (req, res) => {
         patientAddress: updated.patientAddress,
         notificationPrefs: updated.notificationPrefs,
         privacyPrefs: updated.privacyPrefs,
+        personalizationPrefs: updated.personalizationPrefs,
       },
     });
   } catch (error) {

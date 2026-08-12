@@ -111,11 +111,12 @@ export default function DoctorSignupPage() {
         throw new Error(data?.message || `Could not create ${role} account.`)
       }
 
-      // success - redirect to login so the practitioner signs in
-      setSuccess("Account created successfully. Please sign in to continue.")
-      setStatus("Redirecting to login...")
+      const redirectEmail = form.doctorEmail.trim().toLowerCase()
+      // success - redirect to OTP verification so the practitioner can finish account creation
+      setSuccess(`Verification code sent to ${redirectEmail}. Please check your email.`)
+      setStatus("Redirecting to verification...")
       setForm(initialForm)
-      setTimeout(() => router.push('/login'), 1000)
+      setTimeout(() => router.push(`/verify-email?role=${encodeURIComponent(role)}&email=${encodeURIComponent(redirectEmail)}`), 800)
     } catch (err) {
       setError(err.message || `Signup failed for ${role}.`)
       setStatus(`Unable to create ${role} account right now.`)
