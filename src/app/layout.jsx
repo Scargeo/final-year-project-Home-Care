@@ -2,6 +2,7 @@ import "../index.css"
 import "../App.css"
 import "../secure/ChatPage.css"
 import PwaRegister from "./PwaRegister"
+import AuthSessionGuard from "./AuthSessionGuard"
 
 export const viewport = {
   width: "device-width",
@@ -36,6 +37,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <PwaRegister />
+        <AuthSessionGuard />
         {children}
       </body>
     </html>

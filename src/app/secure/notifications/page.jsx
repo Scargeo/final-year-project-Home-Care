@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import styles from "../home/home.module.css"
 import NotificationsPanel from "../components/NotificationsPanel"
 
@@ -19,7 +19,11 @@ function getDashboardHref() {
 }
 
 export default function NotificationsPage() {
-  const [dashboardHref] = useState(() => getDashboardHref())
+  const [dashboardHref, setDashboardHref] = useState("/secure/dashboard")
+
+  useEffect(() => {
+    setDashboardHref(getDashboardHref())
+  }, [])
 
   return (
     <main className={styles.page} style={{ overflowY: "auto", overflowX: "hidden" }}>

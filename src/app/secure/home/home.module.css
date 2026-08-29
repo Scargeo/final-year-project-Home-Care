@@ -1874,6 +1874,55 @@
   }
 }
 
+@media (max-width: 900px) and (orientation: landscape) {
+  .page {
+    height: auto;
+    min-height: 100dvh;
+    overflow: auto;
+  }
+
+  .layout {
+    display: block;
+    padding: 0.5rem 0.75rem 1rem;
+  }
+
+  .leftRail,
+  .rightRail {
+    display: none;
+  }
+
+  .feedColumn {
+    width: min(100%, 520px);
+    margin: 0 auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .feedList {
+    gap: 0.75rem;
+  }
+
+  .feedCard {
+    padding: 0.7rem;
+    border-radius: 1rem;
+    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+  }
+
+  .postImage {
+    aspect-ratio: 1.35 / 1;
+    border-radius: 0.8rem;
+  }
+
+  .feedHeader {
+    gap: 0.6rem;
+  }
+
+  .composerCard,
+  .heroCard {
+    display: none;
+  }
+}
+
 @media (max-width: 900px) {
   .topActions {
     gap: 0.45rem;

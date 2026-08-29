@@ -5,6 +5,7 @@ const express = require('express')
 const router = express.Router({ mergeParams: true })
 
 const HomeCareRequest = require('../../models/patient/homeCareRequest')
+const Attachment = require('../../models/media/attachment')
 const {
   assignNurseToRequest,
   transitionRequestStatus,
@@ -32,6 +33,7 @@ router.post('/', loadUser, allowOwnerOrDoctor((req) => req.params.id), async (re
       emergencyContactPhone,
       patientName,
       patientPhone,
+      verificationPhoto,
     } = req.body || {}
 
     const coords = locationCoords && Number.isFinite(Number(locationCoords.lat)) && Number.isFinite(Number(locationCoords.lng))
@@ -45,6 +47,19 @@ router.post('/', loadUser, allowOwnerOrDoctor((req) => req.params.id), async (re
     if (!description || !String(description).trim()) {
       return res.status(400).json({ message: 'Please provide a description of the care needed.' })
     }
+    if (!verificationPhoto?.url || !verificationPhoto?.publicId || !verificationPhoto?.attachmentId) {
+      return res.status(400).json({ message: 'A live identity verification photo is required.' })
+    }
+    const savedVerificationPhoto = await Attachment.findOne({
+      _id: verificationPhoto.attachmentId,
+      ownerRef: String(id),
+      purpose: 'verification',
+      url: String(verificationPhoto.url).trim(),
+      publicId: String(verificationPhoto.publicId).trim(),
+    }).lean()
+    if (!savedVerificationPhoto) {
+      return res.status(400).json({ message: 'Please take a new live identity verification photo.' })
+    }
 
     const request = await HomeCareRequest.create({
       patientId: String(id),
@@ -52,6 +67,13 @@ router.post('/', loadUser, allowOwnerOrDoctor((req) => req.params.id), async (re
       patientPhone: String(patientPhone || '').trim(),
       serviceType: normalizedType,
       description: String(description).trim(),
+      verificationPhoto: {
+        attachmentId: verificationPhoto.attachmentId,
+        url: String(verificationPhoto.url).trim(),
+        publicId: String(verificationPhoto.publicId).trim(),
+        mimeType: String(verificationPhoto.mimeType || 'image/jpeg').trim(),
+        capturedAt: verificationPhoto.capturedAt ? new Date(verificationPhoto.capturedAt) : new Date(),
+      },
 address: String(address || '').trim(),
       location: String(location || '').trim(),
       locationCoords: coords,

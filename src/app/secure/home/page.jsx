@@ -207,6 +207,9 @@ export default function SecureHomePage() {
 
     if (normalizedImages.length === 0) return null
 
+    const imageUrl = normalizedImages[index].url
+    const isCloudinaryImage = imageUrl.startsWith('https://res.cloudinary.com/')
+
     return (
       <div
         className={styles.postImage}
@@ -217,7 +220,7 @@ export default function SecureHomePage() {
         onTouchMove={onPointerMove}
         onTouchEnd={onPointerUp}
       >
-        <Image src={normalizedImages[index].url} alt={normalizedImages[index]?.alt || `post-${index}`} fill sizes="(max-width: 760px) 100vw, 640px" style={{ objectFit: 'cover', objectPosition: 'center' }} />
+        <Image src={imageUrl} alt={normalizedImages[index]?.alt || `post-${index}`} fill unoptimized={isCloudinaryImage} sizes="(max-width: 760px) 100vw, 640px" style={{ objectFit: 'cover', objectPosition: 'center' }} />
         {normalizedImages.length > 1 && (
           <div className={styles.postCarouselControls}>
             <button type="button" aria-label="Previous image" onClick={prev} className={styles.carouselBtn}>
@@ -248,12 +251,16 @@ const [posts, setPosts] = useState([])
   const [submittingComment, setSubmittingComment] = useState(false)
   const [postComments, setPostComments] = useState({})
   const [loadingComments, setLoadingComments] = useState({})
+  const [shareMenuPostId, setShareMenuPostId] = useState(null)
+  const [repostingPostId, setRepostingPostId] = useState(null)
+  const [shareMenuPosition, setShareMenuPosition] = useState({ x: 0, y: 0 })
   // Doctor AI lab interpretation state
   // Doctor AI lab interpretation state (moved to doctor dashboard)
   const headerRef = useRef(null)
   const profileCardRef = useRef(null)
   const commentPanelRef = useRef(null)
   const commentOpenRef = useRef(false)
+  const shareMenuRef = useRef(null)
   const aiInputRef = useRef(null)
   const aiThreadRef = useRef(null)
 const currentUserId = doctorId || nurseId || patientId || null
@@ -913,7 +920,8 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
     }
   }
 
-  async function handleAddComment(postId) {
+  async function handleAddComment(postId, event) {
+    event?.stopPropagation?.()
     if (!commentText.trim()) return
     setSubmittingComment(true)
     try {
@@ -934,7 +942,7 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
         cur.map((p) => (p.postId === postId || p._id === postId ? data.post : p))
       )
       setCommentText('')
-      
+
       // Refresh comments
       await fetchCommentsForPost(postId)
     } catch (err) {
@@ -1031,6 +1039,98 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
       }
     }
   }
+
+  function handleOpenShareMenu(postId, event) {
+    const rect = event.target.getBoundingClientRect()
+    setShareMenuPosition({ x: rect.left, y: rect.bottom + 5 })
+    setShareMenuPostId(postId)
+  }
+
+  function handleCloseShareMenu() {
+    setShareMenuPostId(null)
+  }
+
+  async function handleDownloadPost(postId) {
+    try {
+      const post = posts.find((p) => p.postId === postId || p._id === postId)
+      if (!post) return
+
+      // Create a text file with post content
+      let content = `Post by ${post.author?.name || 'Unknown'}\n`
+      content += `${post.author?.role ? `Role: ${post.author.role}\n` : ''}`
+      content += `Date: ${new Date(post.createdAt).toLocaleString()}\n`
+      content += `\n${post.body || ''}\n`
+      
+      if (post.likes?.count) content += `\n❤️ ${post.likes.count} reaction${post.likes.count !== 1 ? 's' : ''}`
+      if (post.comments?.count) content += ` · ${post.comments.count} comment${post.comments.count !== 1 ? 's' : ''}`
+
+      const blob = new Blob([content], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `post-${postId}-${Date.now()}.txt`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+      handleCloseShareMenu()
+    } catch (err) {
+      console.error('Failed to download post', err)
+    }
+  }
+
+  async function handleRepostPost(postId) {
+    try {
+      const post = posts.find((p) => p.postId === postId || p._id === postId)
+      if (!post) return
+
+      setRepostingPostId(postId)
+      const headers = { 'Content-Type': 'application/json' }
+      const token = getStoredTokenForRole(userRole)
+      if (token) headers.authorization = `Bearer ${token}`
+
+      // Create a new post that reposts the original
+      const repostBody = `Repost: "${post.body || '(No text)'}"\n\n— Originally by ${post.author?.name || 'Unknown'}`
+      
+      const response = await fetch('/api/posts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          body: repostBody,
+          images: post.images || [],
+          visibility: 'public',
+        }),
+      })
+
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data?.message || 'Failed to repost')
+
+      // Add new post to the beginning of the feed
+      setPosts((cur) => [data.post, ...cur])
+      
+      handleCloseShareMenu()
+    } catch (err) {
+      console.error('Failed to repost', err)
+      alert('Failed to repost. Please try again.')
+    } finally {
+      setRepostingPostId(null)
+    }
+  }
+
+  // Close share menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (shareMenuRef.current && !shareMenuRef.current.contains(event.target)) {
+        handleCloseShareMenu()
+      }
+    }
+
+    if (shareMenuPostId) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [shareMenuPostId])
 
   return (
     <>
@@ -1371,7 +1471,7 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                   {/* Reaction counts and buttons row */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                     <div style={{ fontSize: '0.875rem', color: '#111827' }}>
-                      <span>❤️ {post.likes?.count || 0} reaction{(post.likes?.count || 0) !== 1 ? 's' : ''}</span>
+                      <span>❤️ {post.likes?.count || 0}</span>
                       <span style={{ margin: '0 0.5rem' }}>·</span>
                       <span>{post.comments?.count || 0} comment{(post.comments?.count || 0) !== 1 ? 's' : ''}</span>
                     </div>
@@ -1405,7 +1505,10 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                       </button>
                       <button
                         type="button"
-                        onClick={() => toggleComments(post.postId || post._id)}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          toggleComments(post.postId || post._id)
+                        }}
                         style={{
                           padding: '0.4rem 1rem',
                           border: '1px solid #cdd9e3',
@@ -1430,6 +1533,10 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                       </button>
                       <button
                         type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleOpenShareMenu(post.postId || post._id, e)
+                        }}
                         style={{
                           padding: '0.4rem 1rem',
                           border: '1px solid #cdd9e3',
@@ -1454,6 +1561,76 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                       </button>
                     </div>
                   </div>
+
+                  {/* Share menu */}
+                  {shareMenuPostId === (post.postId || post._id) && (
+                    <div
+                      ref={shareMenuRef}
+                      style={{
+                        position: 'fixed',
+                        top: `${shareMenuPosition.y}px`,
+                        left: `${shareMenuPosition.x}px`,
+                        background: '#fff',
+                        border: '1px solid #cdd9e3',
+                        borderRadius: '0.5rem',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                        zIndex: 1000,
+                        minWidth: '200px',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadPost(post.postId || post._id)}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '0.75rem 1rem',
+                          border: 'none',
+                          background: 'transparent',
+                          color: '#334155',
+                          fontSize: '0.875rem',
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          borderBottom: '1px solid #f0f0f0',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.background = '#f6f8fa'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.background = 'transparent'
+                        }}
+                      >
+                        📥 Download Post
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRepostPost(post.postId || post._id)}
+                        disabled={repostingPostId === (post.postId || post._id)}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '0.75rem 1rem',
+                          border: 'none',
+                          background: 'transparent',
+                          color: '#334155',
+                          fontSize: '0.875rem',
+                          textAlign: 'left',
+                          cursor: repostingPostId === (post.postId || post._id) ? 'not-allowed' : 'pointer',
+                          opacity: repostingPostId === (post.postId || post._id) ? 0.6 : 1,
+                        }}
+                        onMouseEnter={(e) => {
+                          if (repostingPostId !== (post.postId || post._id)) {
+                            e.target.style.background = '#f6f8fa'
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.background = 'transparent'
+                        }}
+                      >
+                        🔄 {repostingPostId === (post.postId || post._id) ? 'Reposting...' : 'Repost'}
+                      </button>
+                    </div>
+                  )}
 
                   {/* Comment section */}
                   {commentingPostId === (post.postId || post._id) && (
@@ -1506,6 +1683,8 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                         <textarea
                           value={commentText}
                           onChange={(e) => setCommentText(e.target.value)}
+                          onClick={(event) => event.stopPropagation()}
+                          onFocus={(event) => event.stopPropagation()}
                           placeholder="Add a comment..."
                           rows={2}
                           style={{
@@ -1524,7 +1703,7 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                       <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                         <button
                           type="button"
-                          onClick={() => handleAddComment(post.postId || post._id)}
+                          onClick={(event) => handleAddComment(post.postId || post._id, event)}
                           disabled={submittingComment || !commentText.trim()}
                           style={{
                             padding: '0.4rem 1rem',
@@ -1838,7 +2017,7 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                       {/* Reaction counts and buttons row */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                         <div style={{ fontSize: '0.875rem', color: '#666' }}>
-                          <span>❤️ {post.likes?.count || 0} reaction{(post.likes?.count || 0) !== 1 ? 's' : ''}</span>
+                          <span>❤️ {post.likes?.count || 0}</span>
                           <span style={{ margin: '0 0.5rem' }}>·</span>
                           <span>{post.comments?.count || 0} comment{(post.comments?.count || 0) !== 1 ? 's' : ''}</span>
                         </div>
@@ -1872,7 +2051,10 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                           </button>
                           <button
                             type="button"
-                            onClick={() => toggleComments(post.postId || post._id)}
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              toggleComments(post.postId || post._id)
+                            }}
                             style={{
                               padding: '0.4rem 1rem',
                               border: '1px solid #cdd9e3',
@@ -1897,6 +2079,10 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                           </button>
                           <button
                             type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleOpenShareMenu(post.postId || post._id, e)
+                            }}
                             style={{
                               padding: '0.4rem 1rem',
                               border: '1px solid #cdd9e3',
@@ -1921,6 +2107,76 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                           </button>
                         </div>
                       </div>
+
+                      {/* Share menu */}
+                      {shareMenuPostId === (post.postId || post._id) && (
+                        <div
+                          ref={shareMenuRef}
+                          style={{
+                            position: 'fixed',
+                            top: `${shareMenuPosition.y}px`,
+                            left: `${shareMenuPosition.x}px`,
+                            background: '#fff',
+                            border: '1px solid #cdd9e3',
+                            borderRadius: '0.5rem',
+                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                            zIndex: 1000,
+                            minWidth: '200px',
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadPost(post.postId || post._id)}
+                            style={{
+                              display: 'block',
+                              width: '100%',
+                              padding: '0.75rem 1rem',
+                              border: 'none',
+                              background: 'transparent',
+                              color: '#334155',
+                              fontSize: '0.875rem',
+                              textAlign: 'left',
+                              cursor: 'pointer',
+                              borderBottom: '1px solid #f0f0f0',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.background = '#f6f8fa'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.background = 'transparent'
+                            }}
+                          >
+                            📥 Download Post
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRepostPost(post.postId || post._id)}
+                            disabled={repostingPostId === (post.postId || post._id)}
+                            style={{
+                              display: 'block',
+                              width: '100%',
+                              padding: '0.75rem 1rem',
+                              border: 'none',
+                              background: 'transparent',
+                              color: '#334155',
+                              fontSize: '0.875rem',
+                              textAlign: 'left',
+                              cursor: repostingPostId === (post.postId || post._id) ? 'not-allowed' : 'pointer',
+                              opacity: repostingPostId === (post.postId || post._id) ? 0.6 : 1,
+                            }}
+                            onMouseEnter={(e) => {
+                              if (repostingPostId !== (post.postId || post._id)) {
+                                e.target.style.background = '#f6f8fa'
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.background = 'transparent'
+                            }}
+                          >
+                            🔄 {repostingPostId === (post.postId || post._id) ? 'Reposting...' : 'Repost'}
+                          </button>
+                        </div>
+                      )}
 
                       {/* Comment section */}
                       {commentingPostId === (post.postId || post._id) && (
@@ -1973,6 +2229,8 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                             <textarea
                               value={commentText}
                               onChange={(e) => setCommentText(e.target.value)}
+                              onClick={(event) => event.stopPropagation()}
+                              onFocus={(event) => event.stopPropagation()}
                               placeholder="Add a comment..."
                               rows={2}
                               style={{
@@ -1991,7 +2249,7 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                             <button
                               type="button"
-                              onClick={() => handleAddComment(post.postId || post._id)}
+                              onClick={(event) => handleAddComment(post.postId || post._id, event)}
                               disabled={submittingComment || !commentText.trim()}
                               style={{
                                 padding: '0.4rem 1rem',

@@ -1,7 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import Image from "next/image"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import styles from "./request.module.css"
 
@@ -63,6 +64,58 @@ const [preferredDate, setPreferredDate] = useState("")
   const [locating, setLocating] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
+  const [cameraOpen, setCameraOpen] = useState(false)
+  const [cameraError, setCameraError] = useState("")
+  const [verificationPhoto, setVerificationPhoto] = useState(null)
+  const videoRef = useRef(null)
+  const streamRef = useRef(null)
+
+  function stopCamera() {
+    streamRef.current?.getTracks().forEach((track) => track.stop())
+    streamRef.current = null
+    setCameraOpen(false)
+  }
+
+  async function openCamera() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError("Your browser does not support in-app camera access. Please use a supported browser.")
+      return
+    }
+
+    setCameraError("")
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
+      streamRef.current = stream
+      setCameraOpen(true)
+    } catch {
+      setCameraError("Camera access is required. Please allow camera permission and try again.")
+    }
+  }
+
+  useEffect(() => {
+    if (cameraOpen && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current
+    }
+  }, [cameraOpen])
+
+  useEffect(() => () => stopCamera(), [])
+
+  function capturePhoto() {
+    const video = videoRef.current
+    if (!video || video.readyState < 2) {
+      setCameraError("The camera is still starting. Please try again in a moment.")
+      return
+    }
+
+    const canvas = document.createElement("canvas")
+    const scale = Math.min(1, 1280 / video.videoWidth)
+    canvas.width = Math.round(video.videoWidth * scale)
+    canvas.height = Math.round(video.videoHeight * scale)
+    canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height)
+    setVerificationPhoto(canvas.toDataURL("image/jpeg", 0.82))
+    setCameraError("")
+    stopCamera()
+  }
 
   async function captureLocation() {
     if (typeof window === "undefined" || !("geolocation" in navigator)) {
@@ -126,6 +179,10 @@ const [preferredDate, setPreferredDate] = useState("")
       setError("Please sign in as a patient to request home care.")
       return
     }
+    if (!verificationPhoto) {
+      setError("Please take a live photo for identity verification before submitting.")
+      return
+    }
 
     setSubmitting(true)
     setError("")
@@ -133,6 +190,22 @@ const [preferredDate, setPreferredDate] = useState("")
       const headers = { "Content-Type": "application/json" }
       const token = getStoredToken()
       if (token) headers.authorization = `Bearer ${token}`
+
+      const photoBlob = await fetch(verificationPhoto).then((response) => response.blob())
+      const photoForm = new FormData()
+      photoForm.append("files", photoBlob, `home-care-verification-${Date.now()}.jpg`)
+      photoForm.append("ownerRef", patientId)
+      photoForm.append("purpose", "verification")
+      const photoResponse = await fetch("/api/uploads", {
+        method: "POST",
+        headers: token ? { authorization: `Bearer ${token}` } : {},
+        body: photoForm,
+      })
+      const photoData = await photoResponse.json().catch(() => ({}))
+      const uploadedPhoto = photoData?.files?.[0]
+      if (!photoResponse.ok || !uploadedPhoto?.url) {
+        throw new Error(photoData?.message || "Could not save the verification photo")
+      }
 
       const patientName = [auth?.patientFirstName, auth?.patientLastName].filter(Boolean).join(" ").trim() || "Patient"
 
@@ -151,6 +224,13 @@ body: JSON.stringify({
           emergencyContactPhone,
           patientName,
           patientPhone: auth?.patientPhone || "",
+          verificationPhoto: {
+            attachmentId: uploadedPhoto._id,
+            url: uploadedPhoto.url,
+            publicId: uploadedPhoto.publicId,
+            mimeType: uploadedPhoto.mimeType,
+            capturedAt: new Date().toISOString(),
+          },
         }),
       })
 
@@ -294,6 +374,27 @@ body: JSON.stringify({
           {step === 4 && (
             <div className={styles.stepBody}>
               <h2>Review your request</h2>
+              <div className={styles.verificationSection}>
+                <h3>Live identity verification *</h3>
+                <p className={styles.stepHint}>Take a live photo of yourself. This photo will be securely saved with your request.</p>
+                {verificationPhoto ? (
+                  <div className={styles.photoPreviewWrap}>
+                    <Image src={verificationPhoto} alt="Live verification preview" width={520} height={360} unoptimized className={styles.photoPreview} />
+                    <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={() => setVerificationPhoto(null)}>Retake photo</button>
+                  </div>
+                ) : cameraOpen ? (
+                  <div className={styles.cameraBox}>
+                    <video ref={videoRef} autoPlay muted playsInline className={styles.cameraVideo} />
+                    <div className={styles.cameraActions}>
+                      <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={capturePhoto}>Take photo</button>
+                      <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={stopCamera}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={openCamera}>Open camera</button>
+                )}
+                {cameraError ? <p className={styles.cameraError}>{cameraError}</p> : null}
+              </div>
               <div className={styles.reviewCard}>
                 <div className={styles.reviewRow}><span>Service type</span><strong>{SERVICE_TYPES.find((s) => s.value === serviceType)?.label || serviceType}</strong></div>
                 <div className={styles.reviewRow}><span>Description</span><strong>{description}</strong></div>
@@ -302,6 +403,7 @@ body: JSON.stringify({
                 <div className={styles.reviewRow}><span>Preferred date</span><strong>{preferredDate ? formatDate(preferredDate) : "Not set"}</strong></div>
                 <div className={styles.reviewRow}><span>Preferred time</span><strong>{preferredTime || "Not set"}</strong></div>
                 <div className={styles.reviewRow}><span>Emergency contact</span><strong>{[emergencyContactName, emergencyContactPhone].filter(Boolean).join(" · ") || "Not provided"}</strong></div>
+                <div className={styles.reviewRow}><span>Identity verification</span><strong>{verificationPhoto ? "Live photo captured" : "Required"}</strong></div>
               </div>
             </div>
           )}

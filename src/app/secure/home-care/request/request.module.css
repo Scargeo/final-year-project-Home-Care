@@ -251,6 +251,54 @@
   gap: 0.6rem;
 }
 
+.verificationSection {
+  margin-bottom: 1.25rem;
+  padding: 1rem;
+  border: 1px solid #d9e8f2;
+  border-radius: 14px;
+  background: #f8fcfd;
+}
+
+.verificationSection h3 {
+  margin: 0 0 0.35rem;
+  color: #102a43;
+}
+
+.cameraBox {
+  max-width: 520px;
+}
+
+.cameraVideo,
+.photoPreview {
+  display: block;
+  width: 100%;
+  max-height: 360px;
+  object-fit: cover;
+  border-radius: 12px;
+  background: #102a43;
+}
+
+.cameraActions,
+.photoPreviewWrap {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.photoPreviewWrap {
+  align-items: flex-start;
+  flex-direction: column;
+  max-width: 520px;
+}
+
+.cameraError {
+  margin: 0.75rem 0 0;
+  color: #be123c;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 .reviewRow {
   display: flex;
   justify-content: space-between;

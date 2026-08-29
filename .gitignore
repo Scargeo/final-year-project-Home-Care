@@ -8,6 +8,7 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+server/.env
 dist
 dist-ssr
 *.next
@@ -16,6 +17,7 @@ VULNERABILITY_FIX_REPORT.md
 VERIFICATION_CHECKLIST.md
 README_EMAIL_VERIFICATION.md
 note.txt
+.gitignore
 
 # Editor directories and files
 .vscode/*

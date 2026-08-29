@@ -40,6 +40,13 @@ const homeCareRequestSchema = new mongoose.Schema(
       trim: true,
       maxlength: 2000,
     },
+    verificationPhoto: {
+      attachmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Attachment', required: true },
+      url: { type: String, required: true, trim: true },
+      publicId: { type: String, required: true, trim: true },
+      mimeType: { type: String, default: 'image/jpeg', trim: true },
+      capturedAt: { type: Date, required: true },
+    },
     address: {
       type: String,
       default: '',
