@@ -1,3 +1,4 @@
+//const mongoose = require('mongoose');
 const Patient = require('../models/patient/patientRegistration');
 const Doctor = require('../models/privateHealthWorker/doctor/doctorRegistration');
 const Nurse = require('../models/privateHealthWorker/nurse/privateNurseRegistration');

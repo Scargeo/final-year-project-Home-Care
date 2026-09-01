@@ -85,6 +85,12 @@ export default function AuthSessionGuard() {
       const response = await originalFetch(...args)
       if (response.status !== 401 && response.status !== 403) return response
 
+      const requestUrl = args[0] instanceof Request ? args[0].url : String(args[0])
+      // Don't clear sessions or redirect during login/signup API calls
+      if (requestUrl.includes('/api/auth/login') || requestUrl.includes('/api/auth/verify-email') || requestUrl.includes('/api/patients/register') || requestUrl.includes('/api/doctors/register') || requestUrl.includes('/api/patients/login') || requestUrl.includes('/api/doctors/login')) {
+        return response
+      }
+
       const requestHeaders = new Headers(args[1]?.headers || (args[0] instanceof Request ? args[0].headers : undefined))
       const requestToken = requestHeaders.get("authorization")?.replace(/^Bearer\s+/i, "")
       const session = getStoredSessions().find(({ token }) => token && token === requestToken)

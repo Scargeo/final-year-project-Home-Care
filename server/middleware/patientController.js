@@ -158,11 +158,13 @@ const resendVerificationCode = async (req, res) => {
     }
 }
 
+//const mongoose = require('mongoose');
 const { signToken } = require('./jwtAuth')
 
 // Login controller function to handle patient login
 const loginPatient = async (req, res) => {
     try {
+
         const {patientEmail, patientPassword} = req.body;
         // Find the patient by email (must select password since it is excluded by default)
         const patient = await Patient.findOne({ patientEmail }).select('+patientPassword');

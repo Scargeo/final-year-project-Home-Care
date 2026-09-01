@@ -1634,52 +1634,44 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
 
                   {/* Comment section */}
                   {commentingPostId === (post.postId || post._id) && (
-                    <div ref={commentPanelRef} style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #e5eaef' }}>
+                    <div ref={commentPanelRef} className={styles.commentPanel}>
                       {/* Existing comments */}
                       {loadingComments[post.postId || post._id] ? (
-                        <p style={{ color: '#999', fontSize: '0.875rem', margin: '0.5rem 0' }}>Loading comments...</p>
+                        <p className={styles.commentLoading}>Loading comments...</p>
                       ) : (
                         <div className={styles.commentList}>
                           {(postComments[post.postId || post._id] || []).map((comment) => {
                             const canDeleteComment = comment.author?.id === currentUserId
                             return (
-                              <div key={comment.commentId} style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #f0f0f0' }}>
-                                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.3rem', alignItems: 'center' }}>
-                                  <strong style={{ fontSize: '0.875rem' }}>{comment.author?.name || (comment.author?.role === 'nurse' ? 'Unknown nurse' : comment.author?.role === 'doctor' ? 'Unknown doctor' : 'Unknown user')}</strong>
-                                  <span style={{ color: '#999', fontSize: '0.75rem' }}>· {comment.author?.role || 'user'}</span>
+                              <div key={comment.commentId} className={styles.commentItem}>
+                                <div className={styles.commentMetaRow}>
+                                  <strong className={styles.commentAuthor}>{comment.author?.name || (comment.author?.role === 'nurse' ? 'Unknown nurse' : comment.author?.role === 'doctor' ? 'Unknown doctor' : 'Unknown user')}</strong>
+                                  <span className={styles.commentRole}>· {comment.author?.role || 'user'}</span>
                                   {canDeleteComment ? (
                                     <button
                                       type="button"
                                       onClick={() => handleDeleteComment(post.postId || post._id, comment.commentId)}
-                                      style={{
-                                        marginLeft: 'auto',
-                                        padding: '0',
-                                        border: 'none',
-                                        background: 'transparent',
-                                        color: '#b42318',
-                                        fontSize: '0.75rem',
-                                        cursor: 'pointer',
-                                      }}
+                                      className={styles.commentDeleteButton}
                                     >
                                       Delete
                                     </button>
                                   ) : null}
                                 </div>
-                                <p style={{ margin: '0.25rem 0', fontSize: '0.875rem', lineHeight: 1.5 }}>{comment.text}</p>
-                                <small style={{ color: '#999', fontSize: '0.7rem' }}>
+                                <p className={styles.commentText}>{comment.text}</p>
+                                <small className={styles.commentTime}>
                                   {new Date(comment.createdAt).toLocaleString()}
                                 </small>
                               </div>
                             )
                           })}
                           {(postComments[post.postId || post._id] || []).length === 0 && (
-                            <p style={{ color: '#999', fontSize: '0.875rem', margin: '0.5rem 0' }}>No comments yet</p>
+                            <p className={styles.commentEmpty}>No comments yet</p>
                           )}
                         </div>
                       )}
 
                       {/* Comment input */}
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <div className={styles.commentComposer}>
                         <textarea
                           value={commentText}
                           onChange={(e) => setCommentText(e.target.value)}
@@ -1687,35 +1679,15 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                           onFocus={(event) => event.stopPropagation()}
                           placeholder="Add a comment..."
                           rows={2}
-                          style={{
-                            flex: 1,
-                            padding: '0.5rem',
-                            border: '1px solid #cdd9e3',
-                            borderRadius: '0.5rem',
-                            fontSize: '0.875rem',
-                            fontFamily: 'inherit',
-                            resize: 'vertical',
-                            background: '#fff',
-                            color: '#000',
-                          }}
+                          className={styles.commentInput}
                         />
                       </div>
-                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                      <div className={styles.commentActions}>
                         <button
                           type="button"
                           onClick={(event) => handleAddComment(post.postId || post._id, event)}
                           disabled={submittingComment || !commentText.trim()}
-                          style={{
-                            padding: '0.4rem 1rem',
-                            border: '1px solid #cdd9e3',
-                            background: '#0a66c2',
-                            color: '#fff',
-                            fontSize: '0.875rem',
-                            fontWeight: 700,
-                            borderRadius: '999px',
-                            cursor: submittingComment || !commentText.trim() ? 'not-allowed' : 'pointer',
-                            opacity: submittingComment || !commentText.trim() ? 0.6 : 1,
-                          }}
+                          className={styles.commentSubmitButton}
                         >
                           {submittingComment ? 'Posting...' : 'Post'}
                         </button>
