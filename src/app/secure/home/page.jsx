@@ -1225,10 +1225,6 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
               <span>📊</span>
               <span>Dashboard</span>
             </Link>
-<Link href="/secure/chat" className={styles.dropdownItem}>
-              <span>💬</span>
-              <span>Chats</span>
-            </Link>
             {!isProvider && (
               <Link href="/secure/home-care/request" className={styles.dropdownItem}>
                 <span>🏠</span>
@@ -1239,16 +1235,6 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
               <span>📅</span>
               <span>Appointments</span>
             </Link>
-            <Link href="/secure/health-records" className={styles.dropdownItem}>
-              <span>📋</span>
-              <span>Records</span>
-            </Link>
-            {!isProvider && (
-              <Link href="/secure/patient/consents" className={styles.dropdownItem}>
-                <span>✅</span>
-                <span>Consent Requests</span>
-              </Link>
-            )}
             <Link href="/secure/settings" className={styles.dropdownItem}>
               <span>⚙️</span>
               <span>Settings</span>
@@ -1274,10 +1260,6 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
           <span>📊</span>
           <span>Dashboard</span>
         </Link>
-<Link href="/secure/chat" className={styles.menuButton}>
-          <span>💬</span>
-          <span>Chats</span>
-        </Link>
         {!isProvider && (
           <Link href="/secure/home-care/request" className={styles.menuButton}>
             <span>🏠</span>
@@ -1288,16 +1270,6 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
           <span>📅</span>
           <span>Appointments</span>
         </Link>
-        <Link href="/secure/health-records" className={styles.menuButton}>
-          <span>📋</span>
-          <span>Records</span>
-        </Link>
-        {!isProvider && (
-          <Link href="/secure/patient/consents" className={styles.menuButton}>
-            <span>✅</span>
-            <span>Consents</span>
-          </Link>
-        )}
         <Link href="/secure/settings" className={styles.menuButton}>
           <span>⚙️</span>
           <span>Settings</span>

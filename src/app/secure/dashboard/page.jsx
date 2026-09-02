@@ -45,12 +45,6 @@ const QUICK_ACTIONS = [
     icon: "📅",
   },
   {
-    href: "/secure/chat",
-    title: "Messages",
-    text: "Continue conversations with your care team and follow-ups.",
-    icon: "💬",
-  },
-  {
     href: "/secure/health-records",
     title: "Health Records",
     text: "View and upload medical records, prescriptions, and lab results.",
