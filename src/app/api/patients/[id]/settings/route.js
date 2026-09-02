@@ -1,6 +1,38 @@
 import { NextResponse } from 'next/server'
 import { getBackendBaseUrl } from '../../../../../lib/backend-url'
 
+export async function GET(req, context) {
+  try {
+    const { id } = await context.params
+
+    if (!id) {
+      return NextResponse.json({ message: 'Missing patient ID' }, { status: 400 })
+    }
+
+    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || ''
+    const response = await fetch(`${getBackendBaseUrl()}/api/patients/${encodeURIComponent(id)}/settings`, {
+      method: 'GET',
+      headers: {
+        authorization: authHeader,
+      },
+    })
+
+    const data = await response.json().catch(() => ({}))
+
+    if (!response.ok) {
+      return NextResponse.json(data || { message: 'Failed to fetch patient settings' }, { status: response.status })
+    }
+
+    return NextResponse.json(data, { status: 200 })
+  } catch (error) {
+    console.error('Error fetching patient settings:', error)
+    return NextResponse.json(
+      { message: 'Failed to fetch patient settings', error: error.message },
+      { status: 500 }
+    )
+  }
+}
+
 export async function PATCH(req, context) {
   try {
     const { id } = await context.params

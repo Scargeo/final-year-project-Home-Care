@@ -193,18 +193,24 @@ export default function DashboardPage() {
           return
         }
 
-        const nextProfile = data?.patient || null
+        const nextProfile = data?.patient || data?.profile || null
         if (!nextProfile) return
 
-        setPatientProfile(nextProfile)
-        setPatientName([nextProfile.patientFirstName, nextProfile.patientLastName].filter(Boolean).join(' ').trim() || nextProfile.patientFirstName || 'Patient')
-        if (nextProfile.profileImage?.url) {
-          setProfileImage(nextProfile.profileImage)
+        const mergedProfile = {
+          ...(stored || {}),
+          ...nextProfile,
+          patientPhone: nextProfile.patientPhone || nextProfile.phone || stored?.patientPhone || '',
+          patientAddress: nextProfile.patientAddress || nextProfile.address || stored?.patientAddress || '',
+        }
+
+        setPatientProfile(mergedProfile)
+        setPatientName([mergedProfile.patientFirstName, mergedProfile.patientLastName].filter(Boolean).join(' ').trim() || mergedProfile.patientFirstName || 'Patient')
+        if (mergedProfile.profileImage?.url) {
+          setProfileImage(mergedProfile.profileImage)
         }
 
         try {
-          const updatedAuth = { ...(stored || {}), ...nextProfile }
-          window.localStorage.setItem('patientAuth', JSON.stringify(updatedAuth))
+          window.localStorage.setItem('patientAuth', JSON.stringify(mergedProfile))
         } catch (storageError) {
           console.error('Failed to sync patient profile to localStorage', storageError)
         }

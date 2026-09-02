@@ -320,6 +320,68 @@ const currentUserId = doctorId || nurseId || patientId || null
     commentOpenRef.current = Boolean(commentingPostId)
   }, [commentingPostId])
 
+  useEffect(() => {
+    if (userRole !== "patient") return
+
+    const auth = getStoredAuth()
+    const resolvedPatientId = auth?.patientId || auth?.id || auth?._id
+    if (!resolvedPatientId) return
+
+    let active = true
+
+    async function loadPatientProfile() {
+      try {
+        const headers = {}
+        const token = getStoredTokenForRole(userRole)
+        if (token) headers.authorization = `Bearer ${token}`
+
+        const response = await fetch(`/api/patients/${encodeURIComponent(resolvedPatientId)}/settings`, {
+          cache: "no-store",
+          headers,
+        })
+
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok) {
+          throw new Error(data?.message || "Could not load patient profile")
+        }
+
+        if (!active) return
+
+        const nextProfile = data?.patient || data?.profile || data || null
+        if (!nextProfile) return
+
+        const mergedAuth = {
+          ...(auth || {}),
+          ...nextProfile,
+          patientPhone: nextProfile.patientPhone || nextProfile.phone || auth?.patientPhone || '',
+          patientAddress: nextProfile.patientAddress || nextProfile.address || auth?.patientAddress || '',
+        }
+
+        setStoredAuth(mergedAuth)
+        setPatientId(nextProfile.patientId || nextProfile.id || nextProfile._id || resolvedPatientId)
+
+        if (mergedAuth.profileImage?.url) {
+          setProfileImage(mergedAuth.profileImage)
+        }
+
+        if (typeof window !== "undefined") {
+          try {
+            window.localStorage.setItem("patientAuth", JSON.stringify(mergedAuth))
+          } catch (storageError) {
+            console.error("Failed to sync patient profile to localStorage", storageError)
+          }
+        }
+      } catch (error) {
+        console.warn("Patient profile fetch failed for mobile dashboard", error)
+      }
+    }
+
+    loadPatientProfile()
+
+    return () => {
+      active = false
+    }
+  }, [userRole, patientId])
 
   useEffect(() => {
     function handleOutsideClick(event) {
