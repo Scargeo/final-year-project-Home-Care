@@ -255,20 +255,18 @@ const [posts, setPosts] = useState([])
   const [postsLoading, setPostsLoading] = useState(true)
   const [postsError, setPostsError] = useState("")
   const postImageInputRef = useRef(null)
-  const [commentingPostId, setCommentingPostId] = useState(null)
-  const [commentText, setCommentText] = useState('')
-  const [submittingComment, setSubmittingComment] = useState(false)
-  const [postComments, setPostComments] = useState({})
-  const [loadingComments, setLoadingComments] = useState({})
   const [shareMenuPostId, setShareMenuPostId] = useState(null)
   const [repostingPostId, setRepostingPostId] = useState(null)
   const [shareMenuPosition, setShareMenuPosition] = useState({ x: 0, y: 0 })
+  const [commentOpenPostId, setCommentOpenPostId] = useState(null)
+  const [commentDrafts, setCommentDrafts] = useState({})
+  const [commentsByPost, setCommentsByPost] = useState({})
+  const [commentLoadingByPost, setCommentLoadingByPost] = useState({})
+  const [commentSubmittingByPost, setCommentSubmittingByPost] = useState({})
   // Doctor AI lab interpretation state
   // Doctor AI lab interpretation state (moved to doctor dashboard)
   const headerRef = useRef(null)
   const profileCardRef = useRef(null)
-  const commentPanelRef = useRef(null)
-  const commentOpenRef = useRef(false)
   const shareMenuRef = useRef(null)
   const aiInputRef = useRef(null)
   const aiThreadRef = useRef(null)
@@ -315,10 +313,6 @@ const currentUserId = doctorId || nurseId || patientId || null
     // Delay browser-dependent header controls until after hydration so SSR and client markup stay aligned.
     setIsHydrated(true)
   }, [])
-
-  useEffect(() => {
-    commentOpenRef.current = Boolean(commentingPostId)
-  }, [commentingPostId])
 
   useEffect(() => {
     if (userRole !== "patient") return
@@ -390,10 +384,6 @@ const currentUserId = doctorId || nurseId || patientId || null
       }
       if (profileCardRef.current && !profileCardRef.current.contains(event.target)) {
         setProfileDropdownOpen(false)
-      }
-      if (commentOpenRef.current && commentPanelRef.current && !commentPanelRef.current.contains(event.target)) {
-        setCommentingPostId(null)
-        setCommentText('')
       }
     }
 
@@ -991,61 +981,6 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
     }
   }
 
-  async function handleAddComment(postId, event) {
-    event?.stopPropagation?.()
-    if (!commentText.trim()) return
-    setSubmittingComment(true)
-    try {
-      const headers = { 'Content-Type': 'application/json' }
-      const token = getStoredTokenForRole(userRole)
-      if (token) headers.authorization = `Bearer ${token}`
-
-      const response = await fetch(`/api/posts/${encodeURIComponent(postId)}/comments`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ text: commentText.trim() }),
-      })
-      const data = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(data?.message || 'Failed to add comment')
-
-      // Update posts list with updated post
-      setPosts((cur) =>
-        cur.map((p) => (p.postId === postId || p._id === postId ? data.post : p))
-      )
-      setCommentText('')
-
-      // Refresh comments
-      await fetchCommentsForPost(postId)
-    } catch (err) {
-      console.error('Failed to add comment', err)
-    } finally {
-      setSubmittingComment(false)
-    }
-  }
-
-  async function handleDeleteComment(postId, commentId) {
-    try {
-      const headers = {}
-      const token = getStoredTokenForRole(userRole)
-      if (token) headers.authorization = `Bearer ${token}`
-
-      const response = await fetch(`/api/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}`, {
-        method: 'DELETE',
-        headers,
-      })
-      const data = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(data?.message || 'Failed to delete comment')
-
-      setPosts((cur) => cur.map((p) => (p.postId === postId || p._id === postId ? data.post : p)))
-      setPostComments((cur) => ({
-        ...cur,
-        [postId]: data.post?.comments?.list || [],
-      }))
-    } catch (err) {
-      console.error('Failed to delete comment', err)
-    }
-  }
-
   async function handleDeletePost(postId) {
     if (!window.confirm('Delete this post? This cannot be undone.')) return
 
@@ -1062,63 +997,140 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
       if (!response.ok) throw new Error(data?.message || 'Failed to delete post')
 
       setPosts((cur) => cur.filter((p) => (p.postId || p._id) !== postId))
-      setPostComments((cur) => {
-        const next = { ...cur }
-        delete next[postId]
-        return next
-      })
-      if (commentingPostId === postId) {
-        setCommentingPostId(null)
-        setCommentText('')
-      }
     } catch (err) {
       console.error('Failed to delete post', err)
     }
   }
 
-  async function fetchCommentsForPost(postId) {
-    try {
-      setLoadingComments((cur) => ({ ...cur, [postId]: true }))
-      const headers = {}
-      const token = getStoredTokenForRole(userRole)
-      if (token) headers.authorization = `Bearer ${token}`
-
-      const response = await fetch(`/api/posts/${encodeURIComponent(postId)}/comments`, {
-        method: 'GET',
-        headers,
-      })
-      const data = await response.json().catch(() => ({ comments: [], count: 0 }))
-      
-      setPostComments((cur) => ({ ...cur, [postId]: data.comments || [] }))
-    } catch (err) {
-      console.error('Failed to fetch comments', err)
-    } finally {
-      setLoadingComments((cur) => ({ ...cur, [postId]: false }))
-    }
-  }
-
-  // Lab interpretation moved to doctor dashboard
-
-  function toggleComments(postId) {
-    if (commentingPostId === postId) {
-      setCommentingPostId(null)
-    } else {
-      setCommentingPostId(postId)
-      // Fetch comments if not already loaded
-      if (!postComments[postId]) {
-        fetchCommentsForPost(postId)
-      }
-    }
-  }
-
   function handleOpenShareMenu(postId, event) {
     const rect = event.target.getBoundingClientRect()
-    setShareMenuPosition({ x: rect.left, y: rect.bottom + 5 })
+    const menuWidth = 220
+    const menuHeight = 132
+    const padding = 12
+    const x = Math.min(Math.max(rect.left, padding), Math.max(padding, window.innerWidth - menuWidth - padding))
+    const y = Math.min(Math.max(rect.bottom + 5, padding), Math.max(padding, window.innerHeight - menuHeight - padding))
+
+    setShareMenuPosition({ x, y })
     setShareMenuPostId(postId)
   }
 
   function handleCloseShareMenu() {
     setShareMenuPostId(null)
+  }
+
+  const fetchCommentsForPost = useCallback(async (postId) => {
+    if (!postId) return []
+
+    const headers = {}
+    const token = getStoredTokenForRole(userRole)
+    if (token) headers.authorization = `Bearer ${token}`
+
+    setCommentLoadingByPost((cur) => ({ ...cur, [postId]: true }))
+
+    try {
+      const response = await fetch(`/api/posts/${encodeURIComponent(postId)}/comments`, {
+        cache: 'no-store',
+        headers,
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data?.message || 'Failed to load comments')
+
+      const comments = Array.isArray(data?.comments) ? data.comments : []
+      setCommentsByPost((cur) => ({ ...cur, [postId]: comments }))
+
+      setPosts((cur) => cur.map((post) => {
+        const key = post.postId || post._id
+        if (key !== postId) return post
+        return {
+          ...post,
+          comments: {
+            ...(post.comments || {}),
+            count: Number(data?.count ?? comments.length ?? post.comments?.count ?? 0),
+            list: comments,
+          },
+        }
+      }))
+
+      return comments
+    } catch (err) {
+      console.error('Failed to fetch comments for post', postId, err)
+      return []
+    } finally {
+      setCommentLoadingByPost((cur) => {
+        const next = { ...cur }
+        delete next[postId]
+        return next
+      })
+    }
+  }, [userRole])
+
+  async function handleToggleComments(postId) {
+    if (!postId) return
+
+    if (commentOpenPostId === postId) {
+      setCommentOpenPostId(null)
+      return
+    }
+
+    setCommentOpenPostId(postId)
+    if (!commentsByPost[postId]) {
+      await fetchCommentsForPost(postId)
+    }
+  }
+
+  async function handleSubmitComment(postId) {
+    const text = (commentDrafts[postId] || '').trim()
+    if (!text || !postId) return
+
+    const headers = { 'Content-Type': 'application/json' }
+    const token = getStoredTokenForRole(userRole)
+    if (token) headers.authorization = `Bearer ${token}`
+
+    setCommentSubmittingByPost((cur) => ({ ...cur, [postId]: true }))
+
+    try {
+      const response = await fetch(`/api/posts/${encodeURIComponent(postId)}/comments`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ text }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data?.message || 'Failed to add comment')
+
+      setCommentDrafts((cur) => ({ ...cur, [postId]: '' }))
+      await fetchCommentsForPost(postId)
+    } catch (err) {
+      console.error('Failed to submit comment', err)
+      alert('Failed to post your comment. Please try again.')
+    } finally {
+      setCommentSubmittingByPost((cur) => {
+        const next = { ...cur }
+        delete next[postId]
+        return next
+      })
+    }
+  }
+
+  async function handleDeleteComment(postId, commentId) {
+    if (!postId || !commentId) return
+
+    const headers = {}
+    const token = getStoredTokenForRole(userRole)
+    if (token) headers.authorization = `Bearer ${token}`
+
+    try {
+      const response = await fetch(`/api/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}`, {
+        method: 'DELETE',
+        headers,
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data?.message || 'Failed to delete comment')
+
+      await fetchCommentsForPost(postId)
+    } catch (err) {
+      console.error('Failed to delete comment', err)
+      alert('Failed to delete your comment. Please try again.')
+    }
   }
 
   async function handleDownloadPost(postId) {
@@ -1548,15 +1560,12 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                       </button>
                       <button
                         type="button"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          toggleComments(post.postId || post._id)
-                        }}
+                        onClick={() => handleToggleComments(post.postId || post._id)}
                         style={{
                           padding: '0.4rem 1rem',
                           border: '1px solid #cdd9e3',
-                          background: commentingPostId === (post.postId || post._id) ? '#0a66c2' : '#fff',
-                          color: commentingPostId === (post.postId || post._id) ? '#fff' : '#334155',
+                          background: commentOpenPostId === (post.postId || post._id) ? '#eaf3ff' : '#fff',
+                          color: '#334155',
                           fontSize: '0.875rem',
                           fontWeight: 500,
                           borderRadius: '999px',
@@ -1564,11 +1573,11 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                           transition: 'all 150ms ease',
                         }}
                         onMouseEnter={(e) => {
-                          e.target.style.background = commentingPostId === (post.postId || post._id) ? '#0a4fa0' : '#f6f8fa'
+                          e.target.style.background = commentOpenPostId === (post.postId || post._id) ? '#dfeeff' : '#f6f8fa'
                           e.target.style.borderColor = '#999'
                         }}
                         onMouseLeave={(e) => {
-                          e.target.style.background = commentingPostId === (post.postId || post._id) ? '#0a66c2' : '#fff'
+                          e.target.style.background = commentOpenPostId === (post.postId || post._id) ? '#eaf3ff' : '#fff'
                           e.target.style.borderColor = '#cdd9e3'
                         }}
                       >
@@ -1576,20 +1585,26 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                       </button>
                       <button
                         type="button"
+                        aria-label="Share"
                         onClick={(e) => {
                           e.stopPropagation()
                           handleOpenShareMenu(post.postId || post._id, e)
                         }}
                         style={{
-                          padding: '0.4rem 1rem',
+                          padding: '0.4rem 0.8rem',
                           border: '1px solid #cdd9e3',
                           background: '#fff',
                           color: '#334155',
-                          fontSize: '0.875rem',
-                          fontWeight: 500,
+                          fontSize: '1rem',
+                          fontWeight: 600,
                           borderRadius: '999px',
                           cursor: 'pointer',
                           transition: 'all 150ms ease',
+                          lineHeight: 1,
+                          minWidth: '2.75rem',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
                         }}
                         onMouseEnter={(e) => {
                           e.target.style.background = '#f6f8fa'
@@ -1600,10 +1615,69 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                           e.target.style.borderColor = '#cdd9e3'
                         }}
                       >
-                        Share
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                          <path d="M15 8L9 12L15 16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M5 12C5 8.68629 7.68629 6 11 6H13.5C16.8137 6 19.5 8.68629 19.5 12C19.5 15.3137 16.8137 18 13.5 18H11C7.68629 18 5 15.3137 5 12Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
                       </button>
                     </div>
                   </div>
+
+                  {commentOpenPostId === (post.postId || post._id) && (
+                    <div className={styles.commentPanel}>
+                      <div className={styles.commentList}>
+                        {commentLoadingByPost[post.postId || post._id] ? (
+                          <p className={styles.commentLoading}>Loading comments…</p>
+                        ) : (commentsByPost[post.postId || post._id] || []).length === 0 ? (
+                          <p className={styles.commentEmpty}>No comments yet. Start the conversation.</p>
+                        ) : (
+                          (commentsByPost[post.postId || post._id] || []).map((comment) => (
+                            <div key={comment.commentId || `${comment.author?.id || 'unknown'}-${comment.createdAt || Math.random()}`} className={styles.commentItem}>
+                              <div className={styles.commentMetaRow}>
+                                <span className={styles.commentAuthor}>{comment.author?.name || 'Anonymous'}</span>
+                                {comment.author?.role ? <span className={styles.commentRole}>{comment.author.role}</span> : null}
+                                {comment.createdAt ? <span className={styles.commentTime}>{getPostAgeLabel(comment.createdAt)}</span> : null}
+                                {comment.author?.id === currentUserId || (comment.author && comment.author.id === currentUserId) ? (
+                                  <button
+                                    type="button"
+                                    className={styles.commentDeleteButton}
+                                    onClick={() => handleDeleteComment(post.postId || post._id, comment.commentId)}
+                                  >
+                                    Delete
+                                  </button>
+                                ) : null}
+                              </div>
+                              <p className={styles.commentText}>{comment.text}</p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      <div className={styles.commentComposer}>
+                        <input
+                          type="text"
+                          value={commentDrafts[post.postId || post._id] || ''}
+                          onChange={(event) => setCommentDrafts((cur) => ({ ...cur, [post.postId || post._id]: event.target.value }))}
+                          placeholder="Write a comment..."
+                          className={styles.commentInput}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' && !event.shiftKey) {
+                              event.preventDefault()
+                              handleSubmitComment(post.postId || post._id)
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className={styles.commentSubmitButton}
+                          onClick={() => handleSubmitComment(post.postId || post._id)}
+                          disabled={commentSubmittingByPost[post.postId || post._id] || !(commentDrafts[post.postId || post._id] || '').trim()}
+                        >
+                          {commentSubmittingByPost[post.postId || post._id] ? 'Posting...' : 'Post'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Share menu */}
                   {shareMenuPostId === (post.postId || post._id) && (
@@ -1615,10 +1689,12 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                         left: `${shareMenuPosition.x}px`,
                         background: '#fff',
                         border: '1px solid #cdd9e3',
-                        borderRadius: '0.5rem',
-                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                        borderRadius: '0.75rem',
+                        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.16)',
                         zIndex: 1000,
-                        minWidth: '200px',
+                        width: 'min(220px, calc(100vw - 24px))',
+                        maxWidth: 'calc(100vw - 24px)',
+                        overflow: 'hidden',
                       }}
                     >
                       <button
@@ -1675,68 +1751,6 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                     </div>
                   )}
 
-                  {/* Comment section */}
-                  {commentingPostId === (post.postId || post._id) && (
-                    <div ref={commentPanelRef} className={styles.commentPanel}>
-                      {/* Existing comments */}
-                      {loadingComments[post.postId || post._id] ? (
-                        <p className={styles.commentLoading}>Loading comments...</p>
-                      ) : (
-                        <div className={styles.commentList}>
-                          {(postComments[post.postId || post._id] || []).map((comment) => {
-                            const canDeleteComment = comment.author?.id === currentUserId
-                            return (
-                              <div key={comment.commentId} className={styles.commentItem}>
-                                <div className={styles.commentMetaRow}>
-                                  <strong className={styles.commentAuthor}>{comment.author?.name || (comment.author?.role === 'nurse' ? 'Unknown nurse' : comment.author?.role === 'doctor' ? 'Unknown doctor' : 'Unknown user')}</strong>
-                                  <span className={styles.commentRole}>· {comment.author?.role || 'user'}</span>
-                                  {canDeleteComment ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteComment(post.postId || post._id, comment.commentId)}
-                                      className={styles.commentDeleteButton}
-                                    >
-                                      Delete
-                                    </button>
-                                  ) : null}
-                                </div>
-                                <p className={styles.commentText}>{comment.text}</p>
-                                <small className={styles.commentTime}>
-                                  {new Date(comment.createdAt).toLocaleString()}
-                                </small>
-                              </div>
-                            )
-                          })}
-                          {(postComments[post.postId || post._id] || []).length === 0 && (
-                            <p className={styles.commentEmpty}>No comments yet</p>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Comment input */}
-                      <div className={styles.commentComposer}>
-                        <textarea
-                          value={commentText}
-                          onChange={(e) => setCommentText(e.target.value)}
-                          onClick={(event) => event.stopPropagation()}
-                          onFocus={(event) => event.stopPropagation()}
-                          placeholder="Add a comment..."
-                          rows={2}
-                          className={styles.commentInput}
-                        />
-                      </div>
-                      <div className={styles.commentActions}>
-                        <button
-                          type="button"
-                          onClick={(event) => handleAddComment(post.postId || post._id, event)}
-                          disabled={submittingComment || !commentText.trim()}
-                          className={styles.commentSubmitButton}
-                        >
-                          {submittingComment ? 'Posting...' : 'Post'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </article>
               )
             })}
@@ -2066,15 +2080,12 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                           </button>
                           <button
                             type="button"
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              toggleComments(post.postId || post._id)
-                            }}
+                            onClick={() => handleToggleComments(post.postId || post._id)}
                             style={{
                               padding: '0.4rem 1rem',
                               border: '1px solid #cdd9e3',
-                              background: commentingPostId === (post.postId || post._id) ? '#0a66c2' : '#fff',
-                              color: commentingPostId === (post.postId || post._id) ? '#fff' : '#334155',
+                              background: commentOpenPostId === (post.postId || post._id) ? '#eaf3ff' : '#fff',
+                              color: '#334155',
                               fontSize: '0.875rem',
                               fontWeight: 500,
                               borderRadius: '999px',
@@ -2082,11 +2093,11 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                               transition: 'all 150ms ease',
                             }}
                             onMouseEnter={(e) => {
-                              e.target.style.background = commentingPostId === (post.postId || post._id) ? '#0a4fa0' : '#f6f8fa'
+                              e.target.style.background = commentOpenPostId === (post.postId || post._id) ? '#dfeeff' : '#f6f8fa'
                               e.target.style.borderColor = '#999'
                             }}
                             onMouseLeave={(e) => {
-                              e.target.style.background = commentingPostId === (post.postId || post._id) ? '#0a66c2' : '#fff'
+                              e.target.style.background = commentOpenPostId === (post.postId || post._id) ? '#eaf3ff' : '#fff'
                               e.target.style.borderColor = '#cdd9e3'
                             }}
                           >
@@ -2094,20 +2105,26 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                           </button>
                           <button
                             type="button"
+                            aria-label="Share"
                             onClick={(e) => {
                               e.stopPropagation()
                               handleOpenShareMenu(post.postId || post._id, e)
                             }}
                             style={{
-                              padding: '0.4rem 1rem',
+                              padding: '0.4rem 0.8rem',
                               border: '1px solid #cdd9e3',
                               background: '#fff',
                               color: '#334155',
-                              fontSize: '0.875rem',
-                              fontWeight: 500,
+                              fontSize: '1rem',
+                              fontWeight: 600,
                               borderRadius: '999px',
                               cursor: 'pointer',
                               transition: 'all 150ms ease',
+                              lineHeight: 1,
+                              minWidth: '2.75rem',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
                             }}
                             onMouseEnter={(e) => {
                               e.target.style.background = '#f6f8fa'
@@ -2118,10 +2135,69 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                               e.target.style.borderColor = '#cdd9e3'
                             }}
                           >
-                            Share
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                              <path d="M15 8L9 12L15 16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                              <path d="M5 12C5 8.68629 7.68629 6 11 6H13.5C16.8137 6 19.5 8.68629 19.5 12C19.5 15.3137 16.8137 18 13.5 18H11C7.68629 18 5 15.3137 5 12Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
                           </button>
                         </div>
                       </div>
+
+                      {commentOpenPostId === (post.postId || post._id) && (
+                        <div className={styles.commentPanel}>
+                          <div className={styles.commentList}>
+                            {commentLoadingByPost[post.postId || post._id] ? (
+                              <p className={styles.commentLoading}>Loading comments…</p>
+                            ) : (commentsByPost[post.postId || post._id] || []).length === 0 ? (
+                              <p className={styles.commentEmpty}>No comments yet. Start the conversation.</p>
+                            ) : (
+                              (commentsByPost[post.postId || post._id] || []).map((comment) => (
+                                <div key={comment.commentId || `${comment.author?.id || 'unknown'}-${comment.createdAt || Math.random()}`} className={styles.commentItem}>
+                                  <div className={styles.commentMetaRow}>
+                                    <span className={styles.commentAuthor}>{comment.author?.name || 'Anonymous'}</span>
+                                    {comment.author?.role ? <span className={styles.commentRole}>{comment.author.role}</span> : null}
+                                    {comment.createdAt ? <span className={styles.commentTime}>{getPostAgeLabel(comment.createdAt)}</span> : null}
+                                    {comment.author?.id === currentUserId || (comment.author && comment.author.id === currentUserId) ? (
+                                      <button
+                                        type="button"
+                                        className={styles.commentDeleteButton}
+                                        onClick={() => handleDeleteComment(post.postId || post._id, comment.commentId)}
+                                      >
+                                        Delete
+                                      </button>
+                                    ) : null}
+                                  </div>
+                                  <p className={styles.commentText}>{comment.text}</p>
+                                </div>
+                              ))
+                            )}
+                          </div>
+
+                          <div className={styles.commentComposer}>
+                            <input
+                              type="text"
+                              value={commentDrafts[post.postId || post._id] || ''}
+                              onChange={(event) => setCommentDrafts((cur) => ({ ...cur, [post.postId || post._id]: event.target.value }))}
+                              placeholder="Write a comment..."
+                              className={styles.commentInput}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' && !event.shiftKey) {
+                                  event.preventDefault()
+                                  handleSubmitComment(post.postId || post._id)
+                                }
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className={styles.commentSubmitButton}
+                              onClick={() => handleSubmitComment(post.postId || post._id)}
+                              disabled={commentSubmittingByPost[post.postId || post._id] || !(commentDrafts[post.postId || post._id] || '').trim()}
+                            >
+                              {commentSubmittingByPost[post.postId || post._id] ? 'Posting...' : 'Post'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Share menu */}
                       {shareMenuPostId === (post.postId || post._id) && (
@@ -2133,10 +2209,12 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                             left: `${shareMenuPosition.x}px`,
                             background: '#fff',
                             border: '1px solid #cdd9e3',
-                            borderRadius: '0.5rem',
-                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                            borderRadius: '0.75rem',
+                            boxShadow: '0 8px 24px rgba(15, 23, 42, 0.16)',
                             zIndex: 1000,
-                            minWidth: '200px',
+                            width: 'min(220px, calc(100vw - 24px))',
+                            maxWidth: 'calc(100vw - 24px)',
+                            overflow: 'hidden',
                           }}
                         >
                           <button
@@ -2193,96 +2271,6 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                         </div>
                       )}
 
-                      {/* Comment section */}
-                      {commentingPostId === (post.postId || post._id) && (
-                        <div ref={commentPanelRef} style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #e5eaef' }}>
-                          {/* Existing comments */}
-                          {loadingComments[post.postId || post._id] ? (
-                            <p style={{ color: '#999', fontSize: '0.875rem', margin: '0.5rem 0' }}>Loading comments...</p>
-                          ) : (
-                            <div className={styles.commentList}>
-                              {(postComments[post.postId || post._id] || []).map((comment) => {
-                                const canDeleteComment = comment.author?.id === currentUserId
-                                return (
-                                  <div key={comment.commentId} style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #f0f0f0' }}>
-                                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.3rem', alignItems: 'center' }}>
-                                      <strong style={{ fontSize: '0.875rem' }}>{comment.author?.name || (comment.author?.role === 'nurse' ? 'Unknown nurse' : comment.author?.role === 'doctor' ? 'Unknown doctor' : 'Unknown user')}</strong>
-                                      <span style={{ color: '#999', fontSize: '0.75rem' }}>· {comment.author?.role || 'user'}</span>
-                                      {canDeleteComment ? (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleDeleteComment(post.postId || post._id, comment.commentId)}
-                                          style={{
-                                            marginLeft: 'auto',
-                                            padding: '0',
-                                            border: 'none',
-                                            background: 'transparent',
-                                            color: '#b42318',
-                                            fontSize: '0.75rem',
-                                            cursor: 'pointer',
-                                          }}
-                                        >
-                                          Delete
-                                        </button>
-                                      ) : null}
-                                    </div>
-                                    <p style={{ margin: '0.25rem 0', fontSize: '0.875rem', lineHeight: 1.5 }}>{comment.text}</p>
-                                    <small style={{ color: '#999', fontSize: '0.7rem' }}>
-                                      {new Date(comment.createdAt).toLocaleString()}
-                                    </small>
-                                  </div>
-                                )
-                              })}
-                              {(postComments[post.postId || post._id] || []).length === 0 && (
-                                <p style={{ color: '#999', fontSize: '0.875rem', margin: '0.5rem 0' }}>No comments yet</p>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Comment input */}
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <textarea
-                              value={commentText}
-                              onChange={(e) => setCommentText(e.target.value)}
-                              onClick={(event) => event.stopPropagation()}
-                              onFocus={(event) => event.stopPropagation()}
-                              placeholder="Add a comment..."
-                              rows={2}
-                              style={{
-                                flex: 1,
-                                padding: '0.5rem',
-                                border: '1px solid #cdd9e3',
-                                borderRadius: '0.5rem',
-                                fontSize: '0.875rem',
-                                fontFamily: 'inherit',
-                                resize: 'vertical',
-                                background: '#fff',
-                                color: '#000',
-                              }}
-                            />
-                          </div>
-                          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                            <button
-                              type="button"
-                              onClick={(event) => handleAddComment(post.postId || post._id, event)}
-                              disabled={submittingComment || !commentText.trim()}
-                              style={{
-                                padding: '0.4rem 1rem',
-                                border: '1px solid #cdd9e3',
-                                background: '#0a66c2',
-                                color: '#fff',
-                                fontSize: '0.875rem',
-                                fontWeight: 700,
-                                borderRadius: '999px',
-                                cursor: submittingComment || !commentText.trim() ? 'not-allowed' : 'pointer',
-                                opacity: submittingComment || !commentText.trim() ? 0.6 : 1,
-                              }}
-                            >
-                              {submittingComment ? 'Posting...' : 'Post'}
-                            </button>
-                          </div>
-                        </div>
-                      )}
                     </article>
                   )
                 })}
