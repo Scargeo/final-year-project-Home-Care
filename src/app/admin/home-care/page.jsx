@@ -402,6 +402,19 @@ export default function AdminHomeCarePage() {
                   )}
                 </div>
 
+                {selected.assignedNurse ? (
+                  <div className={styles.section}>
+                    <h3 className={styles.sectionTitle}>Assignment audit</h3>
+                    <p className={styles.description}>{selected.assignmentReason || "No automatic selection rationale was recorded."}</p>
+                    <h3 className={styles.sectionTitle}>Patient rating</h3>
+                    {selected.nurseReview ? (
+                      <p className={styles.description}>{selected.nurseReview.rating}/5{selected.nurseReview.comment ? ` · ${selected.nurseReview.comment}` : ""}</p>
+                    ) : (
+                      <p className={styles.description}>No patient review has been submitted yet.</p>
+                    )}
+                  </div>
+                ) : null}
+
                 <div className={styles.section}>
                   <h3 className={styles.sectionTitle}>Timeline</h3>
                   <div className={styles.timeline}>

@@ -63,6 +63,9 @@ export default function HomeCarePage() {
   const [error, setError] = useState("")
   const [selectedId, setSelectedId] = useState(requestedId || "")
   const [actionBusy, setActionBusy] = useState(false)
+  const [reviewRating, setReviewRating] = useState(0)
+  const [reviewComment, setReviewComment] = useState("")
+  const [reviewBusy, setReviewBusy] = useState(false)
 
   const patientId = useMemo(() => resolvePatientId(auth), [auth])
 
@@ -136,6 +139,27 @@ export default function HomeCarePage() {
       setError(err?.message || "Could not cancel request")
     } finally {
       setActionBusy(false)
+    }
+  }
+
+  async function submitReview() {
+    if (!selected || !reviewRating) return
+    setReviewBusy(true)
+    setError("")
+    try {
+      const headers = { "Content-Type": "application/json" }
+      const token = getStoredToken()
+      if (token) headers.authorization = `Bearer ${token}`
+      const response = await fetch(`/api/patients/${encodeURIComponent(patientId)}/home-care/${encodeURIComponent(selected.homeCareRequestId || selected.id)}/review`, {
+        method: "POST", headers, body: JSON.stringify({ rating: reviewRating, comment: reviewComment }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data?.message || "Could not save review")
+      setRequests((current) => current.map((item) => String(item.homeCareRequestId || item.id) === String(selected.homeCareRequestId || selected.id) ? { ...item, nurseReview: data.review } : item))
+    } catch (err) {
+      setError(err?.message || "Could not save review")
+    } finally {
+      setReviewBusy(false)
     }
   }
 
@@ -279,6 +303,25 @@ export default function HomeCarePage() {
                       </p>
                     )}
                   </div>
+
+                  {String(selected.status || "").toLowerCase() === "completed" && selected.assignedNurse ? (
+                    <div className={styles.assignedCard}>
+                      <h3>Review your nurse</h3>
+                      {selected.nurseReview ? (
+                        <p className={styles.muted}>You rated this nurse {selected.nurseReview.rating}/5.</p>
+                      ) : (
+                        <>
+                          <div style={{ display: "flex", gap: "0.35rem", marginBottom: "0.75rem" }}>
+                            {[1, 2, 3, 4, 5].map((value) => (
+                              <button key={value} type="button" onClick={() => setReviewRating(value)} aria-label={`${value} stars`} style={{ border: 0, background: "transparent", fontSize: "1.5rem", color: value <= reviewRating ? "#f59e0b" : "#cbd5e1", cursor: "pointer" }}>★</button>
+                            ))}
+                          </div>
+                          <textarea value={reviewComment} onChange={(event) => setReviewComment(event.target.value)} placeholder="Share feedback about the care (optional)" rows={3} style={{ width: "100%", boxSizing: "border-box", marginBottom: "0.75rem" }} />
+                          <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={submitReview} disabled={!reviewRating || reviewBusy}>{reviewBusy ? "Saving..." : "Submit review"}</button>
+                        </>
+                      )}
+                    </div>
+                  ) : null}
 
                   {canCancel(selected.status) ? (
                     <div className={styles.detailActions}>

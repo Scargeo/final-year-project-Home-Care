@@ -215,7 +215,7 @@ router.get('/:id/assignments', allowOwnerOrDoctor((req) => req.params.id), async
 			.sort({ createdAt: -1 })
 			.lean();
 
-		return res.status(200).json({ assignments });
+		return res.status(200).json({ assignments: assignments.map(({ selectionReason, sourceReason, ...assignment }) => assignment) });
 	} catch (error) {
 		console.error('Failed to fetch patient assignments:', error);
 		return res.status(500).json({ message: 'Failed to fetch patient assignments' });
@@ -234,7 +234,8 @@ router.get('/:id/assignments/:assignmentId', allowOwnerOrDoctor((req) => req.par
 			return res.status(404).json({ message: 'Assignment not found' });
 		}
 
-		return res.status(200).json({ assignment });
+		const { selectionReason, sourceReason, ...patientAssignment } = assignment;
+		return res.status(200).json({ assignment: patientAssignment });
 	} catch (error) {
 		console.error('Failed to fetch patient assignment details:', error);
 		return res.status(500).json({ message: 'Failed to fetch patient assignment details' });

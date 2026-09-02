@@ -97,6 +97,12 @@ const homeCareRequestSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    assignmentReason: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: 1000,
+    },
     submittedAt: {
       type: Date,
       default: Date.now,

@@ -9,6 +9,8 @@ const Doctor = require('../../models/privateHealthWorker/doctor/doctorRegistrati
 const Nurse = require('../../models/privateHealthWorker/nurse/privateNurseRegistration')
 const Patient = require('../../models/patient/patientRegistration')
 const Post = require('../../models/posts/post')
+const NurseAssignment = require('../../models/privateHealthWorker/nurse/nurseAssignment')
+const NurseReview = require('../../models/patient/nurseReview')
 
 const router = express.Router()
 
@@ -198,6 +200,24 @@ router.use(requireAdmin)
 
 // Admin home care review dashboard endpoints (independent entry point)
 router.use('/home-care', require('./homeCareAdminRoute'))
+
+router.get('/nurse-assignments', async (req, res) => {
+  try {
+    const assignments = await NurseAssignment.find({}).sort({ createdAt: -1 }).lean()
+    const reviews = await NurseReview.find({ homeCareRequestId: { $in: assignments.map((item) => String(item.assignmentId)) } }).lean()
+    const reviewMap = new Map(reviews.map((review) => [String(review.homeCareRequestId), review]))
+    return res.status(200).json({
+      assignments: assignments.map((assignment) => ({
+        ...assignment,
+        assignmentReason: assignment.selectionReason || 'Assignment created from the nurse matching process.',
+        patientRating: reviewMap.get(String(assignment.assignmentId)) || null,
+      })),
+    })
+  } catch (error) {
+    console.error('Failed to fetch nurse assignments:', error)
+    return res.status(500).json({ message: 'Failed to fetch nurse assignments' })
+  }
+})
 
 router.get('/me', async (req, res) => {
   return res.status(200).json({ user: stripAdmin(req.user?.record) })

@@ -75,7 +75,8 @@ router.get('/:nurseId/dashboard', async (req, res) => {
     res.status(200).json({
       stats: {
         unreadNotifications: notifications.length,
-        assignmentCount: assignments.length,
+        assignmentCount: assignments.filter((assignment) => !['completed', 'cancelled'].includes(String(assignment.status || '').toLowerCase())).length,
+        completedAssignmentCount: assignments.filter((assignment) => String(assignment.status || '').toLowerCase() === 'completed').length,
       },
       assignments,
       notifications,

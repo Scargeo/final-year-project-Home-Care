@@ -634,3 +634,198 @@
     border-top: 1px solid rgba(255, 255, 255, 0.06);
   }
 }
+
+/* Enhanced responsive styles for all screen sizes */
+@media (max-width: 768px) {
+  .secureChatRoot {
+    height: 100vh;
+  }
+
+  .secureChatHeader {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .secureChatHeader__name {
+    font-size: 14px;
+  }
+
+  .secureChatHeader__subtitle {
+    font-size: 11px;
+  }
+
+  .secureChatAvatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .secureChatIconButton {
+    width: 34px;
+    height: 34px;
+    font-size: 12px;
+  }
+
+  .secureChatBody {
+    padding: 10px 12px 0;
+  }
+
+  .secureChatBubble {
+    max-width: min(85%, 420px);
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+
+  .secureChatInputBar {
+    padding: 10px 12px 14px;
+  }
+
+  .secureChatTextInput {
+    padding: 8px 10px;
+    min-height: 40px;
+    font-size: 14px;
+  }
+
+  .secureChatSendButton {
+    width: 40px;
+    height: 40px;
+  }
+
+  .secureRoomPanel {
+    margin: 6px 12px 0;
+    padding: 10px;
+  }
+
+  .secureRoomPanel__header {
+    font-size: 11px;
+    gap: 6px;
+  }
+
+  .secureDoctorClinical {
+    padding: 10px;
+  }
+
+  .secureDoctorClinical__label {
+    font-size: 12px;
+  }
+
+  .secureDoctorClinical__input {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+
+  .secureChatContainer {
+    gap: 0;
+  }
+
+  .secureChatSection,
+  .secureRoomSection {
+    min-width: 100%;
+  }
+
+  .secureMobileTabToggle {
+    display: flex;
+    gap: 8px;
+    margin: 8px 14px 0;
+  }
+
+  .secureMobileTabToggle__btn {
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(229, 231, 235, 0.7);
+    font-size: 12px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+
+  .secureMobileTabToggle__btn--active {
+    background: rgba(34, 197, 94, 0.15);
+    border-color: rgba(34, 197, 94, 0.35);
+    color: #22c55e;
+  }
+
+  .secureChatSection--hidden {
+    display: none;
+  }
+
+  .secureRoomSection--hidden {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .secureChatHeader {
+    padding: 8px 10px;
+  }
+
+  .secureChatAvatar {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+
+  .secureChatHeader__name {
+    font-size: 13px;
+  }
+
+  .secureChatHeader__subtitle {
+    font-size: 10px;
+  }
+
+  .secureChatBubble {
+    max-width: min(90%, 300px);
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+
+  .secureChatBody {
+    padding: 8px 10px 0;
+  }
+
+  .secureChatInputBar {
+    padding: 8px 10px 12px;
+  }
+
+  .secureChatTextInput {
+    padding: 6px 8px;
+    min-height: 36px;
+    font-size: 13px;
+  }
+
+  .secureChatSendButton {
+    width: 36px;
+    height: 36px;
+  }
+
+  .secureRoomPanel {
+    margin: 4px 10px 0;
+    padding: 8px;
+  }
+
+  .secureRoomPanel__header {
+    font-size: 10px;
+  }
+
+  .secureDoctorClinical {
+    padding: 8px;
+  }
+
+  .secureDoctorClinical__input {
+    font-size: 11px;
+    padding: 5px 6px;
+  }
+
+  .secureChatBanner {
+    margin: 8px 10px 0;
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .secureCallRequestBanner {
+    margin: 8px 10px 0;
+    padding: 10px;
+    font-size: 11px;
+  }
+}

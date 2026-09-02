@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState, useCallback, useRef } from "react"
 import { io } from "socket.io-client"
 import styles from "./nurse.module.css"
@@ -81,6 +81,7 @@ function resolveProfileImageSource(profileImage) {
 }
 
 export default function NurseDashboard() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const initialRequestId = searchParams.get("requestId") || ""
   const [nurseId, setNurseId] = useState("nurse")
@@ -96,6 +97,27 @@ export default function NurseDashboard() {
   const [liveNotice, setLiveNotice] = useState(null)
   const socketRef = useRef(null)
   const fileInputRef = useRef(null)
+
+  async function handleLogout() {
+    const auth = readStoredNurseAuth()
+    try {
+      if (auth?.refreshToken) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: auth.refreshToken }),
+        })
+      }
+    } catch {
+      // Local session cleanup still completes if the server is unavailable.
+    } finally {
+      window.localStorage.removeItem('nurseAuth')
+      window.localStorage.removeItem('patientAuth')
+      window.localStorage.removeItem('doctorAuth')
+      window.localStorage.removeItem('adminAuth')
+      router.replace('/login')
+    }
+  }
 
   const handleProfileImageUpload = useCallback((uploaded) => {
     const nextProfileImage = uploaded?.profileImage || (uploaded?.url || uploaded?.secure_url || uploaded?.path ? { url: uploaded.url || uploaded.secure_url || uploaded.path, publicId: uploaded.publicId || uploaded.filename || uploaded.filename || '', mimeType: uploaded.mimeType } : uploaded)
@@ -334,6 +356,7 @@ actionUrl: `/secure/nurse?requestId=${encodeURIComponent(key)}`,
 <div className={styles.topActions}>
           <Link href="/secure/home" className={`${styles.actionButton} ${styles.actionSecondary}`}>Home</Link>
           <Link href="/secure/nurse/settings" className={`${styles.actionButton} ${styles.actionSecondary}`}>System</Link>
+          <button type="button" onClick={handleLogout} className={`${styles.actionButton} ${styles.actionSecondary}`}>Logout</button>
         </div>
       </header>
 
@@ -415,7 +438,10 @@ actionUrl: `/secure/nurse?requestId=${encodeURIComponent(key)}`,
                 </strong> {yearsOfExperience} year{yearsOfExperience === 1 ? "" : "s"}
               </p>
               <p className={styles.heroBody} style={{ marginTop: "0.5rem" }}>
-                <strong>Active assignments:</strong> {Array.isArray(dashboardData?.assignments) ? dashboardData.assignments.length : 0}
+                <strong>Active assignments:</strong> {dashboardData?.stats?.assignmentCount || 0}
+              </p>
+              <p className={styles.heroBody} style={{ marginTop: "0.5rem" }}>
+                <strong>Completed assignments:</strong> {dashboardData?.stats?.completedAssignmentCount || 0}
               </p>
               <p className={styles.heroBody} style={{ marginTop: "0.5rem" }}>
                 Manage your assignments and patient tasks. Assignments appear here when the system allocates work to you.
@@ -441,6 +467,7 @@ actionUrl: `/secure/nurse?requestId=${encodeURIComponent(key)}`,
                     <small>
                       Care window: {formatDateRange(a.schedule?.weekStart || a.careWeekStart, a.schedule?.weekEnd || a.careWeekEnd) || '7-day follow-up'}
                     </small>
+                    <small>Status: {a.status || 'Active'}</small>
                   </div>
                   <div className={styles.appointmentActions}>
                     <div className={styles.appointmentActionButtons}>

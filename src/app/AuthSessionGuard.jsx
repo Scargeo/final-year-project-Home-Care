@@ -50,16 +50,20 @@ export default function AuthSessionGuard() {
     async function refreshSession(session) {
       if (!session?.session?.refreshToken) return false
 
-      const response = await window.fetch("/api/auth/refresh", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken: session.session.refreshToken }),
-      })
-      const data = await response.json().catch(() => ({}))
-      if (!response.ok || !data?.token) return false
+      try {
+        const response = await window.fetch("/api/auth/refresh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken: session.session.refreshToken }),
+        })
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok || !data?.token) return false
 
-      saveRefreshedSession(session.key, session.session, data)
-      return true
+        saveRefreshedSession(session.key, session.session, data)
+        return true
+      } catch {
+        return false
+      }
     }
 
     async function checkSession() {
@@ -86,8 +90,14 @@ export default function AuthSessionGuard() {
       if (response.status !== 401 && response.status !== 403) return response
 
       const requestUrl = args[0] instanceof Request ? args[0].url : String(args[0])
-      // Don't clear sessions or redirect during login/signup API calls
-      if (requestUrl.includes('/api/auth/login') || requestUrl.includes('/api/auth/verify-email') || requestUrl.includes('/api/patients/register') || requestUrl.includes('/api/doctors/register') || requestUrl.includes('/api/patients/login') || requestUrl.includes('/api/doctors/login')) {
+      // Don't interfere with auth routes—they handle their own errors
+      if (requestUrl.includes('/api/auth/login') || 
+          requestUrl.includes('/api/auth/verify-email') || 
+          requestUrl.includes('/api/patients/register') || 
+          requestUrl.includes('/api/doctors/register') || 
+          requestUrl.includes('/api/patients/login') || 
+          requestUrl.includes('/api/doctors/login') ||
+          requestUrl.includes('/api/auth/refresh')) {
         return response
       }
 
@@ -95,21 +105,28 @@ export default function AuthSessionGuard() {
       const requestToken = requestHeaders.get("authorization")?.replace(/^Bearer\s+/i, "")
       const session = getStoredSessions().find(({ token }) => token && token === requestToken)
 
+      // If we have a session and got 401, try to refresh
       if (response.status === 401 && session?.session?.refreshToken) {
-        const refreshResponse = await originalFetch("/api/auth/refresh", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken: session.session.refreshToken }),
-        })
-        const refreshData = await refreshResponse.json().catch(() => ({}))
-        if (refreshResponse.ok && refreshData?.token) {
-          const retryHeaders = new Headers(requestHeaders)
-          retryHeaders.set("authorization", `Bearer ${saveRefreshedSession(session.key, session.session, refreshData)}`)
-          return originalFetch(args[0], { ...(args[1] || {}), headers: retryHeaders })
+        try {
+          const refreshResponse = await originalFetch("/api/auth/refresh", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ refreshToken: session.session.refreshToken }),
+          })
+          const refreshData = await refreshResponse.json().catch(() => ({}))
+          if (refreshResponse.ok && refreshData?.token) {
+            const retryHeaders = new Headers(requestHeaders)
+            retryHeaders.set("authorization", `Bearer ${saveRefreshedSession(session.key, session.session, refreshData)}`)
+            return originalFetch(args[0], { ...(args[1] || {}), headers: retryHeaders })
+          }
+        } catch {
+          // Refresh failed, fall through to session clear
         }
       }
 
-      if (getStoredSessions().some(({ token }) => token)) {
+      // Only clear sessions if we have an authenticated session and we get 401/403
+      // This prevents false positives from unauthenticated requests
+      if (session && (response.status === 401 || response.status === 403)) {
         redirecting = true
         clearSessionsAndRedirect()
       }

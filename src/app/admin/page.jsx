@@ -676,6 +676,9 @@ export default function AdminPage() {
           <Link href="/admin/home-care" className={styles.actionButton} style={{ textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
             Home Care Requests
           </Link>
+          <Link href="/admin/nurse-assignments" className={styles.actionButton} style={{ textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
+            Nurse Assignments
+          </Link>
           <button className={styles.actionButton} type="button" onClick={refreshDashboard} disabled={busy}>Refresh</button>
           <button className={styles.actionButton} type="button" onClick={logout}>Logout</button>
         </div>

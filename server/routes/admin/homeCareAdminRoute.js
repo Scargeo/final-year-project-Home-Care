@@ -7,6 +7,7 @@ const Nurse = require('../../models/privateHealthWorker/nurse/privateNurseRegist
 const PatientNotification = require('../../models/patient/patientNotification')
 const NurseNotification = require('../../models/privateHealthWorker/nurse/nurseNotification')
 const healthRecordModel = require('../../models/patient/healthRecord')
+const NurseReview = require('../../models/patient/nurseReview')
 const {
   serializeHomeCareRequest,
   transitionRequestStatus,
@@ -101,7 +102,13 @@ router.get('/', async (req, res) => {
     const result = await Promise.all(
       requests.map(async (request) => {
         const base = serializeHomeCareRequest(request, nurseMap.get(String(request.assignedNurseId || '')) || null)
-        return { ...base, patient: stripPatient(patientMap.get(String(request.patientId || ''))) }
+        const review = await NurseReview.findOne({ homeCareRequestId: String(request.homeCareRequestId) }).lean()
+        return {
+          ...base,
+          assignmentReason: request.assignmentReason || '',
+          nurseReview: review || null,
+          patient: stripPatient(patientMap.get(String(request.patientId || ''))),
+        }
       }),
     )
 
@@ -155,18 +162,21 @@ async function assignNurse({ requestId, specificNurseId = null, excludeNurseId =
   }
 
   let selectedNurse = null
+  let assignmentReason = ''
 
   if (specificNurseId) {
     selectedNurse = await Nurse.findOne({ uid: String(specificNurseId), role: 'nurse', isVerified: true, isAvailable: { $ne: false } })
       .select('uid nurseFirstName nurseLastName specialization yearsOfExperience')
       .lean()
     if (!selectedNurse) return { error: 'Selected healthcare professional is not available', statusCode: 409 }
+    assignmentReason = 'Nurse was selected manually by an administrator.'
   } else {
     const healthRecord = await healthRecordModel.findOne({ patientRef: String(request.patientId || '') }).lean()
     const reason = [request.description, request.serviceType, healthRecord?.medicalHistory].filter(Boolean).join(' ')
     const plan = await resolveNurseAssignmentPlan({ reason, healthRecord, excludeNurseId })
     if (plan.error) return { error: plan.error, statusCode: plan.statusCode || 409 }
     selectedNurse = plan.selectedNurse
+    assignmentReason = plan.selectionReason || `Matched the requested care specialty: ${plan.inference?.specialtyLabel || 'general care'}.`
   }
 
   const nurseName = [selectedNurse.nurseFirstName, selectedNurse.nurseLastName].filter(Boolean).join(' ').trim()
@@ -175,6 +185,7 @@ async function assignNurse({ requestId, specificNurseId = null, excludeNurseId =
   request.status = 'assigned'
   request.assignedNurseId = String(selectedNurse.uid)
   request.assignedNurseName = nurseName
+  request.assignmentReason = assignmentReason
   request.assignedAt = now
   request.reviewedAt = request.reviewedAt || now
   request.timeline.push({

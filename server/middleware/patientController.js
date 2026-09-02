@@ -69,6 +69,10 @@ const registerPatient = async (req, res) => {
         const normalizedEmail = normalizeEmail(patientEmail)
         const normalizedPhone = normalizePhone(patientPhone)
 
+        if (!/^\d{10}$/.test(normalizedPhone)) {
+            return res.status(400).json({ message: 'Please provide a valid 10-digit phone number, for example 0245566880.' })
+        }
+
         const [existingEmail, existingPhone, pendingEmail, pendingPhone] = await Promise.all([
             Patient.findOne({ patientEmail: normalizedEmail }).lean(),
             Patient.findOne({ patientPhone: normalizedPhone }).lean(),

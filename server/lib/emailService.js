@@ -24,7 +24,7 @@ const sendVerificationEmail = async (email, patientName, token) => {
     // OTP style email
     otpHtml = `
       <p style="color: #666; font-size: 16px; line-height: 1.6;">
-        Use the one-time verification code below to verify your Home Care account. It expires in 5 minutes.
+        Use the one-time verification code below to verify your Home Care Plus account. It expires in 5 minutes.
       </p>
       <div style="text-align: center; margin: 20px 0;">
         <div style="display:inline-block; background:#f5f7fa; padding:18px 28px; border-radius:8px; font-size:28px; letter-spacing:6px; font-weight:700;">${token}</div>
@@ -35,7 +35,7 @@ const sendVerificationEmail = async (email, patientName, token) => {
     verificationLink = `${process.env.FRONTEND_URL || process.env.FRONTEND_APP_URL || 'http://localhost:3000'}/verify-email?token=${token}`;
     otpHtml = `
       <p style="color: #666; font-size: 16px; line-height: 1.6;">
-        Thank you for registering with us. To complete your account setup and start using Home Care services, 
+        Thank you for registering with us. To complete your account setup and start using Home Care Plus services, 
         please verify your email address by clicking the button below.
       </p>
       <div style="text-align: center; margin: 30px 0;">
@@ -53,11 +53,11 @@ const sendVerificationEmail = async (email, patientName, token) => {
   const mailOptions = {
     from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
     to: email,
-    subject: 'Verify Your Home Care Account',
+    subject: 'Verify Your Home Care Plus Account',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
         <div style="background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h2 style="color: #333; margin-top: 0;">Welcome to Home Care, ${patientName}!</h2>
+          <h2 style="color: #333; margin-top: 0;">Welcome to Home Care Pluse, ${patientName}!</h2>
           ${otpHtml}
           <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
           <p style="color: #999; font-size: 12px;">Home Care Team</p>

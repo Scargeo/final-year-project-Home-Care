@@ -65,6 +65,12 @@ export default function SignupPage() {
       return
     }
 
+    const normalizedPhone = form.patientPhone.replace(/\s+/g, "").trim()
+    if (!/^\d{10}$/.test(normalizedPhone)) {
+      setError("Please enter a valid 10-digit phone number, for example 0245566880.")
+      return
+    }
+
     setLoading(true)
     setStatus("Creating your patient account...")
 
@@ -77,7 +83,7 @@ export default function SignupPage() {
           patientFirstName: form.patientFirstName.trim(),
           patientLastName: form.patientLastName.trim(),
           patientEmail: form.patientEmail.trim().toLowerCase(),
-          patientPhone: form.patientPhone.trim(),
+          patientPhone: normalizedPhone,
           patientAddress: form.patientAddress.trim(),
           patientPassword: form.patientPassword,
         }),
@@ -178,6 +184,8 @@ export default function SignupPage() {
                   onChange={(event) => updateField("patientPhone", event.target.value)}
                   placeholder="0123456789"
                   required
+                  pattern="\d{10}"
+                  title="Enter a 10-digit phone number, for example 0245566880"
                   disabled={loading}
                   autoComplete="tel"
                 />

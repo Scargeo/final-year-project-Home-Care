@@ -958,6 +958,26 @@ ws.onmessage = async (evt) => {
               </button>
             </>
           ) : null}
+          <button
+            className="secureChatIconButton"
+            type="button"
+            onClick={() => (sessionInfo?.role === "doctor" ? endRoom() : leaveRoom())}
+            title={sessionInfo?.role === "doctor" ? "End consultation" : "Leave chat"}
+            disabled={roomActionBusy}
+            style={{
+              color: "#ef4444",
+              padding: "6px 12px",
+              borderRadius: "4px",
+              border: "1px solid #fecaca",
+              background: "transparent",
+              cursor: roomActionBusy ? "not-allowed" : "pointer",
+              opacity: roomActionBusy ? 0.6 : 1,
+              fontSize: "12px",
+              fontWeight: 500,
+            }}
+          >
+            {roomActionBusy ? "Closing..." : "End"}
+          </button>
         </div>
       </div>
 

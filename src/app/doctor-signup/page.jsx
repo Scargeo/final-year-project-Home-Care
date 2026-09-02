@@ -68,6 +68,12 @@ export default function DoctorSignupPage() {
       return
     }
 
+    const normalizedPhone = form.doctorPhone.replace(/\s+/g, "").trim()
+    if (!/^\d{10}$/.test(normalizedPhone)) {
+      setError("Please enter a valid 10-digit phone number, for example 0245566880.")
+      return
+    }
+
     setLoading(true)
     setStatus(role === 'doctor' ? "Creating your doctor account..." : "Creating your nurse account...")
 
@@ -81,7 +87,7 @@ export default function DoctorSignupPage() {
             doctorFirstName: form.doctorFirstName.trim(),
             doctorLastName: form.doctorLastName.trim(),
             doctorEmail: form.doctorEmail.trim().toLowerCase(),
-            doctorPhone: form.doctorPhone.trim(),
+            doctorPhone: normalizedPhone,
             doctorAddress: form.doctorAddress.trim(),
             doctorPassword: form.doctorPassword,
             specialization: form.specialization.trim(),
@@ -91,7 +97,7 @@ export default function DoctorSignupPage() {
             nurseFirstName: form.doctorFirstName.trim(),
             nurseLastName: form.doctorLastName.trim(),
             nurseEmail: form.doctorEmail.trim().toLowerCase(),
-            nursePhone: form.doctorPhone.trim(),
+            nursePhone: normalizedPhone,
             nurseAddress: form.doctorAddress.trim(),
             nursePassword: form.doctorPassword,
             specialization: form.specialization.trim(),
@@ -216,6 +222,8 @@ export default function DoctorSignupPage() {
                   onChange={(event) => updateField("doctorPhone", event.target.value)}
                   placeholder="0123456789"
                   required
+                  pattern="\d{10}"
+                  title="Enter a 10-digit phone number, for example 0245566880"
                   disabled={loading}
                   autoComplete="tel"
                 />

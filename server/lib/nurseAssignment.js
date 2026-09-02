@@ -92,7 +92,6 @@ function serializeNurseAssignment(assignment) {
       aiSummary: assignment.aiSummary || '',
       aiMatchedTerms: Array.isArray(assignment.aiMatchedTerms) ? assignment.aiMatchedTerms : [],
       aiConfidence: Number(assignment.aiConfidence) || 0,
-      selectionReason: assignment.selectionReason || '',
     },
     schedule: {
       weekStart: assignment.careWeekStart,
@@ -303,7 +302,6 @@ async function createNurseAssignmentForCompletedAppointment({ appointment, room 
 async function listAssignmentsForNurse(nurseId) {
   const assignments = await NurseAssignment.find({
     nurseId: String(nurseId || ''),
-    status: { $nin: ['completed', 'cancelled'] },
   })
     .sort({ careWeekStart: -1, createdAt: -1 })
     .lean()

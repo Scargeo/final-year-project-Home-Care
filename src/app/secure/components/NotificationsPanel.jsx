@@ -380,6 +380,8 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
   const [readIds, setReadIds] = useState(() => new Set())
   const [userType, setUserType] = useState(null)
   const [expanded, setExpanded] = useState(() => new Set())
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [hasMoreNotifications, setHasMoreNotifications] = useState(true)
   const prevStatusRef = useRef(new Map())
 
   function markAsRead(id) {
@@ -419,6 +421,56 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
       else next.add(id)
       return next
     })
+  }
+
+  async function loadPreviousNotifications() {
+    if (isLoadingMore || !hasMoreNotifications) return
+    
+    setIsLoadingMore(true)
+    try {
+      const headers = {}
+      try {
+        const patientAuth = typeof window !== 'undefined' ? window.localStorage.getItem('patientAuth') : null
+        const doctorAuth = typeof window !== 'undefined' ? window.localStorage.getItem('doctorAuth') : null
+        const nurseAuth = typeof window !== 'undefined' ? window.localStorage.getItem('nurseAuth') : null
+        const parsed = patientAuth ? JSON.parse(patientAuth) : doctorAuth ? JSON.parse(doctorAuth) : nurseAuth ? JSON.parse(nurseAuth) : null
+        const token = parsed?.token || parsed?.accessToken || null
+        if (token) headers.authorization = `Bearer ${token}`
+      } catch {
+        // ignore
+      }
+      
+      const res = await fetch(`/api/emergency?limit=20&skip=${notifications.length}`, { cache: "no-store", headers })
+      if (!res.ok) return
+
+      const data = await res.json()
+      const requests = Array.isArray(data.requests) ? data.requests : []
+      
+      if (requests.length === 0) {
+        setHasMoreNotifications(false)
+        return
+      }
+
+      const userType = getUserType()
+      const auth = userType === "doctor" ? loadDoctorProfile() : userType === "nurse" ? loadNurseProfile() : loadPatientProfile() || {}
+      const patientPhone = userType === "patient" ? String(auth.patientPhone || "").trim() : ""
+      const patientName = userType === "patient" ? [auth.patientFirstName, auth.patientLastName].filter(Boolean).join(" ").trim() : ""
+
+      const matching = requests.filter((request) => {
+        if (!request) return false
+        if (userType === "doctor" || userType === "nurse") return true
+        if (patientPhone && String(request.patientPhone || "").trim() === patientPhone) return true
+        if (patientName && String(request.patientName || "").trim() === patientName) return true
+        return false
+      })
+
+      const newNotifications = buildNotificationEntries([], matching)
+      setNotifications((current) => [...current, ...newNotifications])
+    } catch (err) {
+      console.error("Failed to load previous notifications", err)
+    } finally {
+      setIsLoadingMore(false)
+    }
   }
 
   function upsertAppointment(nextAppointment) {
@@ -759,6 +811,33 @@ const headers = {}
             })
           )}
         </div>
+
+        {variant === "full" && (
+          <div style={{ padding: "1rem", textAlign: "center", marginTop: "1rem" }}>
+            {hasMoreNotifications ? (
+              <button
+                type="button"
+                onClick={loadPreviousNotifications}
+                disabled={isLoadingMore}
+                style={{
+                  padding: "0.5rem 1rem",
+                  border: "1px solid #cdd9e3",
+                  background: "#fff",
+                  color: "#334155",
+                  borderRadius: "0.5rem",
+                  cursor: isLoadingMore ? "not-allowed" : "pointer",
+                  opacity: isLoadingMore ? 0.6 : 1,
+                  fontSize: "0.875rem",
+                  fontWeight: 500,
+                }}
+              >
+                {isLoadingMore ? "Loading..." : "Load previous notifications"}
+              </button>
+            ) : notifications.length > 0 ? (
+              <p style={{ color: "#999", fontSize: "0.875rem", margin: 0 }}>No more notifications</p>
+            ) : null}
+          </div>
+        )}
       </section>
     )
   }

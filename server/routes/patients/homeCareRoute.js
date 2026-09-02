@@ -5,6 +5,7 @@ const express = require('express')
 const router = express.Router({ mergeParams: true })
 
 const HomeCareRequest = require('../../models/patient/homeCareRequest')
+const NurseReview = require('../../models/patient/nurseReview')
 const Attachment = require('../../models/media/attachment')
 const {
   assignNurseToRequest,
@@ -115,8 +116,13 @@ router.get('/', loadUser, allowOwnerOrDoctor((req) => req.params.id), async (req
       nurses.forEach((nurse) => nurseMap.set(String(nurse.uid), nurse))
     }
 
+    const reviews = await NurseReview.find({ homeCareRequestId: { $in: requests.map((request) => String(request.homeCareRequestId)) } }).lean()
+    const reviewMap = new Map(reviews.map((review) => [String(review.homeCareRequestId), review]))
     return res.status(200).json({
-      requests: requests.map((request) => serializeHomeCareRequest(request, nurseMap.get(String(request.assignedNurseId || '')) || null)),
+      requests: requests.map((request) => ({
+        ...serializeHomeCareRequest(request, nurseMap.get(String(request.assignedNurseId || '')) || null),
+        nurseReview: reviewMap.get(String(request.homeCareRequestId)) || null,
+      })),
     })
   } catch (error) {
     console.error('Failed to list home care requests:', error)
@@ -134,10 +140,37 @@ router.get('/:requestId', loadUser, allowOwnerOrDoctor((req) => req.params.id), 
     }
 
     const nurse = await findAssignedNurse(request.assignedNurseId)
-    return res.status(200).json({ request: serializeHomeCareRequest(request, nurse) })
+    const nurseReview = await NurseReview.findOne({ homeCareRequestId: String(requestId) }).lean()
+    return res.status(200).json({ request: { ...serializeHomeCareRequest(request, nurse), nurseReview: nurseReview || null } })
   } catch (error) {
     console.error('Failed to load home care request:', error)
     return res.status(500).json({ message: 'Failed to load home care request' })
+  }
+})
+
+router.post('/:requestId/review', loadUser, allowOwnerOrDoctor((req) => req.params.id), async (req, res) => {
+  try {
+    const { id, requestId } = req.params
+    const rating = Number(req.body?.rating)
+    const comment = String(req.body?.comment || '').trim()
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ message: 'Rating must be a whole number from 1 to 5' })
+    }
+
+    const request = await HomeCareRequest.findOne({ homeCareRequestId: String(requestId), patientId: String(id), status: 'completed' }).lean()
+    if (!request || !request.assignedNurseId) {
+      return res.status(409).json({ message: 'A review is available after your completed assignment' })
+    }
+
+    const review = await NurseReview.findOneAndUpdate(
+      { homeCareRequestId: String(requestId) },
+      { patientId: String(id), nurseId: String(request.assignedNurseId), rating, comment },
+      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true },
+    ).lean()
+    return res.status(200).json({ review })
+  } catch (error) {
+    console.error('Failed to save home care nurse review:', error)
+    return res.status(500).json({ message: 'Failed to save nurse review' })
   }
 })
 

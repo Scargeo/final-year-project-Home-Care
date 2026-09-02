@@ -150,10 +150,6 @@ export default function PatientAssignmentPage() {
                   <p style={{ margin: 0, color: "#5a6b82" }}>Drug / medication</p>
                   <strong style={{ color: "#102a43" }}>{assignment.drug || assignment.carePlan?.drug || "Not specified"}</strong>
                 </div>
-                <div>
-                  <p style={{ margin: 0, color: "#5a6b82" }}>Why this nurse was chosen</p>
-                  <div style={{ color: "#102a43" }}>{assignment.selectionReason || assignment.carePlan?.selectionReason || assignment.aiSummary || "The system matched an available verified nurse."}</div>
-                </div>
               </div>
             </section>
 

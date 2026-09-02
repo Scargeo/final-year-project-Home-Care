@@ -41,6 +41,10 @@ const registerDoctor = async (req, res) => {
       return res.status(400).json({ message: 'First name, last name, email, phone, password, and address are required.' })
     }
 
+    if (!/^\d{10}$/.test(normalizedPhone)) {
+      return res.status(400).json({ message: 'Please provide a valid 10-digit phone number, for example 0245566880.' })
+    }
+
     const existing = await Doctor.findOne({ $or: [{ doctorEmail: normalizedEmail }, { doctorPhone: normalizedPhone }] }).lean()
     if (existing) {
       return res.status(409).json({ message: 'A doctor account with this email or phone already exists.' })

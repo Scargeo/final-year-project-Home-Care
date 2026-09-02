@@ -246,6 +246,18 @@ export default function HomeCarePanel({ nurseId, nurseName, initialRequestId = "
                   </div>
                 </div>
 
+                <div className={styles.hcSection}>
+                  <h4>Contact patient</h4>
+                  <div className={styles.hcActions}>
+                    {selected.patientPhone ? (
+                      <a className={styles.secondaryButton} href={`tel:${selected.patientPhone}`}>Call patient</a>
+                    ) : null}
+                    <a className={styles.secondaryButton} href={`/secure/chat?roomId=${encodeURIComponent(`home-care-${selected.homeCareRequestId || selected.id}`)}&patientId=${encodeURIComponent(selected.patientId || '')}&patientName=${encodeURIComponent(selected.patientName || 'Patient')}`}>
+                      Message patient
+                    </a>
+                  </div>
+                </div>
+
                 {/* Patient details */}
                 <div className={styles.hcSection}>
                   <h4>Patient & appointment details</h4>

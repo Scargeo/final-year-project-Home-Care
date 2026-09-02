@@ -81,6 +81,7 @@ function serializeHomeCareRequest(document, nurse = null) {
 
   return {
     ...json,
+    assignmentReason: undefined,
     id: String(json._id || ''),
     statusLabel: statusLabel(json.status),
     careRecords: Array.isArray(json.careRecords) ? json.careRecords : [],

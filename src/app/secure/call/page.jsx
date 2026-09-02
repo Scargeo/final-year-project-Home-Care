@@ -127,6 +127,7 @@ function CallPageContent() {
   const [audioEnabled, setAudioEnabled] = useState(true)
   const [videoEnabled, setVideoEnabled] = useState(true)
   const [hasLocalMedia, setHasLocalMedia] = useState(false)
+  const [hasRemoteStream, setHasRemoteStream] = useState(false)
   const [sessionInfo] = useState(() => getStoredSession())
 
   const wsRef = useRef(null)
@@ -177,6 +178,7 @@ function CallPageContent() {
     }
     localStreamRef.current = null
     setHasLocalMedia(false)
+    setHasRemoteStream(false)
 
     try {
       wsRef.current?.close()
@@ -210,6 +212,7 @@ function CallPageContent() {
       if (stream) {
         remoteStreamRef.current = stream
         if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStreamRef.current
+        setHasRemoteStream(true)
       } else {
         if (!remoteStreamRef.current && typeof window !== "undefined" && typeof window.MediaStream !== "undefined") {
           remoteStreamRef.current = new window.MediaStream()
@@ -217,6 +220,7 @@ function CallPageContent() {
         if (!remoteStreamRef.current) return
         remoteStreamRef.current.addTrack(event.track)
         if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStreamRef.current
+        setHasRemoteStream(true)
       }
       setStatus("in_call")
     }
@@ -471,11 +475,21 @@ await cleanup()
           <div className={styles.videoFrame}>
             <video ref={remoteVideoRef} autoPlay playsInline className={styles.remoteVideo} />
 
+            {status === "in_call" && !hasRemoteStream ? (
+              <div className={styles.joinOverlay} style={{ background: "rgba(0, 0, 0, 0.6)" }}>
+                <div className={styles.joinOverlay__card} style={{ alignItems: "center", gap: "1rem" }}>
+                  <div style={{ fontSize: "4rem", lineHeight: 1 }}>📞</div>
+                  <p>Waiting for video stream...</p>
+                  <span suppressHydrationWarning>Call in progress · {displayName}</span>
+                </div>
+              </div>
+            ) : null}
+
             {status !== "in_call" ? (
               <div className={styles.joinOverlay}>
                 <div className={styles.joinOverlay__card}>
-                  <p>{getJoinCopy()}</p>
-                  <h1>{displayName}</h1>
+                  <p suppressHydrationWarning>{getJoinCopy()}</p>
+                  <h1 suppressHydrationWarning>{displayName}</h1>
                   <span>{roomId}</span>
                   {!autoJoin ? (
                     <button className={styles.joinButton} onClick={() => startCall().catch((err) => setError(err?.message || "Could not join the call."))}>
@@ -488,7 +502,7 @@ await cleanup()
 
             <div className={styles.selfViewCard}>
               <video ref={localVideoRef} autoPlay playsInline muted className={styles.selfVideo} />
-              <div className={styles.selfViewCard__label}>{displayName}</div>
+              <div className={styles.selfViewCard__label} suppressHydrationWarning>{displayName}</div>
             </div>
           </div>
 

@@ -10,6 +10,7 @@ import remarkGfm from "remark-gfm"
 import styles from "./home.module.css"
 import NotificationsPanel from "../components/NotificationsPanel"
 import VerifiedDoctorBadge from "../components/VerifiedDoctorBadge"
+import SecurePageGuard from "../SecurePageGuard"
 
 const HEALTH_TIPS = [
   {
@@ -140,6 +141,14 @@ function getStoredTokenForRole(role) {
 }
 
 export default function SecureHomePage() {
+  return (
+    <SecurePageGuard>
+      <SecureHomePageContent />
+    </SecurePageGuard>
+  )
+}
+
+function SecureHomePageContent() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)

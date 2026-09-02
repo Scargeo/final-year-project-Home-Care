@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import AuthShowcase from "../auth/AuthShowcase"
 import styles from "../auth/auth.module.css"
 import { getRoleRedirect } from "../../lib/getRoleRedirect"
@@ -10,6 +10,22 @@ import { getRoleRedirect } from "../../lib/getRoleRedirect"
 const initialForm = {
   patientEmail: "",
   patientPassword: "",
+}
+
+const AUTH_KEYS = ["patientAuth", "doctorAuth", "nurseAuth", "adminAuth"]
+
+function isTokenValid(token) {
+  try {
+    if (!token) return false
+    const payload = token.split(".")[1]
+    if (!payload) return false
+    const decoded = JSON.parse(
+      window.atob(payload.replace(/-/g, "+").replace(/_/g, "/"))
+    )
+    return decoded.exp && decoded.exp * 1000 > Date.now()
+  } catch {
+    return false
+  }
 }
 
 export default function LoginPage() {
@@ -21,7 +37,30 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
-  
+  // Check if user is already authenticated on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    for (const key of AUTH_KEYS) {
+      const raw = window.localStorage.getItem(key)
+      if (!raw) continue
+
+      try {
+        const auth = JSON.parse(raw)
+        const token = auth?.token || auth?.accessToken
+
+        if (token && isTokenValid(token)) {
+          // User is already authenticated, redirect to their dashboard
+          const role = auth.role || key.replace("Auth", "")
+          const redirectPath = getRoleRedirect(role)
+          router.replace(redirectPath)
+          return
+        }
+      } catch {
+        // ignore parse errors
+      }
+    }
+  }, [router])
 
   function updateField(name, value) {
     setForm((current) => ({ ...current, [name]: value }))
