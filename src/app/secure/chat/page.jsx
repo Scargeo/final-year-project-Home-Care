@@ -346,7 +346,7 @@ async function loadRoom() {
     return () => {
       active = false
     }
-  }, [roomId])
+  }, [isEmergencyRoom, roomId])
 
   const buildCallUrl = useCallback((callType) => {
     const params = new URLSearchParams({
@@ -412,7 +412,7 @@ async function refreshRoomStatus() {
       active = false
       clearInterval(timer)
     }
-  }, [roomId, sessionInfo?.role, buildCallUrl])
+  }, [buildCallUrl, isEmergencyRoom, roomId, sessionInfo?.role])
 
   async function saveClinicalSection() {
     setClinicalNotice("")
