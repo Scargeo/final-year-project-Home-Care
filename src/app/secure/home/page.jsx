@@ -263,6 +263,7 @@ const [posts, setPosts] = useState([])
   const [commentsByPost, setCommentsByPost] = useState({})
   const [commentLoadingByPost, setCommentLoadingByPost] = useState({})
   const [commentSubmittingByPost, setCommentSubmittingByPost] = useState({})
+  const commentPanelRefs = useRef({})
   // Doctor AI lab interpretation state
   // Doctor AI lab interpretation state (moved to doctor dashboard)
   const headerRef = useRef(null)
@@ -533,6 +534,12 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
     try {
       window.localStorage.removeItem("patientAuth")
       window.localStorage.removeItem("doctorAuth")
+      window.localStorage.removeItem("nurseAuth")
+      for (const key of Object.keys(window.localStorage)) {
+        if (key.toLowerCase().includes("auth")) {
+          window.localStorage.removeItem(key)
+        }
+      }
     } catch {
       // ignore storage failures during logout cleanup
     }
@@ -1215,6 +1222,24 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
     }
   }, [shareMenuPostId])
 
+  useEffect(() => {
+    if (!commentOpenPostId) return
+
+    function handleCommentOutsideClick(event) {
+      const panel = commentPanelRefs.current[commentOpenPostId]
+      const trigger = document.querySelector(`[data-comment-trigger="${commentOpenPostId}"]`)
+      const clickedInsidePanel = panel && panel.contains(event.target)
+      const clickedTrigger = trigger && trigger.contains(event.target)
+
+      if (!clickedInsidePanel && !clickedTrigger) {
+        setCommentOpenPostId(null)
+      }
+    }
+
+    document.addEventListener('mousedown', handleCommentOutsideClick)
+    return () => document.removeEventListener('mousedown', handleCommentOutsideClick)
+  }, [commentOpenPostId])
+
   return (
     <>
     <main className={styles.page}>
@@ -1305,7 +1330,7 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                 <span>Request Home Care</span>
               </Link>
             )}
-            <Link href="/secure/dashboard#appointments" className={styles.dropdownItem}>
+            <Link href="/secure/appointments" className={styles.dropdownItem}>
               <span>📅</span>
               <span>Appointments</span>
             </Link>
@@ -1340,7 +1365,7 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
             <span>Home Care</span>
           </Link>
         )}
-        <Link href="/secure/dashboard#appointments" className={styles.menuButton}>
+        <Link href="/secure/appointments" className={styles.menuButton}>
           <span>📅</span>
           <span>Appointments</span>
         </Link>
@@ -1560,6 +1585,7 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                       </button>
                       <button
                         type="button"
+                        data-comment-trigger={post.postId || post._id}
                         onClick={() => handleToggleComments(post.postId || post._id)}
                         style={{
                           padding: '0.4rem 1rem',
@@ -1624,7 +1650,14 @@ const doctorAuthStr = typeof window !== 'undefined' ? window.localStorage.getIte
                   </div>
 
                   {commentOpenPostId === (post.postId || post._id) && (
-                    <div className={styles.commentPanel}>
+                    <div
+                      ref={(node) => {
+                        if (node) commentPanelRefs.current[post.postId || post._id] = node
+                        else delete commentPanelRefs.current[post.postId || post._id]
+                      }}
+                      data-comment-panel={post.postId || post._id}
+                      className={styles.commentPanel}
+                    >
                       <div className={styles.commentList}>
                         {commentLoadingByPost[post.postId || post._id] ? (
                           <p className={styles.commentLoading}>Loading comments…</p>

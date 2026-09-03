@@ -221,6 +221,38 @@ function buildPatientNotificationEntries(patientNotifications) {
     }))
 }
 
+function buildProviderNotificationEntries(providerNotifications) {
+  return providerNotifications
+    .filter(Boolean)
+    .map((notification) => ({
+      id: notification.notificationId || notification.id || notification._id,
+      title: notification.title || "Practitioner update",
+      body: notification.message || notification.body || "You have a new update.",
+      at: notification.createdAt || notification.at || new Date().toISOString(),
+      emergency: {
+        notificationId: notification.notificationId || notification.id || notification._id,
+        relatedTo: notification.relatedTo || "",
+        actionUrl: notification.actionUrl || "/secure/notifications",
+      },
+      source: "provider-notification",
+      important: ["high", "urgent"].includes(String(notification.priority || "").toLowerCase()),
+    }))
+}
+
+function buildProviderAppointmentEntries(appointments) {
+  return appointments
+    .filter(Boolean)
+    .map((appointment) => ({
+      id: buildEntryId("provider-appointment", appointment.appointmentId || appointment.assignmentId || appointment._id, appointment.status),
+      title: "Appointment activity",
+      body: `${appointment.patientName || "Patient"} — ${appointment.reason || appointment.serviceType || "Scheduled healthcare appointment"}`,
+      at: appointment.updatedAt || appointment.createdAt || appointment.appointmentDate || new Date().toISOString(),
+      emergency: appointment,
+      source: "provider-appointment",
+      important: ["accepted", "scheduled", "in-progress"].includes(String(appointment.status || "").toLowerCase()),
+    }))
+}
+
 function NotificationCard({ entry, isRead, isExpanded, onToggle, onMarkRead, userType, onRebooked }) {
   const preview = buildEntryPreview(entry)
   const timeLabel = formatNotificationTime(entry.at)
@@ -440,32 +472,64 @@ export default function NotificationsPanel({ variant = "sidebar" }) {
         // ignore
       }
       
-      const res = await fetch(`/api/emergency?limit=20&skip=${notifications.length}`, { cache: "no-store", headers })
+      const userType = getUserType()
+      const auth = userType === "doctor" ? loadDoctorProfile() : userType === "nurse" ? loadNurseProfile() : loadPatientProfile() || {}
+      const providerId = userType === "doctor"
+        ? auth.doctorId || auth.id || auth._id
+        : auth.nurseId || auth.uid || auth.id || auth._id
+      const providerName = userType === "doctor"
+        ? [auth.firstName || auth.doctorFirstName, auth.lastName || auth.doctorLastName].filter(Boolean).join(" ").trim() || auth.doctorName
+        : [auth.firstName || auth.nurseFirstName, auth.lastName || auth.nurseLastName].filter(Boolean).join(" ").trim() || auth.nurseName
+
+      const res = await fetch(`/api/emergency?limit=100&skip=0`, { cache: "no-store", headers })
       if (!res.ok) return
 
       const data = await res.json()
       const requests = Array.isArray(data.requests) ? data.requests : []
-      
-      if (requests.length === 0) {
-        setHasMoreNotifications(false)
-        return
-      }
-
-      const userType = getUserType()
-      const auth = userType === "doctor" ? loadDoctorProfile() : userType === "nurse" ? loadNurseProfile() : loadPatientProfile() || {}
       const patientPhone = userType === "patient" ? String(auth.patientPhone || "").trim() : ""
       const patientName = userType === "patient" ? [auth.patientFirstName, auth.patientLastName].filter(Boolean).join(" ").trim() : ""
 
       const matching = requests.filter((request) => {
         if (!request) return false
-        if (userType === "doctor" || userType === "nurse") return true
+        if (userType === "doctor" || userType === "nurse") {
+          const status = String(request.status || "").toLowerCase()
+          if (status === "pending") return true
+          return status === "accepted" && providerName && String(request.respondedBy || "").trim() === providerName
+        }
         if (patientPhone && String(request.patientPhone || "").trim() === patientPhone) return true
         if (patientName && String(request.patientName || "").trim() === patientName) return true
         return false
       })
 
       const newNotifications = buildNotificationEntries([], matching)
-      setNotifications((current) => [...current, ...newNotifications])
+      if (userType === "doctor" || userType === "nurse") {
+        const notificationUrl = userType === "doctor"
+          ? `/api/doctors/${encodeURIComponent(providerId)}/notifications?limit=100&skip=0`
+          : `/api/nurses/${encodeURIComponent(providerId)}/notifications?limit=100&skip=0`
+        const appointmentsUrl = userType === "doctor"
+          ? `/api/doctors/${encodeURIComponent(providerId)}/appointments-history?limit=100&skip=0`
+          : `/api/nurses/${encodeURIComponent(providerId)}/assignments?limit=100&skip=0`
+
+        const [notificationResponse, appointmentsResponse] = await Promise.all([
+          fetch(notificationUrl, { cache: "no-store", headers }),
+          fetch(appointmentsUrl, { cache: "no-store", headers }),
+        ])
+        const notificationData = await notificationResponse.json().catch(() => ({}))
+        const appointmentsData = await appointmentsResponse.json().catch(() => ({}))
+        const workerNotifications = Array.isArray(notificationData.notifications) ? notificationData.notifications : []
+        const workerAppointments = userType === "doctor"
+          ? Array.isArray(appointmentsData.appointments) ? appointmentsData.appointments : []
+          : Array.isArray(appointmentsData.assignments) ? appointmentsData.assignments : []
+
+        setNotifications([
+          ...newNotifications,
+          ...buildProviderNotificationEntries(workerNotifications),
+          ...buildProviderAppointmentEntries(workerAppointments),
+        ])
+      } else {
+        setNotifications((current) => [...current, ...newNotifications])
+      }
+      setHasMoreNotifications(false)
     } catch (err) {
       console.error("Failed to load previous notifications", err)
     } finally {

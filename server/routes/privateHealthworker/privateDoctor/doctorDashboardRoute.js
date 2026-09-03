@@ -717,6 +717,10 @@ router.post('/appointments/auto-assign', async (req, res) => {
       duration,
       reason,
       consultationType,
+      requesterRole,
+      requesterDoctorId,
+      requesterNurseId,
+      excludeDoctorId,
     } = req.body
 
     if (!patientId || !patientName || !appointmentDate || !appointmentTime) {
@@ -742,10 +746,20 @@ router.post('/appointments/auto-assign', async (req, res) => {
       return res.status(400).json({ message: 'Please choose a time at least 5 minutes from now' })
     }
 
+    const excludedDoctorIds = Array.isArray(excludeDoctorId)
+      ? excludeDoctorId
+      : excludeDoctorId
+        ? [excludeDoctorId]
+        : []
+
+    if (requesterDoctorId) excludedDoctorIds.push(String(requesterDoctorId))
+    if (requesterNurseId) excludedDoctorIds.push(String(requesterNurseId))
+
     const plan = await resolveAssignmentPlan({
       appointmentDate,
       appointmentTime,
       patientReason,
+      excludeDoctorId: excludedDoctorIds.filter(Boolean).length ? excludedDoctorIds.filter(Boolean) : null,
     })
 
     if (plan.error) {

@@ -192,8 +192,10 @@ router.get('/:nurseId/assignments', async (req, res) => {
       return res.status(404).json({ message: 'Nurse not found' })
     }
 
+    const assignments = await listAssignmentsForNurse(nurseId)
+
     res.status(200).json({
-      assignments: [],
+      assignments,
       nurse: {
         nurseId: nurse.uid,
         nurseFirstName: nurse.nurseFirstName,

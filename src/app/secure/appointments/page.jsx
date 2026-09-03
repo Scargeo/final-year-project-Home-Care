@@ -44,8 +44,16 @@ function createAppointmentId() {
 function loadStoredAuth() {
   if (typeof window === "undefined") return null
   try {
-    const raw = window.localStorage.getItem("patientAuth")
-    return raw ? JSON.parse(raw) : null
+    const patientRaw = window.localStorage.getItem("patientAuth")
+    if (patientRaw) return JSON.parse(patientRaw)
+
+    const doctorRaw = window.localStorage.getItem("doctorAuth")
+    if (doctorRaw) return JSON.parse(doctorRaw)
+
+    const nurseRaw = window.localStorage.getItem("nurseAuth")
+    if (nurseRaw) return JSON.parse(nurseRaw)
+
+    return null
   } catch {
     return null
   }
@@ -54,10 +62,15 @@ function loadStoredAuth() {
 function getStoredToken() {
   if (typeof window === "undefined") return null
   try {
-    const patientAuth = window.localStorage.getItem("patientAuth")
-    const doctorAuth = window.localStorage.getItem("doctorAuth")
-    const parsed = patientAuth ? JSON.parse(patientAuth) : doctorAuth ? JSON.parse(doctorAuth) : null
-    return parsed?.token || parsed?.accessToken || null
+    const authSources = ["patientAuth", "doctorAuth", "nurseAuth"]
+    for (const key of authSources) {
+      const raw = window.localStorage.getItem(key)
+      if (!raw) continue
+      const parsed = JSON.parse(raw)
+      const token = parsed?.token || parsed?.accessToken || null
+      if (token) return token
+    }
+    return null
   } catch {
     return null
   }
@@ -178,7 +191,12 @@ export default function AppointmentsPage() {
     setSuccess("")
     setAssignmentInsight(null)
     const auth = loadStoredAuth()
-    if (!auth?.patientId) return setError("Please sign in to book an appointment")
+    const bookingUserId = auth?.patientId || auth?.doctorId || auth?.nurseId || auth?.id || auth?._id || ""
+    const bookingUserRole = auth?.doctorId ? "doctor" : auth?.nurseId ? "nurse" : "patient"
+    const bookingUserName = auth?.patientFirstName || auth?.patientLastName || auth?.doctorFirstName || auth?.doctorLastName || auth?.nurseFirstName || auth?.nurseLastName || auth?.firstName || auth?.lastName || "Patient"
+    const bookingUserPhone = auth?.patientPhone || auth?.doctorPhone || auth?.nursePhone || auth?.phone || ""
+
+    if (!bookingUserId) return setError("Please sign in to book an appointment")
     if (!form.reason.trim()) return setError("Describe your symptoms so the system can assign a suitable doctor")
 
     setSubmitting(true)
@@ -204,14 +222,18 @@ export default function AppointmentsPage() {
         headers,
         body: JSON.stringify({
           appointmentId: createAppointmentId(),
-          patientId: auth.patientId,
-          patientName: getPatientNameFromAuth(auth),
-          patientPhone: auth?.patientPhone || auth?.phone || "",
+          patientId: bookingUserId,
+          patientName: [bookingUserName, auth?.patientLastName || auth?.doctorLastName || auth?.nurseLastName].filter(Boolean).join(" ").trim() || "Patient",
+          patientPhone: bookingUserPhone,
           appointmentDate: form.date,
           appointmentTime: form.time,
           consultationType: form.consultationType,
           duration: Number(form.duration) || 30,
           reason: form.reason.trim(),
+          requesterRole: bookingUserRole,
+          requesterDoctorId: auth?.doctorId || null,
+          requesterNurseId: auth?.nurseId || null,
+          excludeDoctorId: [auth?.doctorId, auth?.nurseId].filter(Boolean),
         }),
       })
       const data = await res.json().catch(() => ({}))
