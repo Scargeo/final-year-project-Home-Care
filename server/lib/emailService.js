@@ -7,6 +7,9 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD,
   },
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 10000,
 });
 
 /**
@@ -17,6 +20,10 @@ const transporter = nodemailer.createTransport({
  * @returns {Promise<void>}
  */
 const sendVerificationEmail = async (email, patientName, token) => {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+    throw new Error('Email service is not configured on the server');
+  }
+
   // If token looks like a URL (long hex), keep using verify link; otherwise treat it as an OTP code
   let verificationLink = '';
   let otpHtml = '';

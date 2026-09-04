@@ -1,0 +1,26 @@
+import { NextResponse } from "next/server"
+import { getBackendBaseUrl } from "../../../../lib/backend-url"
+
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+
+export async function POST(request) {
+  try {
+    const body = await request.json()
+    const response = await fetch(`${getBackendBaseUrl()}/api/auth/resend-verification-code`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    })
+
+    const data = await response.json().catch(() => ({}))
+    return NextResponse.json(data, { status: response.status })
+  } catch (error) {
+    console.error("Resend verification error:", error)
+    return NextResponse.json(
+      { message: "Failed to resend verification code" },
+      { status: 500 },
+    )
+  }
+}
