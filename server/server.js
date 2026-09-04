@@ -18,13 +18,9 @@ const { createNurseAssignmentForCompletedAppointment } = require('./lib/nurseAss
 const { acquireLock, releaseLock } = require('./lib/redisClient')
 // const { createProxyMiddleware } = require('http-proxy-middleware');
 
-// Connect to the database.
-// A transient DNS/network failure at boot is not fatal: Mongoose keeps retrying in
-// the background, and the background jobs below skip until the DB is reachable.
+// Connect to the database before accepting requests so registration queries do not
+// enter Mongoose's buffer while the initial connection is still pending.
 const connectDB = require('./configurations/dbConnection');
-connectDB().catch((error) => {
-  console.error('Backend will keep running and retry MongoDB connection:', error?.message || error);
-});
 
 const app = express();
 app.use(express.json());
@@ -275,6 +271,16 @@ server.on('error', (error) => {
   process.exit(1);
 });
 
-server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+async function startServer() {
+  try {
+    await connectDB()
+    server.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('Backend startup aborted because MongoDB is unavailable:', error?.message || error);
+    process.exitCode = 1;
+  }
+}
+
+startServer()
