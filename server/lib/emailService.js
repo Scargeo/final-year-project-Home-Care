@@ -1,11 +1,18 @@
 const nodemailer = require('nodemailer');
 
-// Initialize nodemailer transporter with environment variables
+const smtpHost = String(process.env.SMTP_HOST || '').trim()
+const smtpPort = Number.parseInt(process.env.SMTP_PORT || '2525', 10)
+const smtpSecure = String(process.env.SMTP_SECURE || '').toLowerCase() === 'true'
+const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER
+const smtpPassword = process.env.SMTP_PASSWORD || process.env.EMAIL_PASSWORD
+
 const transporter = nodemailer.createTransport({
-  service: process.env.EMAIL_SERVICE || 'gmail',
+  ...(smtpHost
+    ? { host: smtpHost, port: smtpPort, secure: smtpSecure }
+    : { service: process.env.EMAIL_SERVICE || 'gmail' }),
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,
+    user: smtpUser,
+    pass: smtpPassword,
   },
   connectionTimeout: 10000,
   greetingTimeout: 10000,
@@ -20,7 +27,7 @@ const transporter = nodemailer.createTransport({
  * @returns {Promise<void>}
  */
 const sendVerificationEmail = async (email, patientName, token) => {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+  if (!smtpUser || !smtpPassword) {
     throw new Error('Email service is not configured on the server');
   }
 
