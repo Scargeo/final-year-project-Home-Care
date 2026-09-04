@@ -263,7 +263,7 @@ app.use('/api/rooms', require('./routes/rooms/roomRoute'));
 //   changeOrigin: true,
 // }));
 
-const PORT = process.env.BACKENDSERVER_PORT || 3003;
+const PORT = process.env.PORT || process.env.BACKENDSERVER_PORT || 3003;
 
 server.on('error', (error) => {
   if (error?.code === 'EADDRINUSE') {

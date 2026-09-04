@@ -20,7 +20,12 @@ const connectDB = async () => {
             console.warn('MongoDB connection error (transient):', error?.message || error);
         });
 
-        await mongoose.connect(process.env.MONGO_STRING, {
+        const mongoUri = process.env.MONGO_STRING || process.env.MONGODB_URI
+        if (!mongoUri) {
+            throw new Error('MONGO_STRING or MONGODB_URI is required')
+        }
+
+        await mongoose.connect(mongoUri, {
             maxPoolSize: 50,
             // Fail fast when the Atlas cluster is temporarily unreachable instead of
             // buffering commands for 30s and surfacing raw ENOTFOUND stack traces.

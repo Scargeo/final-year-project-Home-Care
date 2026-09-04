@@ -4,7 +4,6 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import AuthShowcase from "../auth/AuthShowcase"
-import { buildBackendApiUrl } from "../../lib/backend-url"
 import styles from "../auth/auth.module.css"
 
 const initialForm = {
@@ -79,7 +78,6 @@ export default function DoctorSignupPage() {
 
     try {
       const endpointPath = role === 'doctor' ? "/api/doctors/register" : "/api/nurses/register"
-      const endpoint = buildBackendApiUrl(endpointPath)
 
       // Map form fields to backend-expected keys for doctor vs nurse
       const body = role === 'doctor'
@@ -105,7 +103,7 @@ export default function DoctorSignupPage() {
             nurseId: form.licenseNumber.trim(),
           }
 
-      const response = await fetch(endpoint, {
+      const response = await fetch(endpointPath, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
