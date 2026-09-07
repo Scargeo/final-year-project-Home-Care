@@ -77,50 +77,20 @@ export default function DoctorSignupPage() {
     setStatus(role === 'doctor' ? "Creating your doctor account..." : "Creating your nurse account...")
 
     try {
-      const endpointPath = role === 'doctor' ? "/api/doctors/register" : "/api/nurses/register"
-
-      // Map form fields to backend-expected keys for doctor vs nurse
-      const body = role === 'doctor'
-        ? {
-            doctorFirstName: form.doctorFirstName.trim(),
-            doctorLastName: form.doctorLastName.trim(),
-            doctorEmail: form.doctorEmail.trim().toLowerCase(),
-            doctorPhone: normalizedPhone,
-            doctorAddress: form.doctorAddress.trim(),
-            doctorPassword: form.doctorPassword,
-            specialization: form.specialization.trim(),
-            licenseNumber: form.licenseNumber.trim(),
-          }
-        : {
-            nurseFirstName: form.doctorFirstName.trim(),
-            nurseLastName: form.doctorLastName.trim(),
-            nurseEmail: form.doctorEmail.trim().toLowerCase(),
-            nursePhone: normalizedPhone,
-            nurseAddress: form.doctorAddress.trim(),
-            nursePassword: form.doctorPassword,
-            specialization: form.specialization.trim(),
-            // Use the same input for a nurse identifier
-            nurseId: form.licenseNumber.trim(),
-          }
-
-      const response = await fetch(endpointPath, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-
-      const data = await response.json().catch(() => ({}))
-      if (!response.ok) {
-        throw new Error(data?.message || `Could not create ${role} account.`)
-      }
-
-      const redirectEmail = form.doctorEmail.trim().toLowerCase()
-      // success - redirect to OTP verification so the practitioner can finish account creation
-      setSuccess(`Verification code sent to ${redirectEmail}. Please check your email.`)
-      setStatus("Redirecting to verification...")
+      const email = form.doctorEmail.trim().toLowerCase()
+      const isDoctor = role === "doctor"
+      const prefix = isDoctor ? "doctor" : "nurse"
+      const pendingResponse = await fetch(isDoctor ? "/api/doctors/register" : "/api/nurses/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+        [`${prefix}FirstName`]: form.doctorFirstName.trim(), [`${prefix}LastName`]: form.doctorLastName.trim(), [`${prefix}Email`]: email,
+        [`${prefix}Phone`]: normalizedPhone, [`${prefix}Password`]: form.doctorPassword, [`${prefix}Address`]: form.doctorAddress.trim(),
+        specialization: form.specialization.trim(), ...(isDoctor ? { licenseNumber: form.licenseNumber.trim() } : {}),
+      }) })
+      const pendingData = await pendingResponse.json().catch(() => ({}))
+      if (!pendingResponse.ok) throw new Error(pendingData?.message || `Could not send your ${role} verification code.`)
+      setSuccess("A verification code was sent to your email.")
+      setStatus("Verification code sent.")
       setForm(initialForm)
-      setTimeout(() => router.push(`/verify-email?role=${encodeURIComponent(role)}&email=${encodeURIComponent(redirectEmail)}`), 800)
+      setTimeout(() => router.push(`/verify-email?role=${encodeURIComponent(role)}&email=${encodeURIComponent(email)}`), 800)
     } catch (err) {
       setError(err.message || `Signup failed for ${role}.`)
       setStatus(`Unable to create ${role} account right now.`)

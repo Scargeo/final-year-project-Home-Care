@@ -59,6 +59,8 @@ const registerDoctor = async (req, res) => {
     const token = createOtp()
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000)
 
+    await sendVerificationEmail(normalizedEmail, `${trimmedFirstName} ${trimmedLastName}`, token)
+
     await PendingEmailVerification.create({
       role: 'doctor',
       email: normalizedEmail,
@@ -79,8 +81,6 @@ const registerDoctor = async (req, res) => {
       },
     })
 
-    await sendVerificationEmail(normalizedEmail, `${trimmedFirstName} ${trimmedLastName}`, token)
-
     return res.status(200).json({
       message: 'Verification code sent to your email. Please verify to complete doctor account creation.',
       email: normalizedEmail,
@@ -88,9 +88,10 @@ const registerDoctor = async (req, res) => {
       expiresAt: expiresAt.toISOString(),
     })
   } catch (error) {
+    const emailError = String(error?.message || '').toLowerCase().includes('gmail') || error?.code === 'EAUTH'
     res.status(500).json({
-      message: 'Error registering doctor',
-      error: error.message,
+      message: emailError ? 'Could not send the verification code. Check the Gmail address and 16-character app password in server/.env.' : 'Error registering doctor',
+      ...(process.env.NODE_ENV !== 'production' ? { error: error.message } : {}),
     });
   }
 };

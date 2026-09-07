@@ -75,30 +75,17 @@ export default function SignupPage() {
     setStatus("Creating your patient account...")
 
     try {
-      const response = await fetch("/api/patients/register", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          patientFirstName: form.patientFirstName.trim(),
-          patientLastName: form.patientLastName.trim(),
-          patientEmail: form.patientEmail.trim().toLowerCase(),
-          patientPhone: normalizedPhone,
-          patientAddress: form.patientAddress.trim(),
-          patientPassword: form.patientPassword,
-        }),
-      })
-
-      const data = await response.json().catch(() => ({}))
-      if (!response.ok) {
-        throw new Error(data?.message || "Could not create account.")
-      }
-
-      const redirectEmail = form.patientEmail.trim().toLowerCase()
-      setSuccess("Verification code sent. Please check your email and enter the code to complete registration.")
-      setStatus("Verification code sent. Redirecting to verification page...")
+      const email = form.patientEmail.trim().toLowerCase()
+      const pendingResponse = await fetch("/api/patients/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+        patientFirstName: form.patientFirstName.trim(), patientLastName: form.patientLastName.trim(), patientEmail: email,
+        patientPhone: normalizedPhone, patientPassword: form.patientPassword, patientAddress: form.patientAddress.trim(),
+      }) })
+      const pendingData = await pendingResponse.json().catch(() => ({}))
+      if (!pendingResponse.ok) throw new Error(pendingData?.message || "Could not send your verification code.")
+      setSuccess("A verification code was sent to your email.")
+      setStatus("Verification code sent.")
       setForm(initialForm)
-      setTimeout(() => router.push(`/verify-email?role=patient&email=${encodeURIComponent(redirectEmail)}`), 800)
+      setTimeout(() => router.push(`/verify-email?role=patient&email=${encodeURIComponent(email)}`), 800)
     } catch (err) {
       setError(err.message || "Signup failed.")
       setStatus("Unable to create account right now.")

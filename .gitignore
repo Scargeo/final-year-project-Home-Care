@@ -18,6 +18,7 @@ VERIFICATION_CHECKLIST.md
 README_EMAIL_VERIFICATION.md
 note.txt
 .gitignore
+.env.local
 
 # Editor directories and files
 .vscode/*

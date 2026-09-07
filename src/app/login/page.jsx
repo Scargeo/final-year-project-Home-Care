@@ -74,15 +74,11 @@ export default function LoginPage() {
     setStatus('Checking your credentials...')
 
     try {
-      // Use unified auth endpoint which checks patients then doctors
+      const email = form.patientEmail.trim().toLowerCase()
       const response = await fetch('/api/auth/login', {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: form.patientEmail.trim().toLowerCase(),
-          password: form.patientPassword,
-        }),
+        body: JSON.stringify({ email, password: form.patientPassword }),
       })
 
       const data = await response.json().catch(() => ({}))

@@ -7,7 +7,6 @@ const rateLimit = require('express-rate-limit')
 const { verifyRefreshToken, signRefreshToken, signToken, revokeRefreshToken } = require('../../middleware/jwtAuth')
 
 router.post('/login', loginUnified)
-
 router.post('/verify-email', verifyPatientEmail)
 
 const resendOtpLimiter = rateLimit({
