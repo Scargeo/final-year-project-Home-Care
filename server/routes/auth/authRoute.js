@@ -2,22 +2,14 @@ const express = require('express')
 const router = express.Router()
 const { loginUnified } = require('../../middleware/authController')
 const { verifyPatientEmail, resendVerificationCode } = require('../../middleware/patientController')
-const rateLimit = require('express-rate-limit')
+const { verificationLimiter, resendVerificationLimiter } = require('../../middleware/rateLimiters')
 
 const { verifyRefreshToken, signRefreshToken, signToken, revokeRefreshToken } = require('../../middleware/jwtAuth')
 
 router.post('/login', loginUnified)
-router.post('/verify-email', verifyPatientEmail)
+router.post('/verify-email', verificationLimiter, verifyPatientEmail)
 
-const resendOtpLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 3,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: 'Too many resend requests. Please try again later.' },
-})
-
-router.post('/resend-verification-code', resendOtpLimiter, resendVerificationCode)
+router.post('/resend-verification-code', resendVerificationLimiter, resendVerificationCode)
 
 // Refresh token rotation with device binding and reuse detection
 router.post('/refresh', async (req, res) => {

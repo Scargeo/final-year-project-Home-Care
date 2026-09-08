@@ -9,6 +9,7 @@ const Nurse = require('../models/privateHealthWorker/nurse/privateNurseRegistrat
 const HealthRecord = require('../models/patient/healthRecord')
 const { allowOwnerOrDoctor } = require('../middleware/permissionMiddleware')
 const { loadUser } = require('../middleware/loadUserMiddleware')
+const { uploadLimiter } = require('../middleware/rateLimiters')
 
 // Configure cloudinary from env
 cloudinary.config({
@@ -91,7 +92,7 @@ router.use(loadUser)
 // - ownerRef (string): id of owner (patient or user)
 // - purpose (profile|document|post|other)
 // Doctors can upload without permission checks. Patients must own the resource.
-router.post('/', upload.array('files', 10), async (req, res) => {
+router.post('/', uploadLimiter, upload.array('files', 10), async (req, res) => {
   try {
     const files = req.files || []
     const ownerRef = String(req.body.ownerRef || '')

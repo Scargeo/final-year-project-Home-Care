@@ -10,6 +10,7 @@ const AIMessage = require('../../models/ai/aiMessage')
 const Appointment = require('../../models/privateHealthWorker/doctor/appointment')
 const Doctor = require('../../models/privateHealthWorker/doctor/doctorRegistration')
 const { buildMcpContext, evaluateAndAct } = require('../../lib/mcpClient')
+const { aiChatLimiter } = require('../../middleware/rateLimiters')
 
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '../../.env') })
@@ -303,7 +304,7 @@ const openai = new OpenAI({
  * POST /api/ai/chat
  * Query Pinecone for relevant documents and generate a response using LLM
  */
-router.post('/chat', async (req, res) => {
+router.post('/chat', aiChatLimiter, async (req, res) => {
   try {
     if (!aiDependenciesReady) {
       return res.status(503).json({

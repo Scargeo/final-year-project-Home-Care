@@ -12,15 +12,16 @@ const { allowOwnerOrDoctor } = require('../../middleware/permissionMiddleware')
 const { loadUser } = require('../../middleware/loadUserMiddleware')
 const settingsRoute = require('./settingsRoute');
 const homeCareRoute = require('./homeCareRoute');
+const { registrationLimiter, loginLimiter } = require('../../middleware/rateLimiters')
 
 // Attempt to load user object from headers for subsequent permission checks
 router.use(loadUser)
 
 // Route for patient registration
-router.post('/register', registerPatient);
+router.post('/register', registrationLimiter, registerPatient);
 
 // Route for patient login
-router.post('/login', loginPatient);
+router.post('/login', loginLimiter, loginPatient);
 
 // Route to update patient presence / ai status (owner or doctor only)
 router.patch('/:id/status', allowOwnerOrDoctor((req) => req.params.id), updateStatus);

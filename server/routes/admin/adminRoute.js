@@ -11,6 +11,7 @@ const Patient = require('../../models/patient/patientRegistration')
 const Post = require('../../models/posts/post')
 const NurseAssignment = require('../../models/privateHealthWorker/nurse/nurseAssignment')
 const NurseReview = require('../../models/patient/nurseReview')
+const { loginLimiter } = require('../../middleware/rateLimiters')
 
 const router = express.Router()
 
@@ -164,7 +165,7 @@ router.post('/bootstrap', async (req, res) => {
   }
 })
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { adminEmail, adminPassword } = req.body || {}
     if (!adminEmail || !adminPassword) {

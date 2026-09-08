@@ -7,6 +7,7 @@ const DoctorNotification = require('../../../models/privateHealthWorker/doctor/d
 const Doctor = require('../../../models/privateHealthWorker/doctor/doctorRegistration')
 const ConsentRequest = require('../../../models/patient/consentRequest')
 const { inferSpecialtyFromReason, buildSpecialtyMatcher } = require('../../../ai-components/appointmentReasoning')
+const { registrationLimiter, loginLimiter, appointmentLimiter } = require('../../../middleware/rateLimiters')
 const { registerDoctor, loginDoctor } = require('../../../middleware/doctorController')
 const doctorSettingsRoute = require('./doctorSettingsRoute')
 
@@ -244,8 +245,8 @@ async function resolveAssignmentPlan({ appointmentDate, patientReason, excludeDo
 }
 
 // Doctor authentication routes
-router.post('/register', registerDoctor)
-router.post('/login', loginDoctor)
+router.post('/register', registrationLimiter, registerDoctor)
+router.post('/login', loginLimiter, loginDoctor)
 
 // Public doctor directory for patient booking
 router.get('/', async (req, res) => {
@@ -705,7 +706,7 @@ router.post('/appointments/auto-assign/debug', async (req, res) => {
 
 // Create appointment with automatic doctor assignment.
 // The reasoning engine maps symptom text to a specialty, then we pick a free doctor.
-router.post('/appointments/auto-assign', async (req, res) => {
+router.post('/appointments/auto-assign', appointmentLimiter, async (req, res) => {
   try {
     const {
       appointmentId,
@@ -862,7 +863,7 @@ router.post('/appointments/auto-assign', async (req, res) => {
 })
 
 // Create appointment
-router.post('/:doctorId/appointments', async (req, res) => {
+router.post('/:doctorId/appointments', appointmentLimiter, async (req, res) => {
   try {
     const { doctorId } = req.params
     const {
