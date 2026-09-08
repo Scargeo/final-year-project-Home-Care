@@ -6,6 +6,7 @@ const PrivateNurseRequirement = require('../models/privateHealthWorker/nurse/pri
 const bcrypt = require('bcrypt');
 const { signToken, signRefreshToken } = require('./jwtAuth')
 const { sendVerificationEmail } = require('../lib/emailService');
+const { isLocalDevelopmentRequest } = require('../lib/verificationMode')
 
 function normalizeEmail(value) {
     return String(value || '').trim().toLowerCase()
@@ -99,6 +100,36 @@ const registerNurse = async (req, res) => {
         await PendingEmailVerification.deleteMany({ role: 'nurse', $or: [{ email: normalizedEmail }, { phone: normalizedPhone }] })
 
         const hashedPassword = await bcrypt.hash(String(nursePassword), 12)
+        if (!isLocalDevelopmentRequest(req)) {
+            const nurse = await Nurse.create({
+                nurseFirstName: trimmedFirstName,
+                nurseLastName: trimmedLastName,
+                nurseEmail: normalizedEmail,
+                nursePhone: normalizedPhone,
+                nursePassword: hashedPassword,
+                nurseAddress: trimmedAddress,
+                specialization: trimmedSpecialization,
+                isVerified: false,
+                emailVerified: true,
+            })
+
+            await PrivateNurseRequirement.create({
+                requirementId: nurse._id,
+                nurseId: nurse.uid,
+            }).catch((error) => {
+                console.error('Error saving nurse approval request:', error)
+            })
+
+            return res.status(201).json({
+                message: 'Nurse account created and sent for admin approval.',
+                verificationRequired: false,
+                email: normalizedEmail,
+                role: 'nurse',
+                user: { nurseId: nurse.uid, nurseEmail: nurse.nurseEmail, role: 'nurse' },
+                approvalStatus: 'pending_approval',
+            })
+        }
+
         const token = createOtp()
         const expiresAt = new Date(Date.now() + 5 * 60 * 1000)
 

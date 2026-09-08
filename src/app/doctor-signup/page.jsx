@@ -87,6 +87,13 @@ export default function DoctorSignupPage() {
       }) })
       const pendingData = await pendingResponse.json().catch(() => ({}))
       if (!pendingResponse.ok) throw new Error(pendingData?.message || `Could not send your ${role} verification code.`)
+      if (pendingData.verificationRequired === false) {
+        setSuccess(`${role === "doctor" ? "Doctor" : "Nurse"} account created successfully. Redirecting to login...`)
+        setStatus("Account ready.")
+        setForm(initialForm)
+        setTimeout(() => router.push("/login"), 800)
+        return
+      }
       setSuccess("A verification code was sent to your email.")
       setStatus("Verification code sent.")
       setForm(initialForm)

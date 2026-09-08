@@ -82,6 +82,13 @@ export default function SignupPage() {
       }) })
       const pendingData = await pendingResponse.json().catch(() => ({}))
       if (!pendingResponse.ok) throw new Error(pendingData?.message || "Could not send your verification code.")
+      if (pendingData.verificationRequired === false) {
+        setSuccess("Account created successfully. Redirecting to login...")
+        setStatus("Account ready.")
+        setForm(initialForm)
+        setTimeout(() => router.push("/login"), 800)
+        return
+      }
       setSuccess("A verification code was sent to your email.")
       setStatus("Verification code sent.")
       setForm(initialForm)

@@ -60,7 +60,7 @@ export async function GET(request, { params }) {
     const authHeader = request.headers.get("authorization") || request.headers.get("Authorization")
     if (authHeader) headers.authorization = authHeader
 
-    const resultId = params?.resultId
+    const { resultId } = await params
     const response = await fetchFromAIBackend(`/api/ai/lab-results/${encodeURIComponent(resultId)}`, {
       method: "GET",
       headers,

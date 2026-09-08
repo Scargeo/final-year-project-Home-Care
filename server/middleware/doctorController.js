@@ -2,6 +2,7 @@ const Doctor = require('../models/privateHealthWorker/doctor/doctorRegistration'
 const PendingEmailVerification = require('../models/token/pendingEmailVerification');
 const bcrypt = require('bcrypt');
 const { sendVerificationEmail } = require('../lib/emailService');
+const { isLocalDevelopmentRequest } = require('../lib/verificationMode')
 const { signToken } = require('./jwtAuth')
 
 function normalizeEmail(value) {
@@ -56,6 +57,30 @@ const registerDoctor = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(String(doctorPassword), 12)
+    if (!isLocalDevelopmentRequest(req)) {
+      const doctor = await Doctor.create({
+        doctorFirstName: trimmedFirstName,
+        doctorLastName: trimmedLastName,
+        doctorEmail: normalizedEmail,
+        doctorPhone: normalizedPhone,
+        doctorPassword: hashedPassword,
+        doctorAddress: trimmedAddress,
+        specialization: String(specialization || '').trim(),
+        licenseNumber: String(licenseNumber || '').trim(),
+        yearsOfExperience: Number.isFinite(Number(yearsOfExperience)) ? Number(yearsOfExperience) : 0,
+        isVerified: true,
+        emailVerified: true,
+      })
+
+      return res.status(201).json({
+        message: 'Doctor account created successfully.',
+        verificationRequired: false,
+        email: normalizedEmail,
+        role: 'doctor',
+        user: { doctorId: doctor.doctorId, doctorEmail: doctor.doctorEmail, role: 'doctor' },
+      })
+    }
+
     const token = createOtp()
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000)
 

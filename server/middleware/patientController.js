@@ -3,6 +3,7 @@ const VerificationToken = require('../models/token/verificationToken');
 const PendingEmailVerification = require('../models/token/pendingEmailVerification');
 const bcrypt = require('bcrypt');
 const { sendVerificationEmail } = require('../lib/emailService');
+const { isLocalDevelopmentRequest } = require('../lib/verificationMode')
 
 function createOtp() {
     return Math.floor(100000 + Math.random() * 900000).toString();
@@ -95,6 +96,27 @@ const registerPatient = async (req, res) => {
 
         const hash = await bcrypt.hash(patientPassword, 10);
         const fullName = `${patientFirstName} ${patientLastName}`;
+
+        if (!isLocalDevelopmentRequest(req)) {
+            const patient = await Patient.create({
+                patientFirstName,
+                patientLastName,
+                patientEmail: normalizedEmail,
+                patientPhone: normalizedPhone,
+                patientPassword: hash,
+                patientAddress,
+                isVerified: true,
+                emailVerified: true,
+            })
+
+            return res.status(201).json({
+                message: 'Patient account created successfully.',
+                verificationRequired: false,
+                email: normalizedEmail,
+                role: 'patient',
+                user: { patientId: patient.patientId, patientEmail: patient.patientEmail, role: 'patient' },
+            })
+        }
 
         await createOrReplacePendingVerification({
             role: 'patient',
