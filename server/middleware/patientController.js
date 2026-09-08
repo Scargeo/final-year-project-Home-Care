@@ -4,6 +4,7 @@ const PendingEmailVerification = require('../models/token/pendingEmailVerificati
 const bcrypt = require('bcrypt');
 const { sendVerificationEmail } = require('../lib/emailService');
 const { isLocalDevelopmentRequest } = require('../lib/verificationMode')
+const { findAccountByEmail } = require('../lib/accountIdentity')
 
 function createOtp() {
     return Math.floor(100000 + Math.random() * 900000).toString();
@@ -75,7 +76,7 @@ const registerPatient = async (req, res) => {
         }
 
         const [existingEmail, existingPhone, pendingEmail, pendingPhone] = await Promise.all([
-            Patient.findOne({ patientEmail: normalizedEmail }).lean(),
+            findAccountByEmail(normalizedEmail),
             Patient.findOne({ patientPhone: normalizedPhone }).lean(),
             PendingEmailVerification.findOne({ role: 'patient', email: normalizedEmail }).lean(),
             PendingEmailVerification.findOne({ role: 'patient', phone: normalizedPhone }).lean(),

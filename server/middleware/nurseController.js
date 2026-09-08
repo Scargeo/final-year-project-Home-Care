@@ -7,6 +7,7 @@ const bcrypt = require('bcrypt');
 const { signToken, signRefreshToken } = require('./jwtAuth')
 const { sendVerificationEmail } = require('../lib/emailService');
 const { isLocalDevelopmentRequest } = require('../lib/verificationMode')
+const { findAccountByEmail } = require('../lib/accountIdentity')
 
 function normalizeEmail(value) {
     return String(value || '').trim().toLowerCase()
@@ -91,8 +92,11 @@ const registerNurse = async (req, res) => {
             })
         }
 
-        const blockedIdentity = await findBlockedIdentity(normalizedEmail, normalizedPhone)
-        if (blockedIdentity) {
+        const [existingEmail, blockedIdentity] = await Promise.all([
+            findAccountByEmail(normalizedEmail),
+            findBlockedIdentity(normalizedEmail, normalizedPhone),
+        ])
+        if (existingEmail || blockedIdentity) {
             // Anti-abuse gate: one email/phone pair cannot be reused across patient, doctor, or nurse accounts.
             return res.status(409).json({ message: 'An account with this email or phone number already exists.' })
         }

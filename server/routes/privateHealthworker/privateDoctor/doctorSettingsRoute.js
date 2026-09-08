@@ -70,6 +70,7 @@ router.patch('/', async (req, res) => {
       doctorAddress,
       licenseNumber,
       specialty,
+      yearsOfExperience,
       notificationPrefs,
       privacyPrefs,
       personalizationPrefs,
@@ -85,6 +86,10 @@ router.patch('/', async (req, res) => {
     if (doctorAddress) updateFields.doctorAddress = doctorAddress;
     if (licenseNumber) updateFields.licenseNumber = licenseNumber;
     if (specialty) updateFields.specialization = specialty;
+    if (typeof yearsOfExperience !== 'undefined') {
+      const parsedYears = Number.parseInt(String(yearsOfExperience), 10)
+      updateFields.yearsOfExperience = Number.isFinite(parsedYears) ? Math.max(0, parsedYears) : 0
+    }
     if (notificationPrefs) updateFields.notificationPrefs = notificationPrefs;
     if (privacyPrefs) updateFields.privacyPrefs = privacyPrefs;
     if (personalizationPrefs) updateFields.personalizationPrefs = personalizationPrefs;
@@ -112,6 +117,7 @@ router.patch('/', async (req, res) => {
         doctorAddress: updated.doctorAddress,
         licenseNumber: updated.licenseNumber,
         specialization: updated.specialization,
+        yearsOfExperience: updated.yearsOfExperience,
             isAvailable: updated.isAvailable !== false,
         notificationPrefs: updated.notificationPrefs,
         privacyPrefs: updated.privacyPrefs,

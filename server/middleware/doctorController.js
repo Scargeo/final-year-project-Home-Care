@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const { sendVerificationEmail } = require('../lib/emailService');
 const { isLocalDevelopmentRequest } = require('../lib/verificationMode')
 const { signToken } = require('./jwtAuth')
+const { findAccountByEmail } = require('../lib/accountIdentity')
 
 function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase()
@@ -46,9 +47,12 @@ const registerDoctor = async (req, res) => {
       return res.status(400).json({ message: 'Please provide a valid 10-digit phone number, for example 0245566880.' })
     }
 
-    const existing = await Doctor.findOne({ $or: [{ doctorEmail: normalizedEmail }, { doctorPhone: normalizedPhone }] }).lean()
-    if (existing) {
-      return res.status(409).json({ message: 'A doctor account with this email or phone already exists.' })
+    const [existingEmail, existingDoctor] = await Promise.all([
+      findAccountByEmail(normalizedEmail),
+      Doctor.findOne({ doctorPhone: normalizedPhone }).lean(),
+    ])
+    if (existingEmail || existingDoctor) {
+      return res.status(409).json({ message: 'An account with this email or phone number already exists.' })
     }
 
     const pending = await PendingEmailVerification.findOne({ role: 'doctor', email: normalizedEmail })

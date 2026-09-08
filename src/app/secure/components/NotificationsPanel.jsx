@@ -253,6 +253,15 @@ function buildProviderAppointmentEntries(appointments) {
     }))
 }
 
+function deduplicateNotificationEntries(entries) {
+  const seen = new Set()
+  return entries.filter((entry) => {
+    if (!entry?.id || seen.has(entry.id)) return false
+    seen.add(entry.id)
+    return true
+  })
+}
+
 function NotificationCard({ entry, isRead, isExpanded, onToggle, onMarkRead, userType, onRebooked }) {
   const preview = buildEntryPreview(entry)
   const timeLabel = formatNotificationTime(entry.at)
@@ -813,9 +822,11 @@ const headers = {}
     }
   }, [])
 
-  const entries = buildNotificationEntries(notifications, items)
-    .concat(buildPatientNotificationEntries(patientNotifications))
-    .concat(buildAppointmentEntries(appointments))
+  const entries = deduplicateNotificationEntries(
+    buildNotificationEntries(notifications, items)
+      .concat(buildPatientNotificationEntries(patientNotifications))
+      .concat(buildAppointmentEntries(appointments)),
+  )
   // Count any unread entry (live updates or request entries, including pending requests)
   const unreadEntries = entries.filter((entry) => !readIds.has(entry.id))
   const unreadCount = unreadEntries.length

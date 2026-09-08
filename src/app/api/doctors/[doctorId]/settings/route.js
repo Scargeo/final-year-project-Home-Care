@@ -50,6 +50,7 @@ export async function PATCH(req, context) {
       doctorAddress,
       licenseNumber,
       specialty,
+      yearsOfExperience,
       notificationPrefs,
       privacyPrefs,
       personalizationPrefs,
@@ -65,6 +66,7 @@ export async function PATCH(req, context) {
     if (doctorAddress) updateFields.doctorAddress = doctorAddress
     if (licenseNumber) updateFields.licenseNumber = licenseNumber
     if (specialty) updateFields.specialty = specialty
+    if (typeof yearsOfExperience !== 'undefined') updateFields.yearsOfExperience = yearsOfExperience
     if (notificationPrefs) updateFields.notificationPrefs = notificationPrefs
     if (privacyPrefs) updateFields.privacyPrefs = privacyPrefs
     if (personalizationPrefs) updateFields.personalizationPrefs = personalizationPrefs

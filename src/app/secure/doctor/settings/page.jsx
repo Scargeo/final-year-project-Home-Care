@@ -36,6 +36,7 @@ export default function DoctorSettingsPage() {
     lastName: "",
     licenseNumber: "",
     specialty: "",
+    yearsOfExperience: 0,
     isAvailable: true,
   })
   const [notificationPrefs, setNotificationPrefs] = useState({
@@ -93,6 +94,7 @@ export default function DoctorSettingsPage() {
             lastName: doctor.doctorLastName || doctor.lastName || "",
             licenseNumber: doctor.licenseNumber || "",
             specialty: doctor.specialization || doctor.specialty || "",
+            yearsOfExperience: Number.isFinite(Number(doctor.yearsOfExperience)) ? Number(doctor.yearsOfExperience) : 0,
             isAvailable: typeof doctor.isAvailable === "boolean" ? doctor.isAvailable : true,
           })
           window.localStorage.setItem("doctorAuth", JSON.stringify({ ...(storedAuth || {}), ...doctor }))
@@ -106,6 +108,7 @@ export default function DoctorSettingsPage() {
             lastName: storedAuth.doctorLastName || storedAuth.lastName || "",
             licenseNumber: storedAuth.licenseNumber || "",
             specialty: storedAuth.specialization || storedAuth.specialty || "",
+            yearsOfExperience: Number.isFinite(Number(storedAuth.yearsOfExperience)) ? Number(storedAuth.yearsOfExperience) : 0,
             isAvailable: typeof storedAuth.isAvailable === "boolean" ? storedAuth.isAvailable : true,
           })
         })
@@ -149,6 +152,7 @@ export default function DoctorSettingsPage() {
           doctorPhone: formData.phone,
           licenseNumber: formData.licenseNumber,
           specialty: formData.specialty,
+          yearsOfExperience: formData.yearsOfExperience,
           isAvailable: formData.isAvailable,
         }),
       })
@@ -167,6 +171,7 @@ export default function DoctorSettingsPage() {
         doctorPhone: updatedDoctor.doctorPhone || formData.phone,
         licenseNumber: updatedDoctor.licenseNumber || formData.licenseNumber,
         specialization: updatedDoctor.specialization || formData.specialty,
+        yearsOfExperience: Number.isFinite(Number(updatedDoctor.yearsOfExperience)) ? Number(updatedDoctor.yearsOfExperience) : formData.yearsOfExperience,
         isAvailable: typeof updatedDoctor.isAvailable === "boolean" ? updatedDoctor.isAvailable : formData.isAvailable,
       }
       try {
@@ -425,6 +430,18 @@ export default function DoctorSettingsPage() {
                 <option value="psychiatry">Psychiatry</option>
                 <option value="other">Other</option>
               </select>
+            </label>
+
+            <label className={styles.field}>
+              <span>Years of Experience</span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={formData.yearsOfExperience}
+                onChange={(e) => handleFormChange("yearsOfExperience", Math.max(0, Number.parseInt(e.target.value || "0", 10)))}
+                placeholder="Years of experience"
+              />
             </label>
 
             <div className={styles.checkboxField}>

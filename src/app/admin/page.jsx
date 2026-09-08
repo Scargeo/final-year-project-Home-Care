@@ -107,6 +107,12 @@ function formatName(first, last, fallback = "") {
   return [first, last].filter(Boolean).join(" ").trim() || fallback
 }
 
+function formatDate(value) {
+  if (!value) return "Unknown date"
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? "Unknown date" : date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+}
+
 function safeJsonParse(value) {
   try {
     return { ok: true, value: JSON.parse(value) }
@@ -128,6 +134,7 @@ export default function AdminPage() {
   const [pendingDoctors, setPendingDoctors] = useState([])
   const [patients, setPatients] = useState([])
   const [posts, setPosts] = useState([])
+  const [homeCareRequests, setHomeCareRequests] = useState([])
   const [loginForm, setLoginForm] = useState({ adminEmail: "", adminPassword: "" })
   const [createResource, setCreateResource] = useState("doctor")
   const [createJson, setCreateJson] = useState(JSON.stringify(defaultCreatePayloads.doctor, null, 2))
@@ -224,7 +231,7 @@ export default function AdminPage() {
     try {
       setBusy(true)
       setError("")
-      const [summaryRes, doctorsRes, nursesRes, pendingRes, patientsRes, postsRes, adminsRes] = await Promise.all([
+      const [summaryRes, doctorsRes, nursesRes, pendingRes, patientsRes, postsRes, adminsRes, homeCareRes] = await Promise.all([
         apiFetch("/summary", { method: "GET" }, activeToken),
         apiFetch("/doctors", { method: "GET" }, activeToken),
         apiFetch("/nurses", { method: "GET" }, activeToken),
@@ -232,9 +239,10 @@ export default function AdminPage() {
         apiFetch("/patients", { method: "GET" }, activeToken),
         apiFetch("/posts", { method: "GET" }, activeToken),
         apiFetch("/admins", { method: "GET" }, activeToken),
+        apiFetch("/home-care?limit=200", { method: "GET" }, activeToken),
       ])
 
-      const [summaryData, doctorsData, nursesData, pendingData, patientsData, postsData, adminsData] = await Promise.all([
+      const [summaryData, doctorsData, nursesData, pendingData, patientsData, postsData, adminsData, homeCareData] = await Promise.all([
         summaryRes.json().catch(() => ({})),
         doctorsRes.json().catch(() => ({})),
         nursesRes.json().catch(() => ({})),
@@ -242,6 +250,7 @@ export default function AdminPage() {
         patientsRes.json().catch(() => ({})),
         postsRes.json().catch(() => ({})),
         adminsRes.json().catch(() => ({})),
+        homeCareRes.json().catch(() => ({})),
       ])
 
       if (!summaryRes.ok) throw new Error(summaryData?.message || "Failed to load admin summary")
@@ -257,6 +266,7 @@ export default function AdminPage() {
       setPendingDoctors(Array.isArray(pendingData?.doctors) ? pendingData.doctors : [])
       setPatients(Array.isArray(patientsData?.patients) ? patientsData.patients : [])
       setPosts(Array.isArray(postsData?.posts) ? postsData.posts : [])
+      setHomeCareRequests(homeCareRes.ok && Array.isArray(homeCareData?.requests) ? homeCareData.requests : [])
       const adminsFetched = Array.isArray(adminsData?.admins) ? adminsData.admins : Array.isArray(adminsData) ? adminsData : []
       setAllAdmins(adminsFetched)
       if (adminsFetched.length > 0) {
@@ -364,6 +374,7 @@ export default function AdminPage() {
     setNurses([])
     setPatients([])
     setPosts([])
+    setHomeCareRequests([])
     setPendingDoctors([])
     setSummary({ doctors: 0, nurses: 0, pendingDoctors: 0, patients: 0, posts: 0, admins: 0 })
     setMessage("Logged out.")
@@ -610,6 +621,36 @@ export default function AdminPage() {
     { value: "admins", label: "Admins", count: allAdmins.length },
   ]
 
+  const analytics = useMemo(() => {
+    const statusCounts = homeCareRequests.reduce((counts, request) => {
+      const status = String(request.status || "unknown").toLowerCase()
+      counts[status] = (counts[status] || 0) + 1
+      return counts
+    }, {})
+    const serviceCounts = homeCareRequests.reduce((counts, request) => {
+      const service = String(request.serviceType || "Other")
+      counts[service] = (counts[service] || 0) + 1
+      return counts
+    }, {})
+    const recentRequests = [...homeCareRequests]
+      .sort((a, b) => new Date(b.createdAt || b.submittedAt || 0).getTime() - new Date(a.createdAt || a.submittedAt || 0).getTime())
+      .slice(0, 5)
+
+    return {
+      totalAccounts: doctors.length + nurses.length + patients.length,
+      verifiedDoctors: doctors.filter((doctor) => doctor.isVerified).length,
+      verifiedNurses: nurses.filter((nurse) => nurse.isVerified).length,
+      availableNurses: nurses.filter((nurse) => nurse.isAvailable !== false && nurse.isVerified).length,
+      totalRequests: homeCareRequests.length,
+      activeRequests: homeCareRequests.filter((request) => !["completed", "cancelled"].includes(String(request.status || "").toLowerCase())).length,
+      completedRequests: statusCounts.completed || 0,
+      cancelledRequests: statusCounts.cancelled || 0,
+      statusCounts,
+      serviceCounts,
+      recentRequests,
+    }
+  }, [doctors, homeCareRequests, nurses, patients])
+
   const isAuthed = Boolean(admin?.token || token)
 
   if (loading && !isAuthed) {
@@ -686,6 +727,7 @@ export default function AdminPage() {
 
       <div style={{ margin: '0 0 1rem 0' }} className={styles.tabNav}>
         <button type="button" className={`${styles.tabButton} ${selectedTab === 'overview' ? styles.active : ''}`} onClick={() => setSelectedTab('overview')}>Overview</button>
+        <button type="button" className={`${styles.tabButton} ${selectedTab === 'analytics' ? styles.active : ''}`} onClick={() => setSelectedTab('analytics')}>Analytics</button>
         <button type="button" className={`${styles.tabButton} ${selectedTab === 'approvals' ? styles.active : ''}`} onClick={() => setSelectedTab('approvals')}>Approvals</button>
         <button type="button" className={`${styles.tabButton} ${selectedTab === 'addAdmin' ? styles.active : ''}`} onClick={() => setSelectedTab('addAdmin')}>Add admin</button>
         <button type="button" className={`${styles.tabButton} ${selectedTab === 'create' ? styles.active : ''}`} onClick={() => setSelectedTab('create')}>Create</button>
@@ -753,7 +795,59 @@ export default function AdminPage() {
         </>
       )}
 
-      {selectedTab !== 'overview' && selectedTab !== 'records' && (
+      {selectedTab === 'analytics' && (
+        <section className={styles.analyticsLayout}>
+          <div className={styles.analyticsIntro}>
+            <div>
+              <p className={styles.panelLabel}>Operations intelligence</p>
+              <h2>Platform health at a glance</h2>
+              <p>Live counts from the current provider, patient, and home-care records.</p>
+            </div>
+            <span className={styles.analyticsFreshness}>Updated {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+          </div>
+
+          <section className={styles.analyticsCards}>
+            <article className={styles.analyticsCard}><span>Total accounts</span><strong>{analytics.totalAccounts}</strong><small>{summary.admins || allAdmins.length || 0} administrators excluded</small></article>
+            <article className={styles.analyticsCard}><span>Verified providers</span><strong>{analytics.verifiedDoctors + analytics.verifiedNurses}</strong><small>{analytics.verifiedDoctors} doctors · {analytics.verifiedNurses} nurses</small></article>
+            <article className={styles.analyticsCard}><span>Available nurses</span><strong>{analytics.availableNurses}</strong><small>Verified and ready for assignment</small></article>
+            <article className={styles.analyticsCard}><span>Active care requests</span><strong>{analytics.activeRequests}</strong><small>{analytics.totalRequests} total requests recorded</small></article>
+          </section>
+
+          <div className={styles.analyticsColumns}>
+            <article className={styles.panel}>
+              <div className={styles.panelHeader}><div><p className={styles.panelLabel}>Home care pipeline</p><h2>Request status</h2></div></div>
+              <div className={styles.metricList}>
+                {[["pending", "Pending"], ["under review", "Under review"], ["assigned", "Assigned"], ["accepted", "Accepted"], ["in progress", "In progress"], ["completed", "Completed"], ["cancelled", "Cancelled"]].map(([key, label]) => (
+                  <div className={styles.metricRow} key={key}><span>{label}</span><strong>{analytics.statusCounts[key] || 0}</strong></div>
+                ))}
+              </div>
+            </article>
+
+            <article className={styles.panel}>
+              <div className={styles.panelHeader}><div><p className={styles.panelLabel}>Demand mix</p><h2>Requested services</h2></div></div>
+              <div className={styles.metricList}>
+                {Object.keys(analytics.serviceCounts).length === 0 ? <p className={styles.empty}>No home-care requests recorded.</p> : Object.entries(analytics.serviceCounts).sort(([, a], [, b]) => b - a).map(([service, count]) => (
+                  <div className={styles.metricRow} key={service}><span>{service}</span><strong>{count}</strong></div>
+                ))}
+              </div>
+            </article>
+          </div>
+
+          <article className={styles.panel}>
+            <div className={styles.panelHeader}><div><p className={styles.panelLabel}>Latest activity</p><h2>Recent home-care requests</h2></div><button className={styles.tabButton} type="button" onClick={() => setSelectedTab('records')}>Open records</button></div>
+            <div className={styles.tableList}>
+              {analytics.recentRequests.length === 0 ? <p className={styles.empty}>No home-care activity is available yet.</p> : analytics.recentRequests.map((request) => (
+                <div className={styles.rowCard} key={request.homeCareRequestId || request._id}>
+                  <div><strong>{request.patientName || request.patientId || "Patient request"}</strong><p>{request.serviceType || "Home care"} · {formatDate(request.createdAt || request.submittedAt)}</p></div>
+                  <span className={styles.statusPill}>{request.status || "Unknown"}</span>
+                </div>
+              ))}
+            </div>
+          </article>
+        </section>
+      )}
+
+      {selectedTab !== 'overview' && selectedTab !== 'analytics' && selectedTab !== 'records' && (
         <section className={styles.panelGrid}>
           {selectedTab === 'approvals' && (
             <article className={styles.panel}>
@@ -920,7 +1014,7 @@ export default function AdminPage() {
         </section>
       )}
 
-      <section className={styles.tableGrid}>
+      {selectedTab === 'records' && <section className={styles.tableGrid}>
         {(recordsFilter === 'all' || recordsFilter === 'doctors') && (
           <article className={styles.panel}>
             <div className={styles.panelHeader}>
@@ -1068,7 +1162,7 @@ export default function AdminPage() {
             </div>
           </article>
         )}
-      </section>
+      </section>}
 
       {error ? <p className={styles.error}>{error}</p> : null}
       {message ? <p className={styles.message}>{message}</p> : null}
